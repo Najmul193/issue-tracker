@@ -1,4 +1,12 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
+import { OrganizationsService } from './organizations.service';
 
 @Controller('organizations')
-export class OrganizationsController {}
+export class OrganizationsController {
+  constructor(private readonly organizationsService: OrganizationsService) {}
+
+  @Get()
+  findAll() {
+    return this.organizationsService.findAll();
+  }
+}

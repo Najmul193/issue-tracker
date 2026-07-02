@@ -71,22 +71,19 @@ export class UsersService {
   }
 
   async findAll(actor: JwtPayload) {
-    if (actor.role === 'SUPER_ADMIN') {
-      return this.prisma.user.findMany({
-        orderBy: { name: 'asc' },
-        select: { id: true, name: true, email: true, role: true, organizationId: true, status: true },
-      });
+    if (actor.role === 'USER') {
+      throw new ForbiddenException('USER cannot list users');
     }
 
-    if (actor.role === 'ORG_ADMIN') {
-      return this.prisma.user.findMany({
-        where: { organizationId: actor.organizationId },
-        orderBy: { name: 'asc' },
-        select: { id: true, name: true, email: true, role: true, organizationId: true, status: true },
-      });
-    }
-
-    throw new ForbiddenException('USER cannot list users');
+    return this.prisma.user.findMany({
+      where: actor.role === 'ORG_ADMIN' ? { organizationId: actor.organizationId } : undefined,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true, name: true, email: true, role: true,
+        organizationId: true, status: true, phone: true, createdAt: true,
+        organization: { select: { id: true, name: true } },
+      },
+    });
   }
 
   async findAssignable(actor: JwtPayload) {
@@ -137,7 +134,11 @@ export class UsersService {
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.status !== undefined ? { status: dto.status as any } : {}),
       },
-      select: { id: true, name: true, email: true, role: true, organizationId: true, status: true },
+      select: {
+        id: true, name: true, email: true, role: true,
+        organizationId: true, status: true, phone: true, createdAt: true,
+        organization: { select: { id: true, name: true } },
+      },
     });
 
     return updated;
