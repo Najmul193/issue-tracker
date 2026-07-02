@@ -8,10 +8,185 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrganizationType {
+  BANK
+  SI
+  ORACLE
+  SUPER_ADMIN
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum IssueType {
+  BUG
+  NEW_REQUIREMENT
+  CHANGE_REQUEST
+  QUERY
+}
+
+enum IssuePriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IssueStatus {
+  NEW
+  ACKNOWLEDGED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  VERIFIED
+  CLOSED
+  REOPENED
+}
+
+enum NotificationType {
+  ASSIGNMENT
+  STATUS_CHANGE
+  DEADLINE_WARNING
+  OVERDUE
+}
+
+model Organization {
+  id        String           @id @default(uuid())
+  name      String
+  type      OrganizationType
+  createdAt DateTime         @default(now())
+
+  users          User[]
+  raisedIssues   Issue[] @relation("RaisedOrgIssues")
+  assignedIssues Issue[] @relation("AssignedOrgIssues")
+
+  @@map("organizations")
+}
+
 model User {
+  id            String     @id @default(uuid())
+  name          String
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  phone         String?
+  organizationId String    @map("organization_id")
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  role          UserRole
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  raisedIssues      Issue[]         @relation("RaisedIssues")
+  assignedIssues    Issue[]         @relation("AssignedIssues")
+  assignedByIssues  Issue[]         @relation("AssignedByIssues")
+  comments          Comment[]
+  attachments       Attachment[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Issue {
+  id              String       @id @default(uuid())
+  title           String
+  description     String?
+  type            IssueType
+  priority        IssuePriority
+  status          IssueStatus  @default(NEW)
+  module          String?
+  deadline        DateTime?
+  raisedById      String       @map("raised_by_id")
+  raisedBy        User         @relation("RaisedIssues", fields: [raisedById], references: [id])
+  raisedByOrgId   String       @map("raised_by_org_id")
+  raisedByOrg     Organization @relation("RaisedOrgIssues", fields: [raisedByOrgId], references: [id])
+  assignedToUserId String?     @map("assigned_to_user_id")
+  assignedToUser  User?        @relation("AssignedIssues", fields: [assignedToUserId], references: [id])
+  assignedToOrgId String?      @map("assigned_to_org_id")
+  assignedToOrg   Organization? @relation("AssignedOrgIssues", fields: [assignedToOrgId], references: [id])
+  assignedById    String?      @map("assigned_by_id")
+  assignedBy      User?        @relation("AssignedByIssues", fields: [assignedById], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  closedAt        DateTime?    @map("closed_at")
+
+  comments      Comment[]
+  attachments   Attachment[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToOrgId])
+  @@index([assignedToUserId])
+  @@index([deadline])
+  @@map("issues")
+}
+
+model Comment {
   id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
+  issueId   String   @map("issue_id")
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  text      String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  attachments Attachment[]
+
+  @@map("comments")
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  issueId      String?  @map("issue_id")
+  issue        Issue?   @relation(fields: [issueId], references: [id])
+  commentId    String?  @map("comment_id")
+  comment      Comment? @relation(fields: [commentId], references: [id])
+  uploadedById String   @map("uploaded_by_id")
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  fileName     String   @map("file_name")
+  fileType     String   @map("file_type")
+  fileSize     Int      @map("file_size")
+  storagePath  String   @map("storage_path")
+  createdAt    DateTime @default(now())
+
+  @@map("attachments")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  issueId   String   @map("issue_id")
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  oldValue  String?  @map("old_value")
+  newValue  String?  @map("new_value")
+  createdAt DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id])
+  issueId   String           @map("issue_id")
+  issue     Issue            @relation(fields: [issueId], references: [id])
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
 }
