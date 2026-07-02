@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { IssuesController } from './issues.controller';
 import { IssuesService } from './issues.service';
 import { StateMachine } from './state-machine';
@@ -6,9 +6,16 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { AttachmentsModule } from '../attachments/attachments.module';
 import { StorageModule } from '../storage/storage.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, AttachmentsModule, StorageModule],
+  imports: [
+    AuthModule,
+    UsersModule,
+    AttachmentsModule,
+    StorageModule,
+    forwardRef(() => NotificationsModule),
+  ],
   controllers: [IssuesController],
   providers: [IssuesService, StateMachine],
   exports: [IssuesService, StateMachine],

@@ -3,6 +3,8 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
@@ -15,6 +17,8 @@ import { AddCommentDto } from './dto/add-comment.dto';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { IssueStatus, IssuePriority, IssueType, Prisma } from '@prisma/client';
 import { AttachmentsService } from '../attachments/attachments.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../notifications/email.service';
 
 @Injectable()
 export class IssuesService {
@@ -23,6 +27,10 @@ export class IssuesService {
     private readonly authService: AuthService,
     private readonly stateMachine: StateMachine,
     private readonly attachmentsService: AttachmentsService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => EmailService))
+    private readonly emailService: EmailService,
   ) {}
 
   async create(dto: CreateIssueDto, actor: JwtPayload) {
@@ -159,27 +167,44 @@ export class IssuesService {
       },
     });
 
+    // Reset lastNotifiedStage on reassignment
+    await this.notificationsService.resetNotifiedStage(id);
+
     if (dto.targetUserId) {
-      await this.prisma.notification.create({
-        data: {
-          userId: dto.targetUserId,
-          issueId: id,
-          message: `Issue "${issue.title}" has been assigned to you`,
-          type: 'ASSIGNMENT',
-        },
+      await this.notificationsService.createNotification({
+        userId: dto.targetUserId,
+        issueId: id,
+        message: `Issue "${issue.title}" has been assigned to you`,
+        type: 'ASSIGNMENT',
       });
+      // Send assignment email (non-blocking)
+      const targetUser = await this.prisma.user.findUnique({
+        where: { id: dto.targetUserId },
+        select: { email: true },
+      });
+      if (targetUser) {
+        this.emailService
+          .sendAssignmentEmail(targetUser.email, issue.title, id)
+          .catch((err) => {});
+      }
     } else if (dto.targetOrgId) {
       const orgUsers = await this.prisma.user.findMany({
         where: { organizationId: dto.targetOrgId, status: 'ACTIVE' },
       });
-      await this.prisma.notification.createMany({
-        data: orgUsers.map((u) => ({
+      await this.notificationsService.createNotificationsBulk(
+        orgUsers.map((u) => ({
           userId: u.id,
           issueId: id,
           message: `Issue "${issue.title}" has been assigned to your organization`,
           type: 'ASSIGNMENT',
         })),
-      });
+      );
+      // Send assignment emails (non-blocking)
+      for (const u of orgUsers) {
+        this.emailService
+          .sendAssignmentEmail(u.email, issue.title, id)
+          .catch((err) => {});
+      }
     }
 
     return this.findOne(id, actor);
@@ -229,14 +254,14 @@ export class IssuesService {
       });
     }
 
-    await this.prisma.notification.create({
-      data: {
-        userId: issue.raisedById,
-        issueId: id,
-        message: `Issue "${issue.title}" status changed from ${issue.status} to ${dto.status}`,
-        type: 'STATUS_CHANGE',
-      },
-    });
+    await this.notificationsService.createStatusChangeNotifications(
+      id,
+      issue.title,
+      issue.status,
+      dto.status,
+      issue.raisedById,
+      issue.assignedToUserId,
+    );
 
     return this.findOne(id, actor);
   }

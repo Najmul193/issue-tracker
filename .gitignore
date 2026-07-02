@@ -8,4 +8,5 @@ coverage/
 .turbo/
 *.tsbuildinfo
 backend/.env
+backend/.env.test
 frontend/.env

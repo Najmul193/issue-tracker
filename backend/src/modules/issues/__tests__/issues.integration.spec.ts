@@ -32,6 +32,18 @@ describe('Issues Integration (all 10 scenarios)', () => {
   let oracleUserId: string;
   let superAdminId: string;
 
+  // Track only records created by THIS suite for targeted cleanup
+  const createdOrgIds: string[] = [];
+  const createdUserIds: string[] = [];
+  const createdIssueIds: string[] = [];
+  const createdCommentIds: string[] = [];
+  const createdActivityLogIds: string[] = [];
+  const createdNotificationIds: string[] = [];
+  const createdAttachmentIds: string[] = [];
+
+  // Unique suffix so this suite never collides with other suites
+  const suiteId = 'iss-' + Math.random().toString(36).substring(2, 8);
+
   function token(userId: string, role: string, orgId: string, orgType: string): string {
     return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
   }
@@ -71,58 +83,78 @@ describe('Issues Integration (all 10 scenarios)', () => {
   });
 
   async function cleanup() {
-    await prisma.notification.deleteMany();
-    await prisma.activityLog.deleteMany();
-    await prisma.attachment.deleteMany();
-    await prisma.comment.deleteMany();
-    await prisma.issue.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.organization.deleteMany();
+    // Delete in FK-safe order: children before parents
+    // Delete auto-created records by parent issue/user IDs first
+    if (createdIssueIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { issueId: { in: createdIssueIds } } });
+      await prisma.activityLog.deleteMany({ where: { issueId: { in: createdIssueIds } } });
+    }
+    if (createdNotificationIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { id: { in: createdNotificationIds } } });
+    }
+    if (createdActivityLogIds.length > 0) {
+      await prisma.activityLog.deleteMany({ where: { id: { in: createdActivityLogIds } } });
+    }
+    if (createdAttachmentIds.length > 0) {
+      await prisma.attachment.deleteMany({ where: { id: { in: createdAttachmentIds } } });
+    }
+    if (createdCommentIds.length > 0) {
+      await prisma.comment.deleteMany({ where: { id: { in: createdCommentIds } } });
+    }
+    if (createdIssueIds.length > 0) {
+      await prisma.issue.deleteMany({ where: { id: { in: createdIssueIds } } });
+    }
+    if (createdUserIds.length > 0) {
+      await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    if (createdOrgIds.length > 0) {
+      await prisma.organization.deleteMany({ where: { id: { in: createdOrgIds } } });
+    }
   }
 
   async function seed() {
-    await cleanup();
-
     const pw = await bcrypt.hash('password123', 4);
 
     const superAdminOrg = await prisma.organization.create({
-      data: { name: 'Super Admin', type: 'SUPER_ADMIN' },
+      data: { name: `Super-Admin-${suiteId}`, type: 'SUPER_ADMIN' },
     });
     const bankOrg = await prisma.organization.create({
-      data: { name: 'Bank', type: 'BANK' },
+      data: { name: `Bank-${suiteId}`, type: 'BANK' },
     });
     const dataEdgeOrg = await prisma.organization.create({
-      data: { name: 'Data Edge', type: 'SI' },
+      data: { name: `Data-Edge-${suiteId}`, type: 'SI' },
     });
     const oracleOrg = await prisma.organization.create({
-      data: { name: 'Oracle', type: 'ORACLE' },
+      data: { name: `Oracle-${suiteId}`, type: 'ORACLE' },
     });
+    createdOrgIds.push(superAdminOrg.id, bankOrg.id, dataEdgeOrg.id, oracleOrg.id);
 
     bankOrgId = bankOrg.id;
     dataEdgeOrgId = dataEdgeOrg.id;
     oracleOrgId = oracleOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'Super Admin', email: 'superadmin@test.dev', passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: { name: 'Super Admin', email: `superadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'Bank Admin', email: 'bankadmin@test.dev', passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: { name: 'Bank Admin', email: `bankadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
     });
     const bankUser = await prisma.user.create({
-      data: { name: 'Bank User', email: 'bankuser@test.dev', passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: { name: 'Bank User', email: `bankuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
     });
     const siAdmin = await prisma.user.create({
-      data: { name: 'SI Admin', email: 'siadmin@test.dev', passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: { name: 'SI Admin', email: `siadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SI User', email: 'siuser@test.dev', passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: { name: 'SI User', email: `siuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
     });
     const oracleAdmin = await prisma.user.create({
-      data: { name: 'Oracle Admin', email: 'oracleadmin@test.dev', passwordHash: pw, role: 'ORG_ADMIN', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: { name: 'Oracle Admin', email: `oracleadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: oracleOrg.id, status: 'ACTIVE' },
     });
     const oracleUser = await prisma.user.create({
-      data: { name: 'Oracle User', email: 'oracleuser@test.dev', passwordHash: pw, role: 'USER', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: { name: 'Oracle User', email: `oracleuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: oracleOrg.id, status: 'ACTIVE' },
     });
+    createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id, siAdmin.id, siUser.id, oracleAdmin.id, oracleUser.id);
 
     superAdminId = superAdmin.id;
     bankAdminId = bankAdmin.id;
@@ -147,6 +179,9 @@ describe('Issues Integration (all 10 scenarios)', () => {
         deadline: future,
         ...overrides,
       });
+    if (res.body && res.body.id) {
+      createdIssueIds.push(res.body.id);
+    }
     return res;
   }
 
@@ -157,8 +192,8 @@ describe('Issues Integration (all 10 scenarios)', () => {
       expect(res.status).toBe(201);
       expect(res.body.raisedById).toBe(bankUserId);
       expect(res.body.raisedByOrgId).toBe(bankOrgId);
-      expect(res.body.raisedBy?.email).toBe('bankuser@test.dev');
-      expect(res.body.raisedByOrg?.name).toBe('Bank');
+      expect(res.body.raisedBy?.email).toBe(`bankuser-${suiteId}@test.dev`);
+      expect(res.body.raisedByOrg?.name).toBe(`Bank-${suiteId}`);
     });
   });
 
@@ -235,6 +270,14 @@ describe('Issues Integration (all 10 scenarios)', () => {
       expect(logs[0].action).toBe('STATUS_CHANGED');
       expect(logs[0].oldValue).toBe('NEW');
       expect(logs[0].newValue).toBe('ACKNOWLEDGED');
+      // Track activity logs
+      if (Array.isArray(logs)) {
+        for (const log of logs) {
+          if (log.id && !createdActivityLogIds.includes(log.id)) {
+            createdActivityLogIds.push(log.id);
+          }
+        }
+      }
     });
   });
 
@@ -263,7 +306,7 @@ describe('Issues Integration (all 10 scenarios)', () => {
         .send({ status: 'ACKNOWLEDGED' });
 
       // Need to assign and progress through the chain to get to RESOLVED
-      const issue2 = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
         .set('Cookie', `access_token=${t}`)
         .send({ targetUserId: bankUserId, targetOrgId: bankOrgId });

@@ -34,6 +34,18 @@ describe('Attachments Integration (9 scenarios)', () => {
   let siAdminId: string;
   let siUserId: string;
 
+  // Track only records created by THIS suite for targeted cleanup
+  const createdOrgIds: string[] = [];
+  const createdUserIds: string[] = [];
+  const createdIssueIds: string[] = [];
+  const createdAttachmentIds: string[] = [];
+  const createdCommentIds: string[] = [];
+  const createdActivityLogIds: string[] = [];
+  const createdNotificationIds: string[] = [];
+
+  // Unique suffix so this suite never collides with other suites
+  const suiteId = 'att-' + Math.random().toString(36).substring(2, 8);
+
   function token(userId: string, role: string, orgId: string, orgType: string): string {
     return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
   }
@@ -82,37 +94,58 @@ describe('Attachments Integration (9 scenarios)', () => {
   });
 
   async function cleanup() {
-    await prisma.notification.deleteMany();
-    await prisma.activityLog.deleteMany();
-    await prisma.attachment.deleteMany();
-    await prisma.comment.deleteMany();
-    await prisma.issue.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.organization.deleteMany();
+    // Delete in FK-safe order: children before parents
+    // Delete auto-created records by parent issue IDs first
+    if (createdIssueIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { issueId: { in: createdIssueIds } } });
+      await prisma.activityLog.deleteMany({ where: { issueId: { in: createdIssueIds } } });
+    }
+    if (createdNotificationIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { id: { in: createdNotificationIds } } });
+    }
+    if (createdActivityLogIds.length > 0) {
+      await prisma.activityLog.deleteMany({ where: { id: { in: createdActivityLogIds } } });
+    }
+    if (createdAttachmentIds.length > 0) {
+      await prisma.attachment.deleteMany({ where: { id: { in: createdAttachmentIds } } });
+    }
+    if (createdCommentIds.length > 0) {
+      await prisma.comment.deleteMany({ where: { id: { in: createdCommentIds } } });
+    }
+    if (createdIssueIds.length > 0) {
+      await prisma.issue.deleteMany({ where: { id: { in: createdIssueIds } } });
+    }
+    if (createdUserIds.length > 0) {
+      await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    if (createdOrgIds.length > 0) {
+      await prisma.organization.deleteMany({ where: { id: { in: createdOrgIds } } });
+    }
   }
 
   async function seed() {
-    await cleanup();
     const pw = await bcrypt.hash('password123', 4);
 
-    const bankOrg = await prisma.organization.create({ data: { name: 'Bank', type: 'BANK' } });
-    const dataEdgeOrg = await prisma.organization.create({ data: { name: 'Data Edge', type: 'SI' } });
+    const bankOrg = await prisma.organization.create({ data: { name: `Bank-${suiteId}`, type: 'BANK' } });
+    const dataEdgeOrg = await prisma.organization.create({ data: { name: `Data-Edge-${suiteId}`, type: 'SI' } });
+    createdOrgIds.push(bankOrg.id, dataEdgeOrg.id);
 
     bankOrgId = bankOrg.id;
     dataEdgeOrgId = dataEdgeOrg.id;
 
     const bankUser = await prisma.user.create({
-      data: { name: 'Bank User', email: 'bankuser@att.test', passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: { name: 'Bank User', email: `bankuser-${suiteId}@att.test`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'Bank Admin', email: 'bankadmin@att.test', passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: { name: 'Bank Admin', email: `bankadmin-${suiteId}@att.test`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
     });
     const siAdmin = await prisma.user.create({
-      data: { name: 'SI Admin', email: 'siadmin@att.test', passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: { name: 'SI Admin', email: `siadmin-${suiteId}@att.test`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SI User', email: 'siuser@att.test', passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: { name: 'SI User', email: `siuser-${suiteId}@att.test`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
     });
+    createdUserIds.push(bankUser.id, bankAdmin.id, siAdmin.id, siUser.id);
 
     bankUserId = bankUser.id;
     bankAdminId = bankAdmin.id;
@@ -126,7 +159,11 @@ describe('Attachments Integration (9 scenarios)', () => {
       .post('/api/issues')
       .set('Cookie', `access_token=${tokenStr}`)
       .send({ title: 'Attachment Test Issue', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future });
-    return res.body;
+    const issue = res.body;
+    if (issue && issue.id) {
+      createdIssueIds.push(issue.id);
+    }
+    return issue;
   }
 
   const bankUserToken = () => token(bankUserId, 'USER', bankOrgId, 'BANK');
@@ -153,12 +190,25 @@ describe('Attachments Integration (9 scenarios)', () => {
       expect(res.body[0].uploadedById).toBe(bankUserId);
       expect(res.body[0]).not.toHaveProperty('storagePath');
 
+      // Track created attachment
+      if (res.body[0] && res.body[0].id) {
+        createdAttachmentIds.push(res.body[0].id);
+      }
+
       // ActivityLog was created
       const activity = await request(app.getHttpServer())
         .get(`/api/issues/${issue.id}/activity`)
         .set('Cookie', `access_token=${t}`);
       const logs = activity.body;
       expect(logs.some((l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'report.pdf')).toBe(true);
+      // Track activity logs
+      if (Array.isArray(logs)) {
+        for (const log of logs) {
+          if (log.id && !createdActivityLogIds.includes(log.id)) {
+            createdActivityLogIds.push(log.id);
+          }
+        }
+      }
     });
   });
 
@@ -235,6 +285,9 @@ describe('Attachments Integration (9 scenarios)', () => {
         .set('Cookie', `access_token=${t}`)
         .attach('files', validPdf, { filename: 'download.pdf', contentType: 'application/pdf' });
       const attachmentId = uploadRes.body[0].id;
+      if (attachmentId) {
+        createdAttachmentIds.push(attachmentId);
+      }
 
       const res = await request(app.getHttpServer())
         .get(`/api/attachments/${attachmentId}/download`)
@@ -258,6 +311,9 @@ describe('Attachments Integration (9 scenarios)', () => {
         .set('Cookie', `access_token=${bankToken}`)
         .attach('files', validPdf, { filename: 'secret.pdf', contentType: 'application/pdf' });
       const attachmentId = uploadRes.body[0].id;
+      if (attachmentId) {
+        createdAttachmentIds.push(attachmentId);
+      }
 
       const res = await request(app.getHttpServer())
         .get(`/api/attachments/${attachmentId}/download`)
@@ -302,6 +358,9 @@ describe('Attachments Integration (9 scenarios)', () => {
       expect(res.body.text).toBe('Comment with attachment');
 
       const commentId = res.body.id;
+      if (commentId) {
+        createdCommentIds.push(commentId);
+      }
 
       // Verify attachment is linked to comment_id, not directly to issue_id
       const activity = await request(app.getHttpServer())
@@ -309,6 +368,9 @@ describe('Attachments Integration (9 scenarios)', () => {
         .set('Cookie', `access_token=${t}`);
       const attLog = activity.body.find((l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'comment-file.pdf');
       expect(attLog).toBeDefined();
+      if (attLog && attLog.id) {
+        createdActivityLogIds.push(attLog.id);
+      }
 
       // Fetch the attachment via the comment to verify linkage
       const attachments = await prisma.attachment.findMany({ where: { commentId } });
@@ -316,6 +378,9 @@ describe('Attachments Integration (9 scenarios)', () => {
       expect(attachments[0].fileName).toBe('comment-file.pdf');
       expect(attachments[0].issueId).toBe(issue.id);
       expect(attachments[0].commentId).toBe(commentId);
+      if (attachments[0] && attachments[0].id) {
+        createdAttachmentIds.push(attachments[0].id);
+      }
     });
   });
 });

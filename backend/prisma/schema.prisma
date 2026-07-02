@@ -58,6 +58,12 @@ enum NotificationType {
   OVERDUE
 }
 
+enum NotifiedStage {
+  NONE
+  WARNING_SENT
+  OVERDUE_SENT
+}
+
 model Organization {
   id        String           @id @default(uuid())
   name      String
@@ -117,6 +123,7 @@ model Issue {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   closedAt        DateTime?    @map("closed_at")
+  lastNotifiedStage NotifiedStage @default(NONE) @map("last_notified_stage")
 
   comments      Comment[]
   attachments   Attachment[]

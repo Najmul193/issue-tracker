@@ -42,6 +42,46 @@ This starts:
 docker exec -it issue-tracker-api npx prisma migrate dev
 ```
 
+### Seed Data
+
+```bash
+# Run seed to create 4 orgs and 8 users (all passwords: password123)
+cd backend && npm run prisma:seed
+```
+
+## Running Tests
+
+Integration tests require a **separate test database** to prevent data loss.
+
+### One-time Setup
+
+```bash
+# 1. Create the test database (PostgreSQL must be running)
+createdb issue_tracker_test
+
+# Or via psql:
+# PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE issue_tracker_test;"
+
+# 2. Copy the test environment file
+cp backend/.env.test.example backend/.env.test
+
+# 3. Run migrations on the test database
+cd backend && npx dotenv -e .env.test -- npx prisma migrate deploy
+```
+
+### Run Tests
+
+```bash
+cd backend
+npm test            # run all tests against issue_tracker_test
+npm run test:watch  # watch mode
+```
+
+The test setup automatically:
+1. Loads `.env.test` (separate `DATABASE_URL` for the test DB)
+2. **Fails loudly** if `DATABASE_URL` accidentally points to the dev database
+3. Migrations are applied via the `pretest` script
+
 ## Project Structure
 
 ```
@@ -60,6 +100,8 @@ docker exec -it issue-tracker-api npx prisma migrate dev
 │   │       ├── attachments/
 │   │       └── notifications/
 │   ├── Dockerfile
+│   ├── jest.setup.ts      # Loads .env.test + safety assertion
+│   ├── .env.test.example  # Test DB env template
 │   └── .env.example
 ├── frontend/              # React SPA
 │   ├── src/
@@ -73,4 +115,3 @@ docker exec -it issue-tracker-api npx prisma migrate dev
 │   └── .env.example
 └── docker/
     └── docker-compose.yml
-```
