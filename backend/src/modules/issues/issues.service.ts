@@ -60,7 +60,7 @@ export class IssuesService {
   }
 
   async findAll(query: QueryIssuesDto, actor: JwtPayload) {
-    const baseFilter = this.authService.getVisibleIssuesFilter(actor);
+    // Part A: No visibility filter — all authenticated users see all issues
     const andClauses: Prisma.IssueWhereInput[] = [];
 
     if (query.status) andClauses.push({ status: query.status });
@@ -73,7 +73,7 @@ export class IssuesService {
     }
 
     const where: Prisma.IssueWhereInput = {
-      AND: [baseFilter, ...(andClauses.length > 0 ? andClauses : [{}])],
+      AND: andClauses.length > 0 ? andClauses : [{}],
     };
 
     const page = Math.max(1, parseInt(query.page || '1', 10));
@@ -99,7 +99,7 @@ export class IssuesService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string, actor: JwtPayload) {
+  async findOne(id: string, _actor: JwtPayload) {
     const issue = await this.prisma.issue.findUnique({
       where: { id },
       include: {
@@ -108,6 +108,9 @@ export class IssuesService {
         assignedToUser: { select: { id: true, name: true, email: true } },
         assignedToOrg: { select: { id: true, name: true } },
         assignedBy: { select: { id: true, name: true, email: true } },
+        resolvedBy: {
+          select: { id: true, name: true, email: true, organization: { select: { id: true, name: true } } },
+        },
         comments: {
           include: { user: { select: { id: true, name: true, email: true } } },
           orderBy: { createdAt: 'asc' },
@@ -122,12 +125,7 @@ export class IssuesService {
 
     if (!issue) throw new NotFoundException('Issue not found');
 
-    const filter = this.authService.getVisibleIssuesFilter(actor);
-    const visible = await this.prisma.issue.findFirst({
-      where: { id, AND: [filter] },
-    });
-    if (!visible) throw new NotFoundException('Issue not found');
-
+    // Part A: No visibility check — all authenticated users can view any issue
     return issue;
   }
 
@@ -213,6 +211,11 @@ export class IssuesService {
   async updateStatus(id: string, dto: UpdateStatusDto, actor: JwtPayload) {
     const issue = await this.findOne(id, actor);
 
+    // Part B: Status changes are scoped — check canActOnIssue
+    if (!this.authService.canActOnIssue(actor, issue)) {
+      throw new ForbiddenException('You are not authorized to change the status of this issue');
+    }
+
     const transition = this.stateMachine.canTransition(issue.status, dto.status);
     if (!transition.valid) {
       throw new BadRequestException(transition.error);
@@ -222,11 +225,20 @@ export class IssuesService {
       throw new BadRequestException('A comment is required when reopening an issue');
     }
 
+    if (dto.status === 'RESOLVED' && !dto.resolutionNote?.trim()) {
+      throw new BadRequestException('Resolution note is required when resolving an issue');
+    }
+
     const updateData: Prisma.IssueUpdateInput = {
       status: dto.status,
     };
     if (dto.status === 'CLOSED') {
       updateData.closedAt = new Date();
+    }
+    if (dto.status === 'RESOLVED') {
+      updateData.resolutionNote = dto.resolutionNote?.trim();
+      updateData.resolvedBy = { connect: { id: actor.userId } };
+      updateData.resolvedAt = new Date();
     }
 
     const updated = await this.prisma.issue.update({
@@ -272,7 +284,10 @@ export class IssuesService {
     actor: JwtPayload,
     files?: Express.Multer.File[],
   ) {
-    await this.findOne(id, actor);
+    // Part B: Comments are fully open — any authenticated user can comment on any issue
+    // Just verify the issue exists (no visibility check)
+    const issue = await this.prisma.issue.findUnique({ where: { id } });
+    if (!issue) throw new NotFoundException('Issue not found');
 
     const comment = await this.prisma.comment.create({
       data: {

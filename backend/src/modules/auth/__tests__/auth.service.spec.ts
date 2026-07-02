@@ -111,25 +111,53 @@ describe('AuthService', () => {
       expect(filter).toEqual({});
     });
 
-    it('ORG_ADMIN sees raised or assigned to their org', () => {
+    it('ORG_ADMIN sees everything (Part A: open visibility)', () => {
       const filter = service.getVisibleIssuesFilter(orgAdmin);
-      expect(filter).toEqual({
-        OR: [
-          { raisedByOrgId: 'org-bank' },
-          { assignedToOrgId: 'org-bank' },
-        ],
-      });
+      expect(filter).toEqual({});
     });
 
-    it('USER sees assigned to them, org-assigned-without-user, or raised by them', () => {
+    it('USER sees everything (Part A: open visibility)', () => {
       const filter = service.getVisibleIssuesFilter(regularUser);
-      expect(filter).toEqual({
-        OR: [
-          { assignedToUserId: 'user-1' },
-          { assignedToOrgId: 'org-bank', assignedToUserId: null },
-          { raisedById: 'user-1' },
-        ],
-      });
+      expect(filter).toEqual({});
+    });
+  });
+
+  describe('canActOnIssue', () => {
+    const bankIssue = {
+      raisedByOrgId: 'org-bank',
+      assignedToOrgId: null,
+      assignedToUserId: null,
+    };
+    // Unrelated issue: raised by org-si, assigned to org-si — no connection to org-bank
+    const unrelatedIssue = {
+      raisedByOrgId: 'org-si',
+      assignedToOrgId: 'org-si',
+      assignedToUserId: null,
+    };
+    const userAssignedIssue = {
+      raisedByOrgId: 'org-bank',
+      assignedToOrgId: 'org-si',
+      assignedToUserId: 'user-1',
+    };
+
+    it('SUPER_ADMIN can act on any issue', () => {
+      expect(service.canActOnIssue(superAdmin, bankIssue)).toBe(true);
+    });
+
+    it('ORG_ADMIN can act on their own org issue', () => {
+      expect(service.canActOnIssue(orgAdmin, bankIssue)).toBe(true);
+    });
+
+    it('ORG_ADMIN cannot act on an unrelated org issue', () => {
+      expect(service.canActOnIssue(orgAdmin, unrelatedIssue)).toBe(false);
+    });
+
+    it('USER can act on their own assigned issue', () => {
+      expect(service.canActOnIssue(regularUser, userAssignedIssue)).toBe(true);
+    });
+
+    it('USER cannot act on an unrelated issue', () => {
+      expect(service.canActOnIssue(regularUser, unrelatedIssue)).toBe(false);
     });
   });
 });

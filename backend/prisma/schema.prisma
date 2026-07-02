@@ -70,9 +70,9 @@ model Organization {
   type      OrganizationType
   createdAt DateTime         @default(now())
 
-  users          User[]
-  raisedIssues   Issue[] @relation("RaisedOrgIssues")
-  assignedIssues Issue[] @relation("AssignedOrgIssues")
+  users          User[]         @relation("OrgUsers")
+  raisedIssues   Issue[]        @relation("RaisedOrgIssues")
+  assignedIssues Issue[]        @relation("AssignedOrgIssues")
 
   @@map("organizations")
 }
@@ -84,15 +84,17 @@ model User {
   passwordHash  String     @map("password_hash")
   phone         String?
   organizationId String    @map("organization_id")
-  organization  Organization @relation(fields: [organizationId], references: [id])
+  organization  Organization @relation("OrgUsers", fields: [organizationId], references: [id])
   role          UserRole
   status        UserStatus @default(ACTIVE)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
   raisedIssues      Issue[]         @relation("RaisedIssues")
-  assignedIssues    Issue[]         @relation("AssignedIssues")
-  assignedByIssues  Issue[]         @relation("AssignedByIssues")
+  assignedIssues      IssueAssignee[]
+  assignedUserIssues  Issue[]         @relation("AssignedUserIssues")
+  assignedByIssues    Issue[]         @relation("AssignedByIssues")
+  resolvedIssues      Issue[]         @relation("ResolvedIssues")
   comments          Comment[]
   attachments       Attachment[]
   activityLogs      ActivityLog[]
@@ -114,28 +116,47 @@ model Issue {
   raisedBy        User         @relation("RaisedIssues", fields: [raisedById], references: [id])
   raisedByOrgId   String       @map("raised_by_org_id")
   raisedByOrg     Organization @relation("RaisedOrgIssues", fields: [raisedByOrgId], references: [id])
-  assignedToUserId String?     @map("assigned_to_user_id")
-  assignedToUser  User?        @relation("AssignedIssues", fields: [assignedToUserId], references: [id])
-  assignedToOrgId String?      @map("assigned_to_org_id")
-  assignedToOrg   Organization? @relation("AssignedOrgIssues", fields: [assignedToOrgId], references: [id])
-  assignedById    String?      @map("assigned_by_id")
-  assignedBy      User?        @relation("AssignedByIssues", fields: [assignedById], references: [id])
+  assignedToUserId  String?      @map("assigned_to_user_id")
+  assignedToUser    User?        @relation("AssignedUserIssues", fields: [assignedToUserId], references: [id])
+  assignedToOrgId   String?      @map("assigned_to_org_id")
+  assignedToOrg     Organization? @relation("AssignedOrgIssues", fields: [assignedToOrgId], references: [id])
+  assignedById      String?      @map("assigned_by_id")
+  assignedBy        User?        @relation("AssignedByIssues", fields: [assignedById], references: [id])
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   closedAt        DateTime?    @map("closed_at")
   lastNotifiedStage NotifiedStage @default(NONE) @map("last_notified_stage")
+  resolutionNote    String?    @map("resolution_note")
+  resolvedById      String?    @map("resolved_by_id")
+  resolvedBy        User?      @relation("ResolvedIssues", fields: [resolvedById], references: [id])
+  resolvedAt        DateTime?  @map("resolved_at")
 
   comments      Comment[]
   attachments   Attachment[]
   activityLogs  ActivityLog[]
   notifications Notification[]
+  assignees     IssueAssignee[]
 
   @@index([status])
   @@index([priority])
   @@index([assignedToOrgId])
-  @@index([assignedToUserId])
   @@index([deadline])
   @@map("issues")
+}
+
+model IssueAssignee {
+  id           String   @id @default(uuid())
+  issueId      String   @map("issue_id")
+  issue        Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedById String?  @map("assigned_by_id")
+  assignedAt   DateTime @default(now())
+
+  @@unique([issueId, userId])
+  @@index([issueId])
+  @@index([userId])
+  @@map("issue_assignees")
 }
 
 model Comment {

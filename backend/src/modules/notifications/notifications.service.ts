@@ -315,17 +315,16 @@ export class NotificationsService {
 
   // ------- Dashboard summary -------
   async getDashboardSummary(actor: JwtPayload) {
-    const filter = this.getVisibleIssuesFilter(actor);
-
+    // Part A: No visibility filter — all authenticated users see all issues in dashboard
     const [statusCounts, priorityCounts] = await Promise.all([
       this.prisma.issue.groupBy({
         by: ['status'],
-        where: filter,
+        where: {},
         _count: { id: true },
       }),
       this.prisma.issue.groupBy({
         by: ['priority'],
-        where: filter,
+        where: {},
         _count: { id: true },
       }),
     ]);
@@ -341,30 +340,5 @@ export class NotificationsService {
     }
 
     return { byStatus: statusSummary, byPriority: prioritySummary };
-  }
-
-  // Copied from AuthService to avoid circular dependencies
-  private getVisibleIssuesFilter(actor: JwtPayload): Prisma.IssueWhereInput {
-    if (actor.role === 'SUPER_ADMIN') {
-      return {};
-    }
-    if (actor.role === 'ORG_ADMIN') {
-      return {
-        OR: [
-          { raisedByOrgId: actor.organizationId },
-          { assignedToOrgId: actor.organizationId },
-        ],
-      };
-    }
-    return {
-      OR: [
-        { assignedToUserId: actor.userId },
-        {
-          assignedToOrgId: actor.organizationId,
-          assignedToUserId: null,
-        },
-        { raisedById: actor.userId },
-      ],
-    };
   }
 }

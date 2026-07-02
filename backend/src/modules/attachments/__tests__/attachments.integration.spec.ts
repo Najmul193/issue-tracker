@@ -19,7 +19,6 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../../auth/decorators/current-user.decorator';
 
 // Mock file-type (ESM-only package) for Jest CJS compatibility
-// Manual mock is in __mocks__/file-type.ts
 jest.mock('file-type');
 
 describe('Attachments Integration (9 scenarios)', () => {
@@ -94,8 +93,6 @@ describe('Attachments Integration (9 scenarios)', () => {
   });
 
   async function cleanup() {
-    // Delete in FK-safe order: children before parents
-    // Delete auto-created records by parent issue IDs first
     if (createdIssueIds.length > 0) {
       await prisma.notification.deleteMany({ where: { issueId: { in: createdIssueIds } } });
       await prisma.activityLog.deleteMany({ where: { issueId: { in: createdIssueIds } } });
@@ -190,18 +187,15 @@ describe('Attachments Integration (9 scenarios)', () => {
       expect(res.body[0].uploadedById).toBe(bankUserId);
       expect(res.body[0]).not.toHaveProperty('storagePath');
 
-      // Track created attachment
       if (res.body[0] && res.body[0].id) {
         createdAttachmentIds.push(res.body[0].id);
       }
 
-      // ActivityLog was created
       const activity = await request(app.getHttpServer())
         .get(`/api/issues/${issue.id}/activity`)
         .set('Cookie', `access_token=${t}`);
       const logs = activity.body;
       expect(logs.some((l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'report.pdf')).toBe(true);
-      // Track activity logs
       if (Array.isArray(logs)) {
         for (const log of logs) {
           if (log.id && !createdActivityLogIds.includes(log.id)) {
@@ -260,8 +254,8 @@ describe('Attachments Integration (9 scenarios)', () => {
     });
   });
 
-  describe('Scenario 5: Upload by user who cannot see the issue', () => {
-    it('returns 404', async () => {
+  describe('Scenario 5: Upload by user from unrelated org — now open (Part E)', () => {
+    it('returns 200 (cross-org upload allowed)', async () => {
       const bankToken = bankUserToken();
       const siToken = siUserToken();
       const issue = await createIssue(bankToken);
@@ -269,9 +263,12 @@ describe('Attachments Integration (9 scenarios)', () => {
       const res = await request(app.getHttpServer())
         .post(`/api/issues/${issue.id}/attachments`)
         .set('Cookie', `access_token=${siToken}`)
-        .attach('files', validPdf, { filename: 'report.pdf', contentType: 'application/pdf' });
+        .attach('files', validPdf, { filename: 'cross-org.pdf', contentType: 'application/pdf' });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(201);
+      if (res.body[0] && res.body[0].id) {
+        createdAttachmentIds.push(res.body[0].id);
+      }
     });
   });
 
@@ -300,8 +297,8 @@ describe('Attachments Integration (9 scenarios)', () => {
     });
   });
 
-  describe('Scenario 7: Download attempt by user from unrelated org', () => {
-    it('returns 404', async () => {
+  describe('Scenario 7: Download attempt by user from unrelated org — now open (Part E)', () => {
+    it('returns 200 (cross-org download allowed)', async () => {
       const bankToken = bankUserToken();
       const siToken = siUserToken();
       const issue = await createIssue(bankToken);
@@ -319,7 +316,7 @@ describe('Attachments Integration (9 scenarios)', () => {
         .get(`/api/attachments/${attachmentId}/download`)
         .set('Cookie', `access_token=${siToken}`);
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
     });
   });
 
@@ -338,7 +335,6 @@ describe('Attachments Integration (9 scenarios)', () => {
 
       const res = await reqBuilder;
       expect(res.status).toBe(400);
-      // Multer's FileFieldsInterceptor with maxCount:5 rejects extra files before service validation
       expect(res.body.message).toContain('Unexpected field');
     });
   });
@@ -362,7 +358,6 @@ describe('Attachments Integration (9 scenarios)', () => {
         createdCommentIds.push(commentId);
       }
 
-      // Verify attachment is linked to comment_id, not directly to issue_id
       const activity = await request(app.getHttpServer())
         .get(`/api/issues/${issue.id}/activity`)
         .set('Cookie', `access_token=${t}`);
@@ -372,7 +367,6 @@ describe('Attachments Integration (9 scenarios)', () => {
         createdActivityLogIds.push(attLog.id);
       }
 
-      // Fetch the attachment via the comment to verify linkage
       const attachments = await prisma.attachment.findMany({ where: { commentId } });
       expect(attachments).toHaveLength(1);
       expect(attachments[0].fileName).toBe('comment-file.pdf');

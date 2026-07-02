@@ -1,55 +1,57 @@
-import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import AppShell from './components/AppShell';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Issues from './pages/Issues';
+import IssueDetail from './pages/IssueDetail';
+import CreateIssue from './pages/CreateIssue';
+import Notifications from './pages/Notifications';
+import Users from './pages/Users';
 
-function App() {
-  const [status, setStatus] = useState<string>('');
-  const [dbStatus, setDbStatus] = useState<string>('');
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data) => {
-        setStatus(data.status);
-        setDbStatus(data.database);
-      })
-      .catch(() => {
-        setStatus('error');
-        setDbStatus('unknown');
-      });
-  }, []);
-
+function AppRoutes() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold text-gray-900">Issue Tracker</h1>
-        <p className="mb-6 text-lg text-gray-600">
-          Multi-tenant issue tracking system
-        </p>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
-            System Status
-          </h2>
-          <div className="space-y-2 text-left text-sm text-gray-600">
-            <p>
-              API:{' '}
-              <span
-                className={`font-medium ${status === 'ok' ? 'text-green-600' : 'text-red-600'}`}
-              >
-                {status || 'checking...'}
-              </span>
-            </p>
-            <p>
-              Database:{' '}
-              <span
-                className={`font-medium ${dbStatus === 'connected' ? 'text-green-600' : 'text-red-600'}`}
-              >
-                {dbStatus || 'checking...'}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/issues" element={<Issues />} />
+        <Route path="/issues/new" element={<CreateIssue />} />
+        <Route path="/issues/:id" element={<IssueDetail />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/users" element={<Users />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}

@@ -9,4 +9,8 @@ export class UpdateStatusDto {
   @IsString()
   @IsOptional()
   comment?: string;
+
+  @IsString()
+  @IsOptional()
+  resolutionNote?: string;
 }

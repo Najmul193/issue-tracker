@@ -68,29 +68,30 @@ export class AuthService {
     throw new ForbiddenException('USER cannot assign issues');
   }
 
-  getVisibleIssuesFilter(actor: JwtPayload): Prisma.IssueWhereInput {
-    if (actor.role === 'SUPER_ADMIN') {
-      return {};
-    }
+  /**
+   * Part A: All authenticated users can view any issue.
+   * Returns an empty filter (no restrictions) for all roles.
+   */
+  getVisibleIssuesFilter(_actor: JwtPayload): Prisma.IssueWhereInput {
+    return {};
+  }
 
-    if (actor.role === 'ORG_ADMIN') {
-      return {
-        OR: [
-          { raisedByOrgId: actor.organizationId },
-          { assignedToOrgId: actor.organizationId },
-        ],
-      };
-    }
+  /**
+   * Part B: Authorization check for status changes.
+   * SUPER_ADMIN: always allowed.
+   * Otherwise: allowed if actor's org matches raisedByOrgId or assignedToOrgId,
+   * or if actor is the assigned user.
+   */
+  canActOnIssue(
+    actor: JwtPayload,
+    issue: { raisedByOrgId: string; assignedToOrgId: string | null; assignedToUserId: string | null },
+  ): boolean {
+    if (actor.role === 'SUPER_ADMIN') return true;
 
-    return {
-      OR: [
-        { assignedToUserId: actor.userId },
-        {
-          assignedToOrgId: actor.organizationId,
-          assignedToUserId: null,
-        },
-        { raisedById: actor.userId },
-      ],
-    };
+    if (actor.organizationId === issue.raisedByOrgId) return true;
+    if (issue.assignedToOrgId && actor.organizationId === issue.assignedToOrgId) return true;
+    if (issue.assignedToUserId && actor.userId === issue.assignedToUserId) return true;
+
+    return false;
   }
 }

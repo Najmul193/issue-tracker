@@ -111,19 +111,6 @@ export class AttachmentsService {
     }
   }
 
-  private async assertIssueVisible(
-    issueId: string,
-    actor: JwtPayload,
-  ): Promise<void> {
-    const filter = this.authService.getVisibleIssuesFilter(actor);
-    const visible = await this.prisma.issue.findFirst({
-      where: { id: issueId, AND: [filter] },
-    });
-    if (!visible) {
-      throw new NotFoundException('Issue not found');
-    }
-  }
-
   async uploadToIssue(
     issueId: string,
     files: Express.Multer.File[],
@@ -138,7 +125,10 @@ export class AttachmentsService {
       );
     }
 
-    await this.assertIssueVisible(issueId, actor);
+    // Part E: No visibility restriction — any authenticated user can attach files to any issue
+    // Just verify the issue exists
+    const issue = await this.prisma.issue.findUnique({ where: { id: issueId } });
+    if (!issue) throw new NotFoundException('Issue not found');
 
     this.validateFiles(files);
     await this.validateMimeTypes(files);
@@ -247,7 +237,7 @@ export class AttachmentsService {
     return attachments;
   }
 
-  async getAttachmentMeta(id: string, actor: JwtPayload) {
+  async getAttachmentMeta(id: string, _actor: JwtPayload) {
     const attachment = await this.prisma.attachment.findUnique({
       where: { id },
       include: { issue: true, comment: true },
@@ -257,14 +247,7 @@ export class AttachmentsService {
       throw new NotFoundException('Attachment not found');
     }
 
-    const issueId =
-      attachment.issueId ?? attachment.comment?.issueId;
-    if (!issueId) {
-      throw new NotFoundException('Attachment not found');
-    }
-
-    await this.assertIssueVisible(issueId, actor);
-
+    // Part E: No visibility restriction — any authenticated user can download attachments
     return attachment;
   }
 
