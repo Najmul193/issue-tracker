@@ -134,10 +134,18 @@ export class IssuesService {
 
     this.authService.canAssign(actor, dto.targetUserId ?? null, dto.targetOrgId ?? null);
 
-    const oldData = {
-      assignedToUserId: issue.assignedToUserId,
-      assignedToOrgId: issue.assignedToOrgId,
-    };
+    const oldTargetUser = issue.assignedToUserId
+      ? await this.prisma.user.findUnique({ where: { id: issue.assignedToUserId }, select: { id: true, name: true } })
+      : null;
+    const newTargetUser = dto.targetUserId
+      ? await this.prisma.user.findUnique({ where: { id: dto.targetUserId }, select: { id: true, name: true } })
+      : null;
+    const oldTargetOrg = issue.assignedToOrgId
+      ? await this.prisma.organization.findUnique({ where: { id: issue.assignedToOrgId }, select: { id: true, name: true } })
+      : null;
+    const newTargetOrg = dto.targetOrgId
+      ? await this.prisma.organization.findUnique({ where: { id: dto.targetOrgId }, select: { id: true, name: true } })
+      : null;
 
     const updated = await this.prisma.issue.update({
       where: { id },
@@ -157,10 +165,17 @@ export class IssuesService {
         issueId: id,
         userId: actor.userId,
         action,
-        oldValue: JSON.stringify(oldData),
+        oldValue: JSON.stringify({
+          assignedToUserId: oldTargetUser?.id ?? null,
+          assignedToUserName: oldTargetUser?.name ?? null,
+          assignedToOrgId: oldTargetOrg?.id ?? null,
+          assignedToOrgName: oldTargetOrg?.name ?? null,
+        }),
         newValue: JSON.stringify({
-          assignedToUserId: dto.targetUserId ?? null,
-          assignedToOrgId: dto.targetOrgId ?? null,
+          assignedToUserId: newTargetUser?.id ?? null,
+          assignedToUserName: newTargetUser?.name ?? null,
+          assignedToOrgId: newTargetOrg?.id ?? null,
+          assignedToOrgName: newTargetOrg?.name ?? null,
         }),
       },
     });

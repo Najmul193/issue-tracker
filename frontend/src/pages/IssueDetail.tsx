@@ -638,9 +638,16 @@ export default function IssueDetail() {
                     {log.action === 'STATUS_CHANGED' ? (
                       <>changed status from <strong>{log.oldValue}</strong> to <strong>{log.newValue}</strong></>
                     ) : log.action === 'ASSIGNED' ? (
-                      <>assigned issue</>
+                      (() => {
+                        const nv = JSON.parse(log.newValue);
+                        return <>assigned issue to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
+                      })()
                     ) : log.action === 'REASSIGNED' ? (
-                      <>reassigned issue</>
+                      (() => {
+                        const ov = JSON.parse(log.oldValue);
+                        const nv = JSON.parse(log.newValue);
+                        return <>reassigned from <strong>{ov.assignedToUserName || ov.assignedToOrgName || 'none'}</strong> to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
+                      })()
                     ) : (
                       <>{log.action.toLowerCase().replace(/_/g, ' ')}</>
                     )}
