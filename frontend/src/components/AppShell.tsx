@@ -28,7 +28,8 @@ export default function AppShell() {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="flex w-60 flex-col border-r border-gray-200 bg-white">
-        <div className="flex h-14 items-center border-b border-gray-200 px-5">
+        <div className="flex h-14 items-center gap-2 border-b border-gray-200 px-4">
+          <img src="/logo.png" alt="Data Edge Ltd" className="h-8 w-auto" />
           <h1 className="text-lg font-bold text-gray-900">Issue Tracker</h1>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -59,6 +60,11 @@ export default function AppShell() {
             </Link>
           )}
         </nav>
+        <div className="border-t border-gray-200 px-4 py-3">
+          <p className="text-xs text-gray-400">
+            Powered by <span className="font-medium text-gray-500">Data Edge Ltd</span>
+          </p>
+        </div>
       </aside>
 
       {/* Main content area */}

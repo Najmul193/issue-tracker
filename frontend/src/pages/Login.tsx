@@ -63,6 +63,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
           <div className="mb-8 text-center">
+            <img src="/logo.png" alt="Data Edge Ltd" className="mx-auto mb-4 h-12 w-auto" />
             <h1 className="text-2xl font-bold text-gray-900">Issue Tracker</h1>
             <p className="mt-1 text-sm text-gray-500">Sign in to your account</p>
           </div>
@@ -173,6 +174,9 @@ export default function Login() {
             </button>
           </form>
         </div>
+        <p className="mt-4 text-center text-xs text-gray-400">
+          Powered by <strong>Data Edge Ltd</strong>
+        </p>
       </div>
     </div>
   );
