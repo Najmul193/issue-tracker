@@ -39,6 +39,7 @@ export async function fetchUsers(): Promise<UserListItem[]> {
 export interface AssignableUser {
   id: string;
   name: string;
+  email: string;
   organizationId: string;
 }
 

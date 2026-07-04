@@ -90,14 +90,14 @@ export class UsersService {
     if (actor.role === 'SUPER_ADMIN') {
       return this.prisma.user.findMany({
         where: { status: 'ACTIVE' },
-        select: { id: true, name: true, organizationId: true },
+        select: { id: true, name: true, email: true, organizationId: true },
         orderBy: { name: 'asc' },
       });
     }
     // ORG_ADMIN or USER: only own org users for assignment dropdowns
     return this.prisma.user.findMany({
       where: { organizationId: actor.organizationId, status: 'ACTIVE' },
-      select: { id: true, name: true, organizationId: true },
+      select: { id: true, name: true, email: true, organizationId: true },
       orderBy: { name: 'asc' },
     });
   }
