@@ -9,6 +9,41 @@ const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   '/api';
 
+const TOKEN_KEY = 'auth_token';
+
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string): void {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // localStorage might be unavailable
+  }
+}
+
+export function clearAuthToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // localStorage might be unavailable
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -47,7 +82,7 @@ export async function apiGet<T>(
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'GET',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), ...options?.headers },
     ...options,
   });
   return handleResponse<T>(response);
@@ -58,11 +93,16 @@ export async function apiPost<T>(
   body?: unknown,
   options?: RequestInit,
 ): Promise<T> {
+  const isFormData = body instanceof FormData;
+  const headers: Record<string, string> = {};
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (!isFormData) headers['Content-Type'] = 'application/json';
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
     credentials: 'include',
-    headers: body instanceof FormData ? {} : { 'Content-Type': 'application/json' },
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    headers,
+    body: isFormData ? body : body ? JSON.stringify(body) : undefined,
     ...options,
   });
   return handleResponse<T>(response);
@@ -76,7 +116,7 @@ export async function apiPatch<T>(
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'PATCH',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: body ? JSON.stringify(body) : undefined,
     ...options,
   });
@@ -90,6 +130,7 @@ export async function apiDelete<T>(
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'DELETE',
     credentials: 'include',
+    headers: authHeaders(),
     ...options,
   });
   return handleResponse<T>(response);

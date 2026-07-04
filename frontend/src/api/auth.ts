@@ -1,4 +1,4 @@
-import { apiPost, apiGet } from './client';
+import { apiPost, apiGet, setAuthToken, clearAuthToken } from './client';
 
 export interface UserOrganization {
   id: string;
@@ -19,6 +19,7 @@ export interface User {
 
 interface LoginResponse {
   message: string;
+  token: string;
 }
 
 interface MeResponse extends User {}
@@ -27,11 +28,19 @@ export async function login(
   email: string,
   password: string,
 ): Promise<LoginResponse> {
-  return apiPost<LoginResponse>('/auth/login', { email, password });
+  const res = await apiPost<LoginResponse>('/auth/login', { email, password });
+  if (res.token) {
+    setAuthToken(res.token);
+  }
+  return res;
 }
 
 export async function logout(): Promise<void> {
-  await apiPost<{ message: string }>('/auth/logout');
+  try {
+    await apiPost<{ message: string }>('/auth/logout');
+  } finally {
+    clearAuthToken();
+  }
 }
 
 export async function getMe(): Promise<User> {

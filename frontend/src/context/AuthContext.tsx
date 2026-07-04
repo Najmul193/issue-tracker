@@ -13,6 +13,7 @@ import {
   logout as apiLogout,
   getMe,
 } from '../api/auth';
+import { clearAuthToken } from '../api/client';
 import type { User } from '../api/auth';
 
 interface AuthContextValue {
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = await getMe();
       setUser(currentUser);
     } catch {
+      clearAuthToken();
       setUser(null);
     } finally {
       setIsLoading(false);

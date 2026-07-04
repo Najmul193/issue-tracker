@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from './client';
+import { apiGet, apiPost, apiPatch, apiDelete, getAuthToken } from './client';
 
 export type IssueStatus =
   | 'NEW'
@@ -176,6 +176,8 @@ export async function uploadAttachments(
       'POST',
       `${import.meta.env.VITE_API_BASE_URL || '/api'}/issues/${issueId}/attachments`,
     );
+    const token = getAuthToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
     xhr.send(formData);
   });
@@ -208,11 +210,15 @@ export async function addComment(
     }
   }
 
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   const response = await fetch(
     `${import.meta.env.VITE_API_BASE_URL || '/api'}/issues/${issueId}/comments`,
     {
       method: 'POST',
       credentials: 'include',
+      headers,
       body: formData,
     },
   );
