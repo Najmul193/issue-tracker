@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './client';
+import { apiGet, apiPost, apiPatch, apiDelete } from './client';
 
 export type IssueStatus =
   | 'NEW'
@@ -222,4 +222,8 @@ export async function addComment(
     throw new Error(body?.message || `Request failed with status ${response.status}`);
   }
   return response.json();
+}
+
+export async function deleteIssue(id: string): Promise<void> {
+  await apiDelete<void>(`/issues/${id}`);
 }

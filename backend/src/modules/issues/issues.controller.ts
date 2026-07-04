@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -108,5 +109,11 @@ export class IssuesController {
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.issuesService.getActivity(id, actor);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
+    return this.issuesService.delete(id, actor);
   }
 }

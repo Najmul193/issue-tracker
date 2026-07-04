@@ -82,3 +82,15 @@ export async function apiPatch<T>(
   });
   return handleResponse<T>(response);
 }
+
+export async function apiDelete<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    ...options,
+  });
+  return handleResponse<T>(response);
+}

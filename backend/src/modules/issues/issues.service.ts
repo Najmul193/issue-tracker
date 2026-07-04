@@ -56,6 +56,16 @@ export class IssuesService {
       },
     });
 
+    await this.prisma.activityLog.create({
+      data: {
+        issueId: issue.id,
+        userId: actor.userId,
+        action: 'CREATED',
+        oldValue: null,
+        newValue: null,
+      },
+    });
+
     return issue;
   }
 
@@ -343,5 +353,18 @@ export class IssuesService {
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async delete(id: string, actor: JwtPayload) {
+    const issue = await this.findOne(id, actor);
+
+    if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'ORG_ADMIN') {
+      throw new ForbiddenException('Only admins can delete issues');
+    }
+    if (actor.role === 'ORG_ADMIN' && actor.organizationId !== issue.raisedByOrgId) {
+      throw new ForbiddenException('You can only delete issues from your own organization');
+    }
+
+    await this.prisma.issue.delete({ where: { id } });
   }
 }

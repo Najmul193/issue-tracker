@@ -1,7 +1,7 @@
 import { useState, useRef, type FormEvent } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchIssue, assignIssue, updateIssueStatus, addComment } from '../api/issues';
+import { fetchIssue, assignIssue, updateIssueStatus, addComment, deleteIssue } from '../api/issues';
 import { fetchAssignableUsers } from '../api/users';
 import type { IssueStatus } from '../api/issues';
 import type { AssignableUser } from '../api/users';
@@ -67,6 +67,7 @@ function getDeadlineClass(deadline: string | null): string {
 
 export default function IssueDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +128,20 @@ export default function IssueDetail() {
     },
     onError: (err) => {
       setAssignError(err instanceof ApiError ? err.message : 'Failed to assign');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) return;
+      await deleteIssue(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      navigate('/issues');
+    },
+    onError: (err) => {
+      alert(err instanceof ApiError ? err.message : 'Failed to delete issue');
     },
   });
 
@@ -260,6 +275,19 @@ export default function IssueDetail() {
             <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
               {issue.module}
             </span>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this issue? This action cannot be undone.')) {
+                  deleteMutation.mutate();
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="ml-auto rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </button>
           )}
         </div>
         <p className="text-sm text-gray-500">
@@ -637,16 +665,26 @@ export default function IssueDetail() {
                     <span className="font-medium text-gray-900">{log.user.name}</span>{' '}
                     {log.action === 'STATUS_CHANGED' ? (
                       <>changed status from <strong>{log.oldValue}</strong> to <strong>{log.newValue}</strong></>
+                    ) : log.action === 'CREATED' ? (
+                      <>created issue</>
                     ) : log.action === 'ASSIGNED' ? (
                       (() => {
-                        const nv = JSON.parse(log.newValue);
-                        return <>assigned issue to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
+                        try {
+                          const nv = JSON.parse(log.newValue || '{}');
+                          return <>assigned issue to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
+                        } catch {
+                          return <>assigned issue</>;
+                        }
                       })()
                     ) : log.action === 'REASSIGNED' ? (
                       (() => {
-                        const ov = JSON.parse(log.oldValue);
-                        const nv = JSON.parse(log.newValue);
-                        return <>reassigned from <strong>{ov.assignedToUserName || ov.assignedToOrgName || 'none'}</strong> to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
+                        try {
+                          const ov = JSON.parse(log.oldValue || '{}');
+                          const nv = JSON.parse(log.newValue || '{}');
+                          return <>reassigned from <strong>{ov.assignedToUserName || ov.assignedToOrgName || 'none'}</strong> to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
+                        } catch {
+                          return <>reassigned issue</>;
+                        }
                       })()
                     ) : (
                       <>{log.action.toLowerCase().replace(/_/g, ' ')}</>
