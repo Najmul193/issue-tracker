@@ -23,7 +23,7 @@ services:
     dockerContext: ./frontend
     plan: starter
     envVars:
-      - key: VITE_API_BASE_URL
+      - key: API_URL
         sync: false
 
 databases:
