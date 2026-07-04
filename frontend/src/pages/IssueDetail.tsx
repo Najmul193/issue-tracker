@@ -2,9 +2,9 @@ import { useState, useRef, type FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchIssue, assignIssue, updateIssueStatus, addComment } from '../api/issues';
-import { fetchUsers } from '../api/users';
+import { fetchAssignableUsers } from '../api/users';
 import type { IssueStatus } from '../api/issues';
-import type { UserListItem } from '../api/users';
+import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -91,8 +91,8 @@ export default function IssueDetail() {
   });
 
   const { data: users } = useQuery({
-    queryKey: ['users'],
-    queryFn: fetchUsers,
+    queryKey: ['assignable-users'],
+    queryFn: fetchAssignableUsers,
   });
 
   const statusMutation = useMutation({
@@ -456,7 +456,7 @@ export default function IssueDetail() {
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
                 <option value="">Select user...</option>
-                {(users || []).map((u: UserListItem) => (
+                {(users || []).map((u: AssignableUser) => (
                   <option key={u.id} value={u.id}>
                     {u.name} ({u.email})
                   </option>

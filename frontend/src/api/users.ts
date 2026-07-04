@@ -36,6 +36,16 @@ export async function fetchUsers(): Promise<UserListItem[]> {
   return apiGet<UserListItem[]>('/users');
 }
 
+export interface AssignableUser {
+  id: string;
+  name: string;
+  organizationId: string;
+}
+
+export async function fetchAssignableUsers(): Promise<AssignableUser[]> {
+  return apiGet<AssignableUser[]>('/users/assignable');
+}
+
 export async function fetchOrganizations(): Promise<UserOrg[]> {
   return apiGet<UserOrg[]>('/organizations');
 }
