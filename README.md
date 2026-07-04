@@ -14,20 +14,28 @@ Multi-tenant issue tracking system built with NestJS, React, PostgreSQL, and Pri
 ### Prerequisites
 
 - Docker and Docker Compose installed
+- Stop any local PostgreSQL service (Docker runs its own)
 
 ### Running the Project
+
+```bash
+# Start all services (builds images, runs migrations automatically)
+./start.sh
+```
+
+Or manually:
 
 ```bash
 # 1. Copy environment files
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 
-# 2. Start all services
-docker compose -f docker/docker-compose.yml up --build
+# 2. Start all services (migrations run automatically on startup)
+docker compose -f docker/docker-compose.yml up --build -d
 ```
 
 This starts:
-- **PostgreSQL** on `localhost:5432`
+- **PostgreSQL** (internal — not exposed to host to avoid port conflicts)
 - **Backend API** on `http://localhost:3000/api`
 - **Frontend** on `http://localhost:5173`
 
@@ -36,17 +44,11 @@ This starts:
 - Health check: `curl http://localhost:3000/api/health`
 - Open `http://localhost:5173` in browser — you should see the dashboard showing API and database status.
 
-### Run Migrations
-
-```bash
-docker exec -it issue-tracker-api npx prisma migrate dev
-```
-
 ### Seed Data
 
 ```bash
 # Run seed to create 4 orgs and 8 users (all passwords: password123)
-cd backend && npm run prisma:seed
+docker exec issue-tracker-api npx prisma db seed
 ```
 
 ## Running Tests
@@ -100,6 +102,7 @@ The test setup automatically:
 │   │       ├── attachments/
 │   │       └── notifications/
 │   ├── Dockerfile
+│   ├── docker-entrypoint.sh  # Runs migrations before starting the app
 │   ├── jest.setup.ts      # Loads .env.test + safety assertion
 │   ├── .env.test.example  # Test DB env template
 │   └── .env.example
