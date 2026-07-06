@@ -74,6 +74,7 @@ export default function Concern() {
   const type = searchParams.get('type') || '';
   const overdue = searchParams.get('overdue') || '';
   const module = searchParams.get('module') || '';
+  const concernFilter = searchParams.get('concernFilter') || '';
   const page = parseInt(searchParams.get('page') || '1', 10);
 
   const [searchInput, setSearchInput] = useState('');
@@ -81,6 +82,7 @@ export default function Concern() {
   const queryParams = useMemo(
     () => ({
       concern: 'true',
+      ...(concernFilter ? { concernFilter } : {}),
       ...(status ? { status: status as IssueStatus } : {}),
       ...(priority ? { priority: priority as IssuePriority } : {}),
       ...(type ? { type: type as IssueType } : {}),
@@ -89,7 +91,7 @@ export default function Concern() {
       page: String(page),
       limit: '20',
     }),
-    [status, priority, type, overdue, module, page],
+    [concernFilter, status, priority, type, overdue, module, page],
   );
 
   const { data, isLoading, error } = useQuery({
@@ -134,6 +136,26 @@ export default function Concern() {
       {/* Header row */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-gray-900">Concern</h2>
+      </div>
+
+      {/* Concern type filter */}
+      <div className="mb-4 flex items-center gap-1">
+        {['', 'raised', 'assigned'].map((f) => {
+          const label = f === '' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1);
+          return (
+            <button
+              key={f}
+              onClick={() => setParam('concernFilter', f)}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                concernFilter === f
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}

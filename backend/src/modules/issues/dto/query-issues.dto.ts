@@ -31,6 +31,10 @@ export class QueryIssuesDto {
   concern?: string;
 
   @IsOptional()
+  @IsString()
+  concernFilter?: string;
+
+  @IsOptional()
   @IsNumberString()
   page?: string;
 

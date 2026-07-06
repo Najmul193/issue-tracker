@@ -97,6 +97,7 @@ export interface IssuesQueryParams {
   module?: string;
   overdue?: string;
   concern?: string;
+  concernFilter?: string;
   page?: string;
   limit?: string;
   assignedOrg?: string;

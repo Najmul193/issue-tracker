@@ -83,14 +83,24 @@ export class IssuesService {
     }
 
     if (query.concern === 'true') {
-      const concernOr: Prisma.IssueWhereInput[] = [
-        { assignedToUserId: actor.userId },
-        { raisedById: actor.userId },
-      ];
-      if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
-        concernOr.push({ assignedToOrgId: actor.organizationId });
+      if (query.concernFilter === 'raised') {
+        andClauses.push({ raisedById: actor.userId });
+      } else if (query.concernFilter === 'assigned') {
+        const assignedOr: Prisma.IssueWhereInput[] = [{ assignedToUserId: actor.userId }];
+        if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
+          assignedOr.push({ assignedToOrgId: actor.organizationId });
+        }
+        andClauses.push({ OR: assignedOr });
+      } else {
+        const concernOr: Prisma.IssueWhereInput[] = [
+          { assignedToUserId: actor.userId },
+          { raisedById: actor.userId },
+        ];
+        if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
+          concernOr.push({ assignedToOrgId: actor.organizationId });
+        }
+        andClauses.push({ OR: concernOr });
       }
-      andClauses.push({ OR: concernOr });
     }
 
     const where: Prisma.IssueWhereInput = {
