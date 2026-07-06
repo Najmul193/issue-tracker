@@ -1,7 +1,7 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { createIssue, uploadAttachments } from '../api/issues';
+import { createIssue, uploadAttachments, deleteIssue } from '../api/issues';
 import type { IssueType, IssuePriority } from '../api/issues';
 import { ApiError } from '../api/client';
 import { addDays } from 'date-fns';
@@ -100,9 +100,14 @@ export default function CreateIssue() {
           .filter((f) => !f.error)
           .map((f) => f.file);
         if (validFiles.length > 0) {
-          await uploadAttachments(issue.id, validFiles, (pct) =>
-            setUploadProgress(pct),
-          );
+          try {
+            await uploadAttachments(issue.id, validFiles, (pct) =>
+              setUploadProgress(pct),
+            );
+          } catch (err) {
+            await deleteIssue(issue.id).catch(() => {});
+            throw err;
+          }
         }
       }
 
