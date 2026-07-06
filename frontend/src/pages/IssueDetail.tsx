@@ -174,7 +174,15 @@ export default function IssueDetail() {
   });
 
   const downloadMutation = useMutation({
-    mutationFn: async (attachmentId: string) => {
+    mutationFn: async ({
+      attachmentId,
+      issueId,
+      index,
+    }: {
+      attachmentId: string;
+      issueId: string;
+      index: number;
+    }) => {
       const token = getAuthToken();
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -186,7 +194,10 @@ export default function IssueDetail() {
       const blob = await response.blob();
       const disposition = response.headers.get('Content-Disposition');
       const match = disposition?.match(/filename="?(.+?)"?$/);
-      const filename = match?.[1] || 'download';
+      const originalName = match?.[1] || '';
+      const ext = originalName.includes('.') ? originalName.split('.').pop()! : '';
+      const baseId = issueId.replace(/-/g, '_');
+      const filename = ext ? `${baseId}_attachment${index}.${ext}` : `${baseId}_attachment${index}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -578,7 +589,7 @@ export default function IssueDetail() {
             Attachments ({issue.attachments.length})
           </h3>
           <ul className="space-y-2">
-            {issue.attachments.map((att) => (
+            {issue.attachments.map((att, idx) => (
               <li key={att.id} className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-sm text-gray-400">
@@ -588,7 +599,7 @@ export default function IssueDetail() {
                   <span className="shrink-0 text-xs text-gray-400">{formatFileSize(att.fileSize)}</span>
                 </div>
                 <button
-                  onClick={() => downloadMutation.mutate(att.id)}
+                  onClick={() => downloadMutation.mutate({ attachmentId: att.id, issueId: issue.id, index: idx + 1 })}
                   disabled={downloadMutation.isPending}
                   className="shrink-0 ml-2 text-xs font-medium text-blue-600 hover:text-blue-700"
                 >
