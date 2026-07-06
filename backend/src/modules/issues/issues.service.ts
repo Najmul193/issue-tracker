@@ -128,7 +128,7 @@ export class IssuesService {
         orderBy: { createdAt: 'desc' },
         include: {
           raisedBy: { select: { id: true, name: true, email: true } },
-          assignedToUser: { select: { id: true, name: true, email: true } },
+        assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
           raisedByOrg: { select: { id: true, name: true } },
           assignedToOrg: { select: { id: true, name: true } },
         },
@@ -145,7 +145,7 @@ export class IssuesService {
       include: {
         raisedBy: { select: { id: true, name: true, email: true } },
         raisedByOrg: { select: { id: true, name: true } },
-        assignedToUser: { select: { id: true, name: true, email: true } },
+        assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
         assignedToOrg: { select: { id: true, name: true } },
         assignedBy: { select: { id: true, name: true, email: true } },
         resolvedBy: {
@@ -199,6 +199,7 @@ export class IssuesService {
         throw new ForbiddenException('Invalid assignment request');
       }
     } else {
+      const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
       this.authService.canAssign(
         actor,
         dto.targetUserId ?? null,
@@ -206,6 +207,7 @@ export class IssuesService {
         newTargetUser?.organizationId,
         newTargetUser?.role,
         issue.assignedToUserId === actor.userId,
+        currentAssignedOrgId,
       );
 
       // If issue is routed to an org queue, reassignment must stay within that org
