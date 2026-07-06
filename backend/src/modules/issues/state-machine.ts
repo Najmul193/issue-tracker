@@ -14,7 +14,7 @@ const TRANSITION_MAP: Record<IssueStatus, IssueStatus[]> = {
   IN_PROGRESS: ['RESOLVED'],
   RESOLVED: ['VERIFIED', 'REOPENED'],
   VERIFIED: ['CLOSED', 'REOPENED'],
-  CLOSED: [],
+  CLOSED: ['REOPENED'],
   REOPENED: ['IN_PROGRESS'],
 };
 

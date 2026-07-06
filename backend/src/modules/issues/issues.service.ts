@@ -163,18 +163,52 @@ export class IssuesService {
   async assign(id: string, dto: AssignIssueDto, actor: JwtPayload) {
     const issue = await this.findOne(id, actor);
 
+    if (issue.status === 'CLOSED') {
+      throw new ForbiddenException('Cannot assign a closed issue. Reopen it first.');
+    }
+
     const newTargetUser = dto.targetUserId
       ? await this.prisma.user.findUnique({ where: { id: dto.targetUserId }, select: { id: true, name: true, organizationId: true, role: true } })
       : null;
 
-    this.authService.canAssign(
-      actor,
-      dto.targetUserId ?? null,
-      dto.targetOrgId ?? null,
-      newTargetUser?.organizationId,
-      newTargetUser?.role,
-      issue.assignedToUserId === actor.userId,
-    );
+    // Reopen scenario: raiser's org admin redistributing to outside orgs only
+    const isReopenByRaiserOrgAdmin =
+      issue.status === 'REOPENED' &&
+      actor.role === 'ORG_ADMIN' &&
+      actor.organizationId === issue.raisedByOrgId;
+
+    if (isReopenByRaiserOrgAdmin) {
+      if (dto.targetUserId) {
+        if (!newTargetUser || newTargetUser.organizationId === actor.organizationId) {
+          throw new ForbiddenException('After reopening, you can only assign to users outside your organization');
+        }
+      } else if (dto.targetOrgId) {
+        if (dto.targetOrgId === actor.organizationId) {
+          throw new ForbiddenException('After reopening, you can only route to other organizations');
+        }
+      } else {
+        throw new ForbiddenException('Invalid assignment request');
+      }
+    } else {
+      this.authService.canAssign(
+        actor,
+        dto.targetUserId ?? null,
+        dto.targetOrgId ?? null,
+        newTargetUser?.organizationId,
+        newTargetUser?.role,
+        issue.assignedToUserId === actor.userId,
+      );
+
+      // If issue is routed to an org queue, reassignment must stay within that org
+      if (issue.assignedToOrgId) {
+        if (dto.targetUserId && newTargetUser && newTargetUser.organizationId !== issue.assignedToOrgId) {
+          throw new ForbiddenException('This issue is in an organization queue and can only be reassigned within that organization');
+        }
+        if (dto.targetOrgId && dto.targetOrgId !== issue.assignedToOrgId) {
+          throw new ForbiddenException('This issue is in an organization queue and can only be reassigned within that organization');
+        }
+      }
+    }
 
     const oldTargetUser = issue.assignedToUserId
       ? await this.prisma.user.findUnique({ where: { id: issue.assignedToUserId }, select: { id: true, name: true } })
@@ -192,7 +226,7 @@ export class IssuesService {
         assignedToUserId: dto.targetUserId ?? null,
         assignedToOrgId: dto.targetOrgId ?? null,
         assignedById: actor.userId,
-        status: (issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED') ? 'ASSIGNED' : issue.status,
+        status: (issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED' || issue.status === 'REOPENED') ? 'ASSIGNED' : issue.status,
         closedAt: null,
       },
     });
@@ -285,6 +319,13 @@ export class IssuesService {
             'Only the issue creator or their org admin can verify and close this issue',
           );
         }
+      }
+    }
+
+    // Only raiser's org admin or super admin can reopen a closed issue
+    if (issue.status === 'CLOSED' && dto.status === 'REOPENED') {
+      if (actor.role !== 'SUPER_ADMIN' && (actor.role !== 'ORG_ADMIN' || actor.organizationId !== issue.raisedByOrgId)) {
+        throw new ForbiddenException('Only the issue creator\'s org admin can reopen a closed issue');
       }
     }
 

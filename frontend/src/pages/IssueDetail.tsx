@@ -21,7 +21,7 @@ const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   IN_PROGRESS: ['RESOLVED'],
   RESOLVED: ['VERIFIED', 'REOPENED'],
   VERIFIED: ['CLOSED', 'REOPENED'],
-  CLOSED: [],
+  CLOSED: ['REOPENED'],
   REOPENED: ['IN_PROGRESS'],
 };
 
@@ -458,7 +458,8 @@ export default function IssueDetail() {
         </div>
       )}
 
-      {/* Assign/Reassign Control */}
+      {/* Assign/Reassign Control — hidden when closed because assign requires reopen first */}
+      {issue.status !== 'CLOSED' && (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
           Assign / Reassign
@@ -563,6 +564,7 @@ export default function IssueDetail() {
           </div>
         )}
       </div>
+      )}
 
       {/* Attachments — always visible and downloadable */}
       {issue.attachments && issue.attachments.length > 0 && (
