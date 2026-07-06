@@ -27,6 +27,10 @@ export class QueryIssuesDto {
   overdue?: string;
 
   @IsOptional()
+  @IsBooleanString()
+  concern?: string;
+
+  @IsOptional()
   @IsNumberString()
   page?: string;
 

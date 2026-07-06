@@ -96,6 +96,7 @@ export interface IssuesQueryParams {
   type?: IssueType;
   module?: string;
   overdue?: string;
+  concern?: string;
   page?: string;
   limit?: string;
   assignedOrg?: string;

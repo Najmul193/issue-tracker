@@ -4,6 +4,7 @@ import NotificationBell from './NotificationBell';
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard' },
+  { label: 'Concern', path: '/concern' },
   { label: 'Issues', path: '/issues' },
   { label: 'Notifications', path: '/notifications' },
 ];

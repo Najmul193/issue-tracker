@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Issues from './pages/Issues';
 import IssueDetail from './pages/IssueDetail';
 import CreateIssue from './pages/CreateIssue';
+import Concern from './pages/Concern';
 import Notifications from './pages/Notifications';
 import Users from './pages/Users';
 
@@ -33,6 +34,7 @@ function AppRoutes() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/concern" element={<Concern />} />
         <Route path="/issues" element={<Issues />} />
         <Route path="/issues/new" element={<CreateIssue />} />
         <Route path="/issues/:id" element={<IssueDetail />} />

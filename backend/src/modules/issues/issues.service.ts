@@ -82,6 +82,14 @@ export class IssuesService {
       andClauses.push({ deadline: { lt: new Date() }, status: { notIn: ['CLOSED', 'VERIFIED'] as IssueStatus[] } });
     }
 
+    if (query.concern === 'true') {
+      const concernOr: Prisma.IssueWhereInput[] = [{ assignedToUserId: actor.userId }];
+      if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
+        concernOr.push({ assignedToOrgId: actor.organizationId });
+      }
+      andClauses.push({ OR: concernOr });
+    }
+
     const where: Prisma.IssueWhereInput = {
       AND: andClauses.length > 0 ? andClauses : [{}],
     };
