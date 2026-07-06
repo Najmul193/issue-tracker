@@ -94,9 +94,18 @@ export class UsersService {
         orderBy: { name: 'asc' },
       });
     }
-    // ORG_ADMIN or USER: only own org users for assignment dropdowns
+
+    if (actor.role === 'ORG_ADMIN') {
+      return this.prisma.user.findMany({
+        where: { organizationId: actor.organizationId, status: 'ACTIVE' },
+        select: { id: true, name: true, email: true, organizationId: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+
+    // USER: only users from other orgs (can't assign to own org members)
     return this.prisma.user.findMany({
-      where: { organizationId: actor.organizationId, status: 'ACTIVE' },
+      where: { organizationId: { not: actor.organizationId }, status: 'ACTIVE' },
       select: { id: true, name: true, email: true, organizationId: true },
       orderBy: { name: 'asc' },
     });

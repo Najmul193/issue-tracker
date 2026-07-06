@@ -2,9 +2,9 @@ import { useState, useRef, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchIssue, assignIssue, updateIssueStatus, addComment, deleteIssue } from '../api/issues';
-import { fetchAssignableUsers } from '../api/users';
+import { fetchAssignableUsers, fetchOrganizations } from '../api/users';
 import type { IssueStatus } from '../api/issues';
-import type { AssignableUser } from '../api/users';
+import type { AssignableUser, UserOrg } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -80,6 +80,7 @@ export default function IssueDetail() {
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<'user' | 'org'>('user');
   const [assignUserId, setAssignUserId] = useState('');
+  const [assignOrgId, setAssignOrgId] = useState('');
   const [showAssignConfirm, setShowAssignConfirm] = useState(false);
   const [showStatusConfirm, setShowStatusConfirm] = useState<IssueStatus | null>(null);
   const [statusComment, setStatusComment] = useState('');
@@ -94,6 +95,11 @@ export default function IssueDetail() {
   const { data: users } = useQuery({
     queryKey: ['assignable-users'],
     queryFn: fetchAssignableUsers,
+  });
+
+  const { data: orgs } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: fetchOrganizations,
   });
 
   const statusMutation = useMutation({
@@ -119,7 +125,10 @@ export default function IssueDetail() {
       if (assignTarget === 'user' && assignUserId) {
         return assignIssue(id, { targetUserId: assignUserId });
       }
-      return assignIssue(id, { targetOrgId: issue?.assignedToOrgId || undefined });
+      if (assignTarget === 'org' && assignOrgId) {
+        return assignIssue(id, { targetOrgId: assignOrgId });
+      }
+      return;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issue', id] });
@@ -447,94 +456,108 @@ export default function IssueDetail() {
       )}
 
       {/* Assign/Reassign Control */}
-      {isAdmin && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Assign / Reassign
-          </h3>
-          {assignError && (
-            <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {assignError}
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-1.5 text-sm">
-              <input
-                type="radio"
-                name="assignTarget"
-                checked={assignTarget === 'user'}
-                onChange={() => setAssignTarget('user')}
-              />
-              To user
-            </label>
-            <label className="flex items-center gap-1.5 text-sm">
-              <input
-                type="radio"
-                name="assignTarget"
-                checked={assignTarget === 'org'}
-                onChange={() => setAssignTarget('org')}
-              />
-              Route to org
-            </label>
-
-            {assignTarget === 'user' && (
-              <select
-                value={assignUserId}
-                onChange={(e) => setAssignUserId(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">Select user...</option>
-                {(users || []).map((u: AssignableUser) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.email})
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <button
-              onClick={() => {
-                if (assignTarget === 'user' && !assignUserId) return;
-                setShowAssignConfirm(true);
-              }}
-              disabled={assignTarget === 'user' && !assignUserId}
-              className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              Assign
-            </button>
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          Assign / Reassign
+        </h3>
+        {assignError && (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {assignError}
           </div>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="radio"
+              name="assignTarget"
+              checked={assignTarget === 'user'}
+              onChange={() => setAssignTarget('user')}
+            />
+            To user
+          </label>
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="radio"
+              name="assignTarget"
+              checked={assignTarget === 'org'}
+              onChange={() => setAssignTarget('org')}
+            />
+            Route to org
+          </label>
 
-          {showAssignConfirm && (
-            <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-              <p className="font-medium">Confirm assignment</p>
-              <p className="mt-1 text-xs">
-                This will notify the assignee and create an activity log entry.
-                {assignTarget === 'user' && assignUserId && (
-                  <> Selected user: {(users || []).find((u) => u.id === assignUserId)?.name}</>
-                )}
-                {assignTarget === 'org' && (
-                  <> Route to organization queue: {issue.assignedToOrg?.name || 'current org'}</>
-                )}
-              </p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => assignMutation.mutate()}
-                  disabled={assignMutation.isPending}
-                  className="rounded-md bg-yellow-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  {assignMutation.isPending ? 'Assigning...' : 'Confirm'}
-                </button>
-                <button
-                  onClick={() => { setShowAssignConfirm(false); setAssignError(null); }}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
+          {assignTarget === 'user' && (
+            <select
+              value={assignUserId}
+              onChange={(e) => setAssignUserId(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Select user...</option>
+              {(users || []).map((u: AssignableUser) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email})
+                </option>
+              ))}
+            </select>
           )}
+
+          {assignTarget === 'org' && (
+            <select
+              value={assignOrgId}
+              onChange={(e) => setAssignOrgId(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Select org...</option>
+              {(orgs || []).map((o: UserOrg) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <button
+            onClick={() => {
+              if (assignTarget === 'user' && !assignUserId) return;
+              if (assignTarget === 'org' && !assignOrgId) return;
+              setShowAssignConfirm(true);
+            }}
+            disabled={(assignTarget === 'user' && !assignUserId) || (assignTarget === 'org' && !assignOrgId)}
+            className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            Assign
+          </button>
         </div>
-      )}
+
+        {showAssignConfirm && (
+          <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            <p className="font-medium">Confirm assignment</p>
+            <p className="mt-1 text-xs">
+              This will notify the assignee and create an activity log entry.
+              {assignTarget === 'user' && assignUserId && (
+                <> Selected user: {(users || []).find((u) => u.id === assignUserId)?.name}</>
+              )}
+              {assignTarget === 'org' && assignOrgId && (
+                <> Route to organization queue: {(orgs || []).find((o) => o.id === assignOrgId)?.name}</>
+              )}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => assignMutation.mutate()}
+                disabled={assignMutation.isPending}
+                className="rounded-md bg-yellow-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
+              >
+                {assignMutation.isPending ? 'Assigning...' : 'Confirm'}
+              </button>
+              <button
+                onClick={() => { setShowAssignConfirm(false); setAssignError(null); }}
+                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Attachments — always visible and downloadable */}
       {issue.attachments && issue.attachments.length > 0 && (

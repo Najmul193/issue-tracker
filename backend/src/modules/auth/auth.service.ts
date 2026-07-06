@@ -38,34 +38,32 @@ export class AuthService {
     actor: JwtPayload,
     targetUserId: string | null,
     targetOrgId: string | null,
+    targetUserOrgId?: string,
   ): void {
-    if (actor.role === 'SUPER_ADMIN') {
+    if (actor.role === 'SUPER_ADMIN') return;
+
+    if (actor.role === 'ORG_ADMIN') {
+      if (targetUserId && targetUserOrgId && targetUserOrgId !== actor.organizationId) {
+        throw new ForbiddenException('ORG_ADMIN can only assign users within their own organization');
+      }
       return;
     }
 
-    if (actor.role === 'ORG_ADMIN') {
-      if (targetUserId && targetOrgId) {
-        const actorOrg = actor.organizationId;
-        if (targetOrgId !== actorOrg) {
-          throw new ForbiddenException(
-            'ORG_ADMIN can only assign users within their own org when specifying a user',
-          );
+    if (actor.role === 'USER') {
+      if (targetUserId) {
+        if (!targetUserOrgId) {
+          throw new ForbiddenException('Cannot assign to unknown user');
+        }
+        if (targetUserOrgId === actor.organizationId) {
+          throw new ForbiddenException('You cannot assign to users in your own organization');
         }
         return;
       }
-
-      if (targetUserId && !targetOrgId) {
-        return;
-      }
-
-      if (targetOrgId && !targetUserId) {
-        return;
-      }
-
-      return;
+      if (targetOrgId) return;
+      throw new ForbiddenException('Invalid assignment request');
     }
 
-    throw new ForbiddenException('USER cannot assign issues');
+    throw new ForbiddenException('You are not authorized to assign issues');
   }
 
   /**
