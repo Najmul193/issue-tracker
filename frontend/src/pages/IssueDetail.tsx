@@ -493,7 +493,9 @@ export default function IssueDetail() {
             />
             To user
           </label>
-          {(!isCurrentAssignee || currentUser?.role !== 'USER') && (
+          {issue && currentUser && (
+            (currentUser.role === 'ORG_ADMIN' && issue.assignedToOrgId === currentUser.organization.id) ? null :
+            (isCurrentAssignee && currentUser.role === 'USER') ? null :
             <label className="flex items-center gap-1.5 text-sm">
               <input
                 type="radio"
