@@ -275,6 +275,19 @@ export class IssuesService {
       throw new BadRequestException(transition.error);
     }
 
+    // Only the creator or creator's org admin can verify or close a resolved issue
+    if (dto.status === 'VERIFIED' || dto.status === 'CLOSED') {
+      if (actor.role !== 'SUPER_ADMIN') {
+        const isCreator = issue.raisedById === actor.userId;
+        const isCreatorOrgAdmin = actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
+        if (!isCreator && !isCreatorOrgAdmin) {
+          throw new ForbiddenException(
+            'Only the issue creator or their org admin can verify and close this issue',
+          );
+        }
+      }
+    }
+
     if (dto.status === 'REOPENED' && !dto.comment?.trim()) {
       throw new BadRequestException('A comment is required when reopening an issue');
     }
