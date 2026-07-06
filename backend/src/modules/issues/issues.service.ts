@@ -83,7 +83,10 @@ export class IssuesService {
     }
 
     if (query.concern === 'true') {
-      const concernOr: Prisma.IssueWhereInput[] = [{ assignedToUserId: actor.userId }];
+      const concernOr: Prisma.IssueWhereInput[] = [
+        { assignedToUserId: actor.userId },
+        { raisedById: actor.userId },
+      ];
       if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
         concernOr.push({ assignedToOrgId: actor.organizationId });
       }
