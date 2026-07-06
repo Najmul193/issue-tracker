@@ -8,7 +8,7 @@ import type { AssignableUser, UserOrg } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
-import { ApiError } from '../api/client';
+import { ApiError, getBaseUrl, getAuthToken } from '../api/client';
 
 /*
  * Transition map — must stay in sync with backend/src/modules/issues/state-machine.ts
@@ -175,9 +175,12 @@ export default function IssueDetail() {
 
   const downloadMutation = useMutation({
     mutationFn: async (attachmentId: string) => {
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || '/api'}/attachments/${attachmentId}/download`,
-        { credentials: 'include' },
+        `${getBaseUrl()}/attachments/${attachmentId}/download`,
+        { credentials: 'include', headers },
       );
       if (!response.ok) throw new Error('Download failed');
       const blob = await response.blob();
