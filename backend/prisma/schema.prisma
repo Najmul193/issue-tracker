@@ -131,10 +131,10 @@ model Issue {
   resolvedBy        User?      @relation("ResolvedIssues", fields: [resolvedById], references: [id])
   resolvedAt        DateTime?  @map("resolved_at")
 
-  comments      Comment[]
-  attachments   Attachment[]
-  activityLogs  ActivityLog[]
-  notifications Notification[]
+  comments      Comment[]       @relation(onDelete: Cascade)
+  attachments   Attachment[]    @relation(onDelete: Cascade)
+  activityLogs  ActivityLog[]   @relation(onDelete: Cascade)
+  notifications Notification[] @relation(onDelete: Cascade)
   assignees     IssueAssignee[]
 
   @@index([status])
@@ -168,7 +168,7 @@ model Comment {
   text      String
   createdAt DateTime @default(now())
 
-  attachments Attachment[]
+  attachments Attachment[] @relation(onDelete: Cascade)
 
   @@map("comments")
 }
