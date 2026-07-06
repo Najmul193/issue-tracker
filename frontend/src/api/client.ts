@@ -67,6 +67,9 @@ export class RateLimitError extends ApiError {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T;
+  }
   if (!response.ok) {
     if (response.status === 429) {
       throw new RateLimitError('Too many requests. Please try again later.');
