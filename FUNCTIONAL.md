@@ -13,8 +13,8 @@ There are three user roles with different permissions.
 | Role | Permissions |
 |------|-------------|
 | **SUPER_ADMIN** | Full access — can view, create, assign, edit, delete any issue; manage all users across all organizations |
-| **ORG_ADMIN** | Can view any issue; create, assign, and delete issues within own organization; manage USER accounts in own organization |
-| **USER** | Can view any issue; create issues; change status on issues they are involved with; add comments and attachments |
+| **ORG_ADMIN** | Can view any issue; create, assign (within own org), and delete issues within own organization; manage USER accounts in own organization |
+| **USER** | Can view any issue; create issues; assign issues to users in **other** organizations (cross-org routing); change status on issues they are involved with; add comments and attachments |
 
 ### Login URL
 
@@ -74,15 +74,23 @@ The Dashboard shows key summary cards:
 
 ### 2.3 Viewing Issues
 
-1. Click **Issues** in the sidebar.
-2. The issue list shows: ID (truncated), title, type, priority, status, module, deadline, assigned to, and organization.
-3. Filter issues using the buttons at the top:
+1. The sidebar has five navigation items: **Dashboard**, **Concern**, **Issues**, **Notifications**, and **Users** (admins only).
+2. Click **Issues** in the sidebar to see all issues with full filter controls.
+2. Click **Concern** in the sidebar to see only issues relevant to you:
+   - **USER**: issues you raised or are assigned to you
+   - **ORG_ADMIN / SUPER_ADMIN**: issues raised by anyone in your org, assigned to anyone in your org, or routed to your org queue
+3. The Concern page has three sub-filters:
+   - **All** (default) — raised + assigned + org-routed issues
+   - **Raised** — only issues you or your org members created
+   - **Assign** — only issues assigned to you or your org
+4. The main Issues list shows: title, type, priority, status, module, deadline, assigned to, and organization.
+5. Filter issues using the controls at the top:
    - **Type**: All / Bug / New Requirement / Change Request / Query
    - **Priority**: All / Critical / High / Medium / Low
    - **Status**: All / New / Acknowledged / Assigned / In Progress / Resolved / Verified / Closed / Reopened
    - **Overdue**: Toggle to show only overdue issues
    - **Module**: Type to search by module name
-4. Navigate between pages using the pagination controls at the bottom.
+6. Navigate between pages using the pagination controls at the bottom.
 
 ---
 
@@ -143,26 +151,57 @@ ASSIGNED → In Progress
 IN_PROGRESS → Resolved
 RESOLVED → Verified, Reopened
 VERIFIED → Closed, Reopened
-CLOSED → (no transitions, terminal state)
+CLOSED → Reopened         (raiser's org admin or SUPER_ADMIN only)
 REOPENED → In Progress
 ```
 
 **Who can change status?** Any user whose organization matches the issue's raised-by organization OR assigned-to organization, OR who is the assigned user. SUPER_ADMIN can change any issue.
 
+**Special rules:**
+- **Verify / Close**: Only the issue creator (raised-by user) or an ORG_ADMIN in the creator's organization can transition to VERIFIED or CLOSED. The resolver side (assigned user, assigned org) cannot verify or close.
+- **Reopen a closed issue**: Only an ORG_ADMIN in the issue creator's organization or a SUPER_ADMIN can reopen a closed issue. Regular users and other org admins cannot.
+
 ---
 
 ### 2.7 Assigning / Reassigning an Issue
 
-Only SUPER_ADMIN and ORG_ADMIN can assign issues.
+The assignment UI is available to all users on the Issue Detail page. Assignment rules vary by role and issue state.
 
-1. On the Issue Detail page, under **Assign / Reassign**:
-2. Select assignment target type:
-   - **To user** — pick a user from the dropdown. ORG_ADMIN can only assign users within their own organization.
-   - **To org** — assigns to the organization's queue (no specific user).
-3. Click **Assign**.
-4. A confirmation dialog appears. Review and confirm.
-5. The issue is assigned. The status automatically changes to **ASSIGNED** if it was NEW or ACKNOWLEDGED.
-6. The assignee receives a notification.
+#### Assignment Methods
+
+- **To user** — pick a user from the dropdown
+- **To org** — route to an organization's queue (org admin reassigns internally)
+- Note: Reopened issues are auto-set to **ASSIGNED** on assignment
+
+#### Who Can Assign to Whom
+
+| Actor | Can assign to |
+|-------|---------------|
+| **SUPER_ADMIN** | Any user or any org |
+| **ORG_ADMIN** | Users within their own org only; can route to any org |
+| **USER** | Users in **other** organizations only (cross-org routing); can route to any org |
+
+#### Assignee Reassignment (USER as current assignee)
+
+If a USER is the current assignee of an issue, they can only reassign it to an **ORG_ADMIN** within their own organization (i.e., reroute to their admin). They cannot assign to another regular user or route to an org queue.
+
+#### Org Queue Restriction
+
+If an issue is currently routed to an organization queue (`assignedToOrgId` is set), any reassignment during the active lifecycle must stay within that org. The target user must belong to the same org, or the target org must match.
+
+#### Reopened Issue Redistribution
+
+After a closed issue is reopened by the raiser's ORG_ADMIN, that admin can assign the issue to users or orgs outside their own organization only. They cannot reassign it back to their own org.
+
+#### Closed Issues
+
+Closed issues cannot be assigned. The status must be changed to **REOPENED** first (by the raiser's org admin), after which assignment is available.
+
+#### Confirmation & Notifications
+
+1. Click **Assign** — a confirmation dialog appears.
+2. Review the assignment details and click **Confirm**.
+3. The assignee receives a notification and email.
 
 ---
 
@@ -260,7 +299,7 @@ Every action on an issue is recorded in the Activity Log, displayed chronologica
 2. **ORG_ADMIN** sees the issue in the list, views it, and assigns it to a developer.
 3. The **assigned user** receives a notification, changes status to **In Progress**, works on the fix.
 4. The developer changes status to **Resolved** with a resolution note.
-5. **ORG_ADMIN** or the **reporter** verifies the fix and changes status to **Verified** → **Closed**.
+5. **The reporter** or **an ORG_ADMIN in the reporter's org** verifies the fix and changes status to **Verified** → **Closed**. (The developer who resolved the issue cannot verify or close it.)
 6. If the bug reappears, someone can **Reopen** it (with a comment), and the cycle continues.
 
 ---
@@ -276,7 +315,7 @@ All endpoints are under the `/api` prefix.
 | GET | /auth/me | Get current user profile |
 | GET | /health | Health check |
 | GET | /dashboard/summary | Issue counts by status & priority |
-| GET | /issues | List issues (filterable) |
+| GET | /issues | List issues (filterable; supports `concern`, `concernFilter` params) |
 | POST | /issues | Create issue |
 | GET | /issues/:id | Get issue detail |
 | PATCH | /issues/:id/assign | Assign/reassign issue |

@@ -71,11 +71,14 @@ The system defines **three user roles** and **four organization types** that col
      │    org                  │     │  │                       │  │
      │  • Update USER accounts │     │  │  • Create issues      │  │
      │    in own org           │     │  │  • Add comments       │  │
-     │  • Assign issues within │     │  │  • Upload attachments │  │
-     │    own org              │     │  │  • Change status on   │  │
-     │  • Change status on     │     │  │    owned/assigned     │  │
-     │    org's issues         │     │  │    issues             │  │
-     └─────────────────────────┘     │  • Receive notifications │  │
+      │  • Assign issues within │     │  │  • Assign issues to   │  │
+      │    own org              │     │  │    users in OTHER     │  │
+      │  • Change status on     │     │  │    organizations only │  │
+      │    org's issues         │     │  │    (cross-org routing)│  │
+      └─────────────────────────┘     │  • Change status on   │  │
+                                      │    owned/assigned     │  │
+                                      │    issues             │  │
+                                      │  • Receive notifications │  │
                                      └───────────────────────┘  │
                                      └─────────────────────────────┘
 ```
@@ -104,37 +107,47 @@ The system defines **three user roles** and **four organization types** that col
 Issues traverse a defined state machine with enforced transition rules:
 
 ```
-                  ┌──────────────────────────────────────────────┐
-                  │                    NEW                       │
-                  └────┬──────────────┬──────────────────────────┘
-                       │              │
-                       ▼              ▼
-              ┌──────────────┐  ┌──────────┐
-              │ ACKNOWLEDGED │  │ ASSIGNED │
-              └──────┬───────┘  └────┬─────┘
-                     │               │
-                     └───────┬───────┘
+                   ┌──────────────────────────────────────────────┐
+                   │                    NEW                       │
+                   └────┬──────────────┬──────────────────────────┘
+                        │              │
+                        ▼              ▼
+               ┌──────────────┐  ┌──────────┐
+               │ ACKNOWLEDGED │  │ ASSIGNED │
+               └──────┬───────┘  └────┬─────┘
+                      │               │
+                      └───────┬───────┘
+                              ▼
+                      ┌──────────────┐
+                      │  IN_PROGRESS │
+                      └──────┬───────┘
+                             │
                              ▼
-                     ┌──────────────┐
-                     │  IN_PROGRESS │
-                     └──────┬───────┘
-                            │
-                            ▼
-                     ┌──────────────┐
-                     │   RESOLVED   │◄──── Resolution note required
-                     └──────┬───────┘
-                           / \
-                          /   \
-                         ▼     ▼
-                  ┌────────┐  ┌──────────┐
-                  │VERIFIED│  │ REOPENED │◄──── Comment required
-                  └───┬────┘  └────┬─────┘
-                      │            │
-                      ▼            │
-                ┌────────┐         │
-                │ CLOSED │         └──────────► IN_PROGRESS
-                └────────┘            (re-entry)
+                      ┌──────────────┐
+                      │   RESOLVED   │◄──── Resolution note required
+                      └──────┬───────┘
+                            / \
+                           /   \
+                          ▼     ▼
+                   ┌────────┐  ┌──────────┐
+                   │VERIFIED│  │ REOPENED │◄──── Comment required
+                   └───┬────┘  └────┬─────┘
+                       │            │
+                       ▼            │
+                 ┌────────┐         │
+                 │ CLOSED │         └──────────► IN_PROGRESS
+                 └───┬────┘            (re-entry)
+                     │
+                     └──────► REOPENED
+                  (raiser's org
+                   admin only)
 ```
+
+**Transition Rules:**
+- **CLOSED → REOPENED** — Only an `ORG_ADMIN` in the issue creator's organization or a `SUPER_ADMIN` can reopen a closed issue.
+- **Verify / Close** — Only the issue creator (raised-by user) or an `ORG_ADMIN` in the creator's organization can transition to `VERIFIED` or `CLOSED`. The resolver (assigned user/org) cannot.
+- **Reopened assignment** — When assigned, a `REOPENED` issue auto-transitions to `ASSIGNED`.
+- **Resolution note** required for `RESOLVED`. **Comment** required for `REOPENED`.
 
 **Issue Types:** `BUG` | `NEW_REQUIREMENT` | `CHANGE_REQUEST` | `QUERY`  
 **Priority Levels:** `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`
@@ -146,9 +159,18 @@ Issues traverse a defined state machine with enforced transition rules:
 #### Issue Management
 - Create issues with title, description, type, priority, deadline, and module classification
 - List and filter issues by status, priority, type, module, overdue status, and assigned organization
+- **Concern tab** — personalized issue view showing issues relevant to the user (raised by them, assigned to them, or related to their org)
+  - Sub-filters: All, Raised, Assign (org admin sees org-wide; user sees own only)
 - Paginated issue listing with configurable page size
-- Assign/reassign issues to users or organizations
+- Assign/reassign issues to users or organizations with cross-org routing rules:
+  - USER can assign to users in other organizations only (cross-org)
+  - ORG_ADMIN can assign within their own org only
+  - Assigned USER can reroute to their own org admin only
+  - Issue in org queue must stay within that org during active lifecycle
+  - Reopened issues can be redistributed to outside orgs by raiser's org admin
 - Full state machine enforcement with role-based transition authorization
+  - CLOSED → REOPENED restricted to raiser's org admin or SUPER_ADMIN
+  - VERIFY/CLOSE restricted to issue creator or creator's org admin
 - Resolution notes (required for RESOLVED) and re-open comments (required for REOPENED)
 
 #### Comments & Collaboration
@@ -342,7 +364,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 |--------|------|--------|-------------|
 | POST | `/api/users` | Admin | Create user |
 | GET | `/api/users` | Authenticated | List users (scoped) |
-| GET | `/api/users/assignable` | Authenticated | Active users for assignment |
+| GET | `/api/users/assignable` | Authenticated | Active users for assignment (optional `?issueId=` for assignee context) |
 | PATCH | `/api/users/:id` | Admin | Update user |
 
 #### Organizations
@@ -354,9 +376,9 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
 | POST | `/api/issues` | Authenticated | Create issue |
-| GET | `/api/issues` | Authenticated | List/filter issues |
+| GET | `/api/issues` | Authenticated | List/filter issues (`concern`, `concernFilter` params) |
 | GET | `/api/issues/:id` | Authenticated | Issue details |
-| PATCH | `/api/issues/:id/assign` | Admin | Assign/reassign |
+| PATCH | `/api/issues/:id/assign` | Authorized | Assign/reassign (role-based rules) |
 | PATCH | `/api/issues/:id/status` | Authorized | Update status (state machine) |
 | POST | `/api/issues/:id/attachments` | Authenticated | Upload files (max 5) |
 | POST | `/api/issues/:id/comments` | Authenticated | Add comment |
@@ -455,6 +477,7 @@ frontend/src/
 └── pages/                       # Route-level page components
     ├── Login.tsx                # Authentication form with validation
     ├── Dashboard.tsx            # Summary cards + breakdowns (status, priority)
+    ├── Concern.tsx              # Personalized issue list (raised/assigned/org-related)
     ├── Issues.tsx               # Filterable, paginated issue list
     ├── IssueDetail.tsx          # Full detail: metadata, status transitions, comments, activity
     ├── CreateIssue.tsx          # Issue creation form with file upload
@@ -473,7 +496,7 @@ frontend/src/
 
 **UI/UX Features:**
 
-- Responsive sidebar layout with role-based navigation
+- Responsive sidebar layout with role-based navigation (Dashboard, Concern, Issues, Notifications, Users for admins)
 - Color-coded status and priority badges for quick visual scanning
 - Filterable and paginated issue list with search
 - Drag-and-drop file upload with progress indication
