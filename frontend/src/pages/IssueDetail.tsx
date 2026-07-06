@@ -528,7 +528,17 @@ export default function IssueDetail() {
             >
               <option value="">Select org...</option>
               {(orgs || [])
-                .filter((o: UserOrg) => currentUser?.role !== 'USER' || o.id !== currentUser?.organization?.id)
+                .filter((o: UserOrg) => {
+                  if (currentUser?.role === 'USER') return o.id !== currentUser?.organization?.id;
+                  if (currentUser?.role === 'ORG_ADMIN' && issue) {
+                    const isRaiser = issue.raisedByOrg.id === currentUser.organization.id;
+                    const assignedOrgId = issue.assignedToOrgId;
+                    const isAssignedToActorOrg = assignedOrgId === currentUser.organization.id;
+                    if (isRaiser && !isAssignedToActorOrg) return o.id !== currentUser.organization.id;
+                    if (isAssignedToActorOrg) return o.id === currentUser.organization.id;
+                  }
+                  return true;
+                })
                 .map((o: UserOrg) => (
                 <option key={o.id} value={o.id}>
                   {o.name}

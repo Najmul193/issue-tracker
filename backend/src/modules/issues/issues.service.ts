@@ -226,7 +226,7 @@ export class IssuesService {
       where: { id },
       data: {
         assignedToUserId: dto.targetUserId ?? null,
-        assignedToOrgId: dto.targetOrgId ?? null,
+        assignedToOrgId: dto.targetOrgId ?? newTargetUser?.organizationId ?? null,
         assignedById: actor.userId,
         status: (issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED' || issue.status === 'REOPENED') ? 'ASSIGNED' : issue.status,
         closedAt: null,
