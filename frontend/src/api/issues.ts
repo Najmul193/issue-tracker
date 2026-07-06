@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete, getAuthToken } from './client';
+import { apiGet, apiPost, apiPatch, apiDelete, getAuthToken, getBaseUrl } from './client';
 
 export type IssueStatus =
   | 'NEW'
@@ -174,7 +174,7 @@ export async function uploadAttachments(
     xhr.addEventListener('error', () => reject(new Error('Upload failed')));
     xhr.open(
       'POST',
-      `${import.meta.env.VITE_API_BASE_URL || '/api'}/issues/${issueId}/attachments`,
+      `${getBaseUrl()}/issues/${issueId}/attachments`,
     );
     const token = getAuthToken();
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -214,7 +214,7 @@ export async function addComment(
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL || '/api'}/issues/${issueId}/comments`,
+    `${getBaseUrl()}/issues/${issueId}/comments`,
     {
       method: 'POST',
       credentials: 'include',

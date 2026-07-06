@@ -4,10 +4,15 @@ declare global {
   }
 }
 
-const BASE_URL =
-  window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  '/api';
+export function getBaseUrl(): string {
+  return (
+    window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    '/api'
+  );
+}
+
+const BASE_URL = getBaseUrl();
 
 const TOKEN_KEY = 'auth_token';
 
