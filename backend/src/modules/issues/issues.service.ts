@@ -83,12 +83,19 @@ export class IssuesService {
     }
 
     if (query.concern === 'true') {
+      const isOrgLevel = actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN';
+
       if (query.concernFilter === 'raised') {
-        andClauses.push({ raisedById: actor.userId });
+        const raisedOr: Prisma.IssueWhereInput[] = [{ raisedById: actor.userId }];
+        if (isOrgLevel) {
+          raisedOr.push({ raisedBy: { organizationId: actor.organizationId } });
+        }
+        andClauses.push({ OR: raisedOr });
       } else if (query.concernFilter === 'assigned') {
         const assignedOr: Prisma.IssueWhereInput[] = [{ assignedToUserId: actor.userId }];
-        if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
+        if (isOrgLevel) {
           assignedOr.push({ assignedToOrgId: actor.organizationId });
+          assignedOr.push({ assignedToUser: { organizationId: actor.organizationId } });
         }
         andClauses.push({ OR: assignedOr });
       } else {
@@ -96,8 +103,10 @@ export class IssuesService {
           { assignedToUserId: actor.userId },
           { raisedById: actor.userId },
         ];
-        if (actor.role === 'ORG_ADMIN' || actor.role === 'SUPER_ADMIN') {
+        if (isOrgLevel) {
           concernOr.push({ assignedToOrgId: actor.organizationId });
+          concernOr.push({ raisedBy: { organizationId: actor.organizationId } });
+          concernOr.push({ assignedToUser: { organizationId: actor.organizationId } });
         }
         andClauses.push({ OR: concernOr });
       }
