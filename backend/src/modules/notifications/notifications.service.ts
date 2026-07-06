@@ -339,6 +339,13 @@ export class NotificationsService {
       prioritySummary[row.priority] = row._count.id;
     }
 
-    return { byStatus: statusSummary, byPriority: prioritySummary };
+    const overdue = await this.prisma.issue.count({
+      where: {
+        deadline: { lt: new Date() },
+        status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+      },
+    });
+
+    return { byStatus: statusSummary, byPriority: prioritySummary, overdue };
   }
 }

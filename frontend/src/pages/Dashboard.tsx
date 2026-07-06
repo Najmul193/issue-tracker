@@ -52,7 +52,7 @@ export default function Dashboard() {
     );
   }
 
-  const { byStatus, byPriority } = data;
+  const { byStatus, byPriority, overdue } = data;
 
   const totalOpen =
     (byStatus.NEW || 0) +
@@ -62,12 +62,6 @@ export default function Dashboard() {
     (byStatus.REOPENED || 0);
 
   const totalCritical = byPriority.CRITICAL || 0;
-
-  const isNonTerminal = (s: string) =>
-    !['RESOLVED', 'VERIFIED', 'CLOSED'].includes(s);
-  const overdueEstimate = Object.entries(byStatus)
-    .filter(([s]) => isNonTerminal(s))
-    .reduce((sum, [, c]) => sum + c, 0);
 
   const statusEntries = Object.entries(byStatus).sort(([a], [b]) =>
     a.localeCompare(b),
@@ -101,7 +95,7 @@ export default function Dashboard() {
         >
           <p className="text-sm font-medium text-gray-500">Overdue</p>
           <p className="mt-1 text-3xl font-bold text-red-600">
-            {overdueEstimate}
+            {overdue}
           </p>
         </Link>
         <Link
