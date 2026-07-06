@@ -86,11 +86,11 @@ export class UsersService {
     });
   }
 
-  async findAssignable(actor: JwtPayload) {
+  async findAssignable(actor: JwtPayload, issueId?: string) {
     if (actor.role === 'SUPER_ADMIN') {
       return this.prisma.user.findMany({
         where: { status: 'ACTIVE' },
-        select: { id: true, name: true, email: true, organizationId: true },
+        select: { id: true, name: true, email: true, organizationId: true, role: true },
         orderBy: { name: 'asc' },
       });
     }
@@ -98,15 +98,30 @@ export class UsersService {
     if (actor.role === 'ORG_ADMIN') {
       return this.prisma.user.findMany({
         where: { organizationId: actor.organizationId, status: 'ACTIVE' },
-        select: { id: true, name: true, email: true, organizationId: true },
+        select: { id: true, name: true, email: true, organizationId: true, role: true },
         orderBy: { name: 'asc' },
       });
+    }
+
+    // If actor is the current assignee, only admins in their own org
+    if (issueId) {
+      const issue = await this.prisma.issue.findUnique({
+        where: { id: issueId },
+        select: { assignedToUserId: true },
+      });
+      if (issue && issue.assignedToUserId === actor.userId) {
+        return this.prisma.user.findMany({
+          where: { organizationId: actor.organizationId, role: 'ORG_ADMIN', status: 'ACTIVE' },
+          select: { id: true, name: true, email: true, organizationId: true, role: true },
+          orderBy: { name: 'asc' },
+        });
+      }
     }
 
     // USER: only users from other orgs (can't assign to own org members)
     return this.prisma.user.findMany({
       where: { organizationId: { not: actor.organizationId }, status: 'ACTIVE' },
-      select: { id: true, name: true, email: true, organizationId: true },
+      select: { id: true, name: true, email: true, organizationId: true, role: true },
       orderBy: { name: 'asc' },
     });
   }

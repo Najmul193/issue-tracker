@@ -143,10 +143,17 @@ export class IssuesService {
     const issue = await this.findOne(id, actor);
 
     const newTargetUser = dto.targetUserId
-      ? await this.prisma.user.findUnique({ where: { id: dto.targetUserId }, select: { id: true, name: true, organizationId: true } })
+      ? await this.prisma.user.findUnique({ where: { id: dto.targetUserId }, select: { id: true, name: true, organizationId: true, role: true } })
       : null;
 
-    this.authService.canAssign(actor, dto.targetUserId ?? null, dto.targetOrgId ?? null, newTargetUser?.organizationId);
+    this.authService.canAssign(
+      actor,
+      dto.targetUserId ?? null,
+      dto.targetOrgId ?? null,
+      newTargetUser?.organizationId,
+      newTargetUser?.role,
+      issue.assignedToUserId === actor.userId,
+    );
 
     const oldTargetUser = issue.assignedToUserId
       ? await this.prisma.user.findUnique({ where: { id: issue.assignedToUserId }, select: { id: true, name: true } })

@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -29,8 +30,11 @@ export class UsersController {
   }
 
   @Get('assignable')
-  findAssignable(@CurrentUser() actor: JwtPayload) {
-    return this.usersService.findAssignable(actor);
+  findAssignable(
+    @CurrentUser() actor: JwtPayload,
+    @Query('issueId') issueId?: string,
+  ) {
+    return this.usersService.findAssignable(actor, issueId);
   }
 
   @Patch(':id')

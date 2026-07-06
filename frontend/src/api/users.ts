@@ -41,10 +41,12 @@ export interface AssignableUser {
   name: string;
   email: string;
   organizationId: string;
+  role: string;
 }
 
-export async function fetchAssignableUsers(): Promise<AssignableUser[]> {
-  return apiGet<AssignableUser[]>('/users/assignable');
+export async function fetchAssignableUsers(issueId?: string): Promise<AssignableUser[]> {
+  const params = issueId ? `?issueId=${encodeURIComponent(issueId)}` : '';
+  return apiGet<AssignableUser[]>(`/users/assignable${params}`);
 }
 
 export async function fetchOrganizations(): Promise<UserOrg[]> {

@@ -39,6 +39,8 @@ export class AuthService {
     targetUserId: string | null,
     targetOrgId: string | null,
     targetUserOrgId?: string,
+    targetUserRole?: string,
+    isCurrentAssignee?: boolean,
   ): void {
     if (actor.role === 'SUPER_ADMIN') return;
 
@@ -50,6 +52,20 @@ export class AuthService {
     }
 
     if (actor.role === 'USER') {
+      // Assignee can only reroute to an admin in their own org
+      if (isCurrentAssignee) {
+        if (!targetUserId) {
+          throw new ForbiddenException('As the assignee, you can only reassign to an admin in your organization');
+        }
+        if (targetUserOrgId !== actor.organizationId) {
+          throw new ForbiddenException('As the assignee, you can only reassign to an admin in your own organization');
+        }
+        if (targetUserRole !== 'ORG_ADMIN') {
+          throw new ForbiddenException('As the assignee, you can only reassign to an admin');
+        }
+        return;
+      }
+
       if (targetUserId) {
         if (!targetUserOrgId) {
           throw new ForbiddenException('Cannot assign to unknown user');

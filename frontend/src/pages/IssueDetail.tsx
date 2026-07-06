@@ -92,9 +92,12 @@ export default function IssueDetail() {
     enabled: !!id,
   });
 
+  const isCurrentAssignee = !!(issue && currentUser && issue.assignedToUserId === currentUser.id);
+
   const { data: users } = useQuery({
-    queryKey: ['assignable-users'],
-    queryFn: fetchAssignableUsers,
+    queryKey: ['assignable-users', id],
+    queryFn: () => fetchAssignableUsers(id),
+    enabled: !!id,
   });
 
   const { data: orgs } = useQuery({
@@ -475,15 +478,17 @@ export default function IssueDetail() {
             />
             To user
           </label>
-          <label className="flex items-center gap-1.5 text-sm">
-            <input
-              type="radio"
-              name="assignTarget"
-              checked={assignTarget === 'org'}
-              onChange={() => setAssignTarget('org')}
-            />
-            Route to org
-          </label>
+          {(!isCurrentAssignee || currentUser?.role !== 'USER') && (
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="assignTarget"
+                checked={assignTarget === 'org'}
+                onChange={() => setAssignTarget('org')}
+              />
+              Route to org
+            </label>
+          )}
 
           {assignTarget === 'user' && (
             <select
