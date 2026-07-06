@@ -15,6 +15,7 @@ import {
   ParseFilePipe,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { IssuesService } from './issues.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { AssignIssueDto } from './dto/assign-issue.dto';
@@ -67,7 +68,9 @@ export class IssuesController {
 
   @Post(':id/attachments')
   @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'files', maxCount: 5 }]),
+    FileFieldsInterceptor([{ name: 'files', maxCount: 5 }], {
+      storage: memoryStorage(),
+    }),
   )
   @HttpCode(HttpStatus.CREATED)
   async uploadAttachments(
@@ -85,7 +88,9 @@ export class IssuesController {
 
   @Post(':id/comments')
   @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'attachments', maxCount: 5 }]),
+    FileFieldsInterceptor([{ name: 'attachments', maxCount: 5 }], {
+      storage: memoryStorage(),
+    }),
   )
   @HttpCode(HttpStatus.CREATED)
   async addComment(

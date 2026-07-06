@@ -22,6 +22,6 @@ const MAX_UPLOAD_SIZE_MB =
   ],
   providers: [AttachmentsService],
   controllers: [AttachmentsController],
-  exports: [AttachmentsService],
+  exports: [AttachmentsService, MulterModule],
 })
 export class AttachmentsModule {}

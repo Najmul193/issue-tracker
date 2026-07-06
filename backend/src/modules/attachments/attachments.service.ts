@@ -53,17 +53,28 @@ export class AttachmentsService {
     private readonly authService: AuthService,
   ) {}
 
-  private async fileTypeFromBuffer(buffer: Buffer): Promise<string | undefined> {
-    try {
-      const { fileTypeFromBuffer: detect } = await import(
-        'file-type'
-      );
-      const result = await detect(buffer);
-      return result?.mime;
-    } catch (err) {
-      console.error('file-type detection error:', err);
-      return undefined;
+  private detectMimeFromBuffer(buffer: Buffer): string | undefined {
+    if (!buffer || buffer.length < 4) return undefined;
+    const header = buffer.subarray(0, 8).toString('hex').toLowerCase();
+
+    // PDF: %PDF
+    if (header.startsWith('25504446')) return 'application/pdf';
+    // PNG: ‰PNG
+    if (header.startsWith('89504e47')) return 'image/png';
+    // JPEG: starts with FFD8FF
+    if (header.startsWith('ffd8ff')) return 'image/jpeg';
+    // ZIP (for OOXML: .docx, .xlsx)
+    if (header.startsWith('504b0304')) return 'application/zip';
+    // CFB (for legacy .doc, .xls)
+    if (header.startsWith('d0cf11e0')) return 'application/x-cfb';
+
+    // CSV: often starts with plain text, check first bytes
+    if (buffer.length >= 4) {
+      const first = buffer.subarray(0, 4).toString('utf8');
+      if (/^[a-zA-Z0-9",\-]/.test(first)) return 'text/csv';
     }
+
+    return undefined;
   }
 
   private validateFiles(files: Express.Multer.File[]): void {
@@ -93,7 +104,7 @@ export class AttachmentsService {
 
     for (const file of files) {
       const declared = file.mimetype;
-      const detected = await this.fileTypeFromBuffer(file.buffer);
+      const detected = this.detectMimeFromBuffer(file.buffer);
 
       if (!mimeMatch(declared, detected)) {
         const detectedStr =
