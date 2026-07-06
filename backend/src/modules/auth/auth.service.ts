@@ -42,17 +42,37 @@ export class AuthService {
     targetUserRole?: string,
     isCurrentAssignee?: boolean,
     currentAssignedOrgId?: string | null,
+    raisedByOrgId?: string | null,
   ): void {
     if (actor.role === 'SUPER_ADMIN') return;
 
     if (actor.role === 'ORG_ADMIN') {
-      // If issue is assigned outside the actor's org, actor can route outside
-      if (currentAssignedOrgId && currentAssignedOrgId !== actor.organizationId) {
+      const isRaiser = raisedByOrgId === actor.organizationId;
+      const isAssignedToActorOrg = currentAssignedOrgId === actor.organizationId;
+
+      // Raiser's org admin, issue currently outside their org → can route outside only
+      if (isRaiser && !isAssignedToActorOrg) {
         if (targetUserId && targetUserOrgId && targetUserOrgId === actor.organizationId) {
-          throw new ForbiddenException('This issue is assigned outside your organization; you can only route to other organizations');
+          throw new ForbiddenException('This issue was raised by your organization but is assigned elsewhere; you can only route to other organizations');
+        }
+        if (targetOrgId && targetOrgId === actor.organizationId) {
+          throw new ForbiddenException('This issue was raised by your organization but is assigned elsewhere; you can only route to other organizations');
         }
         return;
       }
+
+      // Issue is in actor's org → internal routing only
+      if (isAssignedToActorOrg) {
+        if (targetUserId && targetUserOrgId && targetUserOrgId !== actor.organizationId) {
+          throw new ForbiddenException('This issue is in your organization queue; you can only assign within your organization');
+        }
+        if (targetOrgId && targetOrgId !== actor.organizationId) {
+          throw new ForbiddenException('This issue is in your organization queue; you can only route within your organization');
+        }
+        return;
+      }
+
+      // Fallback: internal only
       if (targetUserId && targetUserOrgId && targetUserOrgId !== actor.organizationId) {
         throw new ForbiddenException('ORG_ADMIN can only assign users within their own organization');
       }

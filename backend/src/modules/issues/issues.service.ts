@@ -208,17 +208,8 @@ export class IssuesService {
         newTargetUser?.role,
         issue.assignedToUserId === actor.userId,
         currentAssignedOrgId,
+        issue.raisedByOrgId,
       );
-
-      // If issue is routed to an org queue, reassignment must stay within that org
-      if (issue.assignedToOrgId) {
-        if (dto.targetUserId && newTargetUser && newTargetUser.organizationId !== issue.assignedToOrgId) {
-          throw new ForbiddenException('This issue is in an organization queue and can only be reassigned within that organization');
-        }
-        if (dto.targetOrgId && dto.targetOrgId !== issue.assignedToOrgId) {
-          throw new ForbiddenException('This issue is in an organization queue and can only be reassigned within that organization');
-        }
-      }
     }
 
     const oldTargetUser = issue.assignedToUserId

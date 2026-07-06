@@ -96,21 +96,40 @@ export class UsersService {
     }
 
     if (actor.role === 'ORG_ADMIN') {
-      // If issue is assigned outside the actor's org, show users from other orgs (route outside)
       if (issueId) {
         const issue = await this.prisma.issue.findUnique({
           where: { id: issueId },
-          select: { assignedToOrgId: true },
+          select: {
+            raisedByOrgId: true,
+            assignedToOrgId: true,
+            assignedToUser: { select: { organizationId: true } },
+          },
         });
-        if (issue?.assignedToOrgId && issue.assignedToOrgId !== actor.organizationId) {
-          return this.prisma.user.findMany({
-            where: { organizationId: { not: actor.organizationId }, status: 'ACTIVE' },
-            select: { id: true, name: true, email: true, organizationId: true, role: true },
-            orderBy: { name: 'asc' },
-          });
+        if (issue) {
+          const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+          const isRaiser = issue.raisedByOrgId === actor.organizationId;
+          const isAssignedToActorOrg = currentAssignedOrgId === actor.organizationId;
+
+          // Raiser's org admin, issue outside their org → show other-org users
+          if (isRaiser && !isAssignedToActorOrg) {
+            return this.prisma.user.findMany({
+              where: { organizationId: { not: actor.organizationId }, status: 'ACTIVE' },
+              select: { id: true, name: true, email: true, organizationId: true, role: true },
+              orderBy: { name: 'asc' },
+            });
+          }
+
+          // Issue is in actor's org → show internal users
+          if (isAssignedToActorOrg) {
+            return this.prisma.user.findMany({
+              where: { organizationId: actor.organizationId, status: 'ACTIVE' },
+              select: { id: true, name: true, email: true, organizationId: true, role: true },
+              orderBy: { name: 'asc' },
+            });
+          }
         }
       }
-      // Otherwise show only internal users
+      // Fallback: internal only
       return this.prisma.user.findMany({
         where: { organizationId: actor.organizationId, status: 'ACTIVE' },
         select: { id: true, name: true, email: true, organizationId: true, role: true },
