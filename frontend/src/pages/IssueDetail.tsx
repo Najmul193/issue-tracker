@@ -513,7 +513,9 @@ export default function IssueDetail() {
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="">Select org...</option>
-              {(orgs || []).map((o: UserOrg) => (
+              {(orgs || [])
+                .filter((o: UserOrg) => currentUser?.role !== 'USER' || o.id !== currentUser?.organization?.id)
+                .map((o: UserOrg) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
                 </option>

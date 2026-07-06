@@ -75,7 +75,12 @@ export class AuthService {
         }
         return;
       }
-      if (targetOrgId) return;
+      if (targetOrgId) {
+        if (targetOrgId === actor.organizationId) {
+          throw new ForbiddenException('You cannot route to your own organization');
+        }
+        return;
+      }
       throw new ForbiddenException('Invalid assignment request');
     }
 
