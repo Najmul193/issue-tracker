@@ -131,10 +131,10 @@ model Issue {
   resolvedBy        User?      @relation("ResolvedIssues", fields: [resolvedById], references: [id])
   resolvedAt        DateTime?  @map("resolved_at")
 
-  comments      Comment[]       @relation(onDelete: Cascade)
-  attachments   Attachment[]    @relation(onDelete: Cascade)
-  activityLogs  ActivityLog[]   @relation(onDelete: Cascade)
-  notifications Notification[] @relation(onDelete: Cascade)
+  comments      Comment[]
+  attachments   Attachment[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
   assignees     IssueAssignee[]
 
   @@index([status])
@@ -162,13 +162,13 @@ model IssueAssignee {
 model Comment {
   id        String   @id @default(uuid())
   issueId   String   @map("issue_id")
-  issue     Issue    @relation(fields: [issueId], references: [id])
+  issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id])
   text      String
   createdAt DateTime @default(now())
 
-  attachments Attachment[] @relation(onDelete: Cascade)
+  attachments Attachment[]
 
   @@map("comments")
 }
@@ -176,9 +176,9 @@ model Comment {
 model Attachment {
   id           String   @id @default(uuid())
   issueId      String?  @map("issue_id")
-  issue        Issue?   @relation(fields: [issueId], references: [id])
+  issue        Issue?   @relation(fields: [issueId], references: [id], onDelete: Cascade)
   commentId    String?  @map("comment_id")
-  comment      Comment? @relation(fields: [commentId], references: [id])
+  comment      Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   uploadedById String   @map("uploaded_by_id")
   uploadedBy   User     @relation(fields: [uploadedById], references: [id])
   fileName     String   @map("file_name")
@@ -193,7 +193,7 @@ model Attachment {
 model ActivityLog {
   id        String   @id @default(uuid())
   issueId   String   @map("issue_id")
-  issue     Issue    @relation(fields: [issueId], references: [id])
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id])
   action    String
@@ -209,7 +209,7 @@ model Notification {
   userId    String           @map("user_id")
   user      User             @relation(fields: [userId], references: [id])
   issueId   String           @map("issue_id")
-  issue     Issue            @relation(fields: [issueId], references: [id])
+  issue     Issue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
   message   String
   type      NotificationType
   isRead    Boolean          @default(false) @map("is_read")
