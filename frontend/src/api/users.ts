@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiPatch } from './client';
 export interface UserOrg {
   id: string;
   name: string;
+  type: string;
 }
 
 export interface UserListItem {

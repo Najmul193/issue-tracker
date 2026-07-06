@@ -7,7 +7,7 @@ export class OrganizationsService {
 
   async findAll() {
     return this.prisma.organization.findMany({
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true },
       orderBy: { name: 'asc' },
     });
   }
