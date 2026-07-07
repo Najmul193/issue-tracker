@@ -254,8 +254,8 @@ export default function IssueDetail() {
   const canChangeStatus = (() => {
     if (!currentUser || !issue) return false;
     if (currentUser.role === 'SUPER_ADMIN') return true;
-    if (currentUser.organizationId === issue.raisedByOrg.id) return true;
-    if (issue.assignedToOrgId && currentUser.organizationId === issue.assignedToOrgId) return true;
+    const effectiveAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
+    if (currentUser.role === 'ORG_ADMIN' && effectiveAssignedOrgId === currentUser.organizationId) return true;
     if (issue.assignedToUserId && currentUser.id === issue.assignedToUserId) return true;
     return false;
   })();
