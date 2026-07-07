@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchUsers, fetchOrganizations, createUser, updateUser, deleteUser, deleteOrganization } from '../api/users';
-import type { UserListItem, CreateUserData, UpdateUserData, UserOrg } from '../api/users';
+import {
+  fetchUsers, fetchOrganizations, createUser, updateUser, deleteUser, deleteOrganization,
+  fetchDeletedUsers, fetchDeletedOrganizations, permanentDeleteUser, permanentDeleteOrganization,
+} from '../api/users';
+import type { UserListItem, CreateUserData, UpdateUserData, UserOrg, DeletedUser, DeletedOrg } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
@@ -47,8 +50,18 @@ export default function Users() {
   const [deletingOrg, setDeletingOrg] = useState<UserOrg | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Silent delete section
+  const [silentTab, setSilentTab] = useState<'users' | 'orgs'>('users');
+  const [permanentDeletingUser, setPermanentDeletingUser] = useState<DeletedUser | null>(null);
+  const [permanentDeletingOrg, setPermanentDeletingOrg] = useState<DeletedOrg | null>(null);
+  const [permDeleteError, setPermDeleteError] = useState<string | null>(null);
+
   // Org filter for SUPER_ADMIN
   const [orgFilter, setOrgFilter] = useState('');
+
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isOrgAdmin = currentUser?.role === 'ORG_ADMIN';
+  const isAdmin = isSuperAdmin || isOrgAdmin;
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users-list'],
@@ -58,6 +71,18 @@ export default function Users() {
   const { data: orgs } = useQuery({
     queryKey: ['orgs-list'],
     queryFn: fetchOrganizations,
+  });
+
+  const { data: deletedUsers } = useQuery({
+    queryKey: ['deleted-users'],
+    queryFn: fetchDeletedUsers,
+    enabled: isSuperAdmin,
+  });
+
+  const { data: deletedOrgs } = useQuery({
+    queryKey: ['deleted-orgs'],
+    queryFn: fetchDeletedOrganizations,
+    enabled: isSuperAdmin,
   });
 
   const createMutation = useMutation({
@@ -106,6 +131,35 @@ export default function Users() {
     },
     onError: (err) => {
       setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete organization');
+    },
+  });
+
+  const permanentDeleteUserMutation = useMutation({
+    mutationFn: (id: string) => permanentDeleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deleted-users'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-orgs'] });
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      setPermanentDeletingUser(null);
+      setPermDeleteError(null);
+    },
+    onError: (err) => {
+      setPermDeleteError(err instanceof ApiError ? err.message : 'Failed to permanently delete user');
+    },
+  });
+
+  const permanentDeleteOrgMutation = useMutation({
+    mutationFn: (id: string) => permanentDeleteOrganization(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deleted-users'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-orgs'] });
+      queryClient.invalidateQueries({ queryKey: ['orgs-list'] });
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      setPermanentDeletingOrg(null);
+      setPermDeleteError(null);
+    },
+    onError: (err) => {
+      setPermDeleteError(err instanceof ApiError ? err.message : 'Failed to permanently delete organization');
     },
   });
 
@@ -204,10 +258,6 @@ export default function Users() {
       },
     });
   }
-
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-  const isOrgAdmin = currentUser?.role === 'ORG_ADMIN';
-  const isAdmin = isSuperAdmin || isOrgAdmin;
 
   // Route guard: USER role sees "not authorized"
   if (!isAdmin) {
@@ -678,6 +728,186 @@ export default function Users() {
                 className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteOrgMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Silent Delete Section */}
+      {isSuperAdmin && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Silent Delete
+          </h3>
+          <div className="mb-3 flex gap-2">
+            <button
+              onClick={() => setSilentTab('users')}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                silentTab === 'users'
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Deleted Users ({deletedUsers?.length || 0})
+            </button>
+            <button
+              onClick={() => setSilentTab('orgs')}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                silentTab === 'orgs'
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Deleted Orgs ({deletedOrgs?.length || 0})
+            </button>
+          </div>
+
+          {silentTab === 'users' && (
+            <div className="overflow-x-auto rounded-md border border-gray-100">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Org</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Role</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Deleted</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {(!deletedUsers || deletedUsers.length === 0) ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-xs text-gray-400">
+                        No softly deleted users.
+                      </td>
+                    </tr>
+                  ) : (
+                    deletedUsers.map((u) => (
+                      <tr key={u.id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900">{u.name}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{u.organization?.name || '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">{u.role.replace('_', ' ')}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-400">{u.createdAt ? formatDate(u.createdAt) : '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">
+                          <button
+                            onClick={() => { setPermanentDeletingUser(u); setPermDeleteError(null); }}
+                            className="text-xs font-medium text-red-600 hover:text-red-700"
+                          >
+                            Permanently Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {silentTab === 'orgs' && (
+            <div className="overflow-x-auto rounded-md border border-gray-100">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Users</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {(!deletedOrgs || deletedOrgs.length === 0) ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-6 text-center text-xs text-gray-400">
+                        No softly deleted organizations.
+                      </td>
+                    </tr>
+                  ) : (
+                    deletedOrgs.map((o) => (
+                      <tr key={o.id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900">{o.name}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{o.type}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{o._count?.users ?? 0}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">
+                          <button
+                            onClick={() => { setPermanentDeletingOrg(o); setPermDeleteError(null); }}
+                            className="text-xs font-medium text-red-600 hover:text-red-700"
+                          >
+                            Permanently Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Permanent Delete User Confirmation */}
+      {permanentDeletingUser && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">Permanently Delete User</h3>
+            {permDeleteError && (
+              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {permDeleteError}
+              </div>
+            )}
+            <p className="text-sm text-gray-600">
+              Are you sure you want to permanently delete <strong>{permanentDeletingUser.name}</strong>?
+              This will <strong>also delete all issues</strong> raised by this user. This action cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setPermanentDeletingUser(null)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => permanentDeleteUserMutation.mutate(permanentDeletingUser.id)}
+                disabled={permanentDeleteUserMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {permanentDeleteUserMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent Delete Org Confirmation */}
+      {permanentDeletingOrg && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">Permanently Delete Organization</h3>
+            {permDeleteError && (
+              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {permDeleteError}
+              </div>
+            )}
+            <p className="text-sm text-gray-600">
+              Are you sure you want to permanently delete <strong>{permanentDeletingOrg.name}</strong>?
+              This will <strong>also delete all users and all issues</strong> in this organization.
+              This action cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setPermanentDeletingOrg(null)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => permanentDeleteOrgMutation.mutate(permanentDeletingOrg.id)}
+                disabled={permanentDeleteOrgMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {permanentDeleteOrgMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
               </button>
             </div>
           </div>

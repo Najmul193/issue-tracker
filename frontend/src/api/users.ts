@@ -71,3 +71,28 @@ export async function deleteUser(id: string): Promise<{ message: string }> {
 export async function deleteOrganization(id: string): Promise<{ message: string }> {
   return apiDelete<{ message: string }>(`/organizations/${id}`);
 }
+
+export interface DeletedUser extends UserListItem {}
+
+export async function fetchDeletedUsers(): Promise<DeletedUser[]> {
+  return apiGet<DeletedUser[]>('/users/deleted');
+}
+
+export interface DeletedOrg {
+  id: string;
+  name: string;
+  type: string;
+  _count: { users: number };
+}
+
+export async function fetchDeletedOrganizations(): Promise<DeletedOrg[]> {
+  return apiGet<DeletedOrg[]>('/organizations/deleted');
+}
+
+export async function permanentDeleteUser(id: string): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>(`/users/${id}/permanent`);
+}
+
+export async function permanentDeleteOrganization(id: string): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>(`/organizations/${id}/permanent`);
+}

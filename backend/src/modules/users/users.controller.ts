@@ -30,6 +30,12 @@ export class UsersController {
     return this.usersService.findAll(actor);
   }
 
+  @Get('deleted')
+  findDeleted(@CurrentUser() actor: JwtPayload) {
+    if (actor.role !== 'SUPER_ADMIN') throw new ForbiddenException('SUPER_ADMIN only');
+    return this.usersService.findDeleted();
+  }
+
   @Get('assignable')
   findAssignable(
     @CurrentUser() actor: JwtPayload,
@@ -53,5 +59,14 @@ export class UsersController {
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.usersService.remove(id, actor);
+  }
+
+  @Delete(':id/permanent')
+  permanentRemove(
+    @Param('id') id: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    if (actor.role !== 'SUPER_ADMIN') throw new ForbiddenException('SUPER_ADMIN only');
+    return this.usersService.permanentRemove(id, actor);
   }
 }

@@ -20,6 +20,55 @@ export class OrganizationsService {
     });
   }
 
+  async findDeleted() {
+    return this.prisma.organization.findMany({
+      where: {
+        users: {
+          none: {
+            email: { not: { startsWith: 'deleted-' } },
+          },
+        },
+      },
+      select: { id: true, name: true, type: true, _count: { select: { users: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async permanentRemove(id: string, actor: JwtPayload) {
+    if (actor.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only SUPER_ADMIN can permanently delete organizations');
+    }
+
+    const org = await this.prisma.organization.findUnique({ where: { id } });
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete all issues related to this org (cascades to comments, attachments, activityLogs, notifications, issueAssignees)
+      await tx.issue.deleteMany({ where: { raisedByOrgId: id } });
+      await tx.issue.deleteMany({ where: { assignedToOrgId: id } });
+      // Delete all users in this org
+      const users = await tx.user.findMany({ where: { organizationId: id }, select: { id: true } });
+      const userIds = users.map((u) => u.id);
+      if (userIds.length > 0) {
+        await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.activityLog.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.comment.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.attachment.deleteMany({ where: { uploadedById: { in: userIds } } });
+        await tx.issueAssignee.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.issue.updateMany({ where: { assignedToUserId: { in: userIds } }, data: { assignedToUserId: null } });
+        await tx.issue.updateMany({ where: { assignedById: { in: userIds } }, data: { assignedById: null } });
+        await tx.issue.updateMany({ where: { resolvedById: { in: userIds } }, data: { resolvedById: null } });
+        await tx.user.deleteMany({ where: { id: { in: userIds } } });
+      }
+      // Hard delete the org
+      await tx.organization.delete({ where: { id } });
+    });
+
+    return { message: 'Organization permanently deleted' };
+  }
+
   async remove(id: string, actor: JwtPayload) {
     if (actor.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Only SUPER_ADMIN can delete organizations');

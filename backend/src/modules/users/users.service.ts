@@ -226,6 +226,53 @@ export class UsersService {
     return updated;
   }
 
+  async findDeleted() {
+    return this.prisma.user.findMany({
+      where: { email: { startsWith: 'deleted-' } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, name: true, email: true, role: true,
+        organizationId: true, status: true, phone: true, createdAt: true,
+        organization: { select: { id: true, name: true, type: true } },
+      },
+    });
+  }
+
+  async permanentRemove(id: string, actor: JwtPayload) {
+    if (actor.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only SUPER_ADMIN can permanently delete users');
+    }
+
+    const target = await this.findById(id);
+
+    if (target.role === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot permanently delete a SUPER_ADMIN user');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete all issues raised by this user (cascades to comments, attachments, activityLogs, notifications, issueAssignees)
+      await tx.issue.deleteMany({ where: { raisedById: id } });
+      // Delete issue assignee records for this user
+      await tx.issueAssignee.deleteMany({ where: { userId: id } });
+      // Delete user's comments that aren't on issues they raised (already deleted above)
+      await tx.comment.deleteMany({ where: { userId: id } });
+      // Delete user's direct attachments
+      await tx.attachment.deleteMany({ where: { uploadedById: id } });
+      // Delete activity logs
+      await tx.activityLog.deleteMany({ where: { userId: id } });
+      // Delete notifications
+      await tx.notification.deleteMany({ where: { userId: id } });
+      // Unset remaining issue references
+      await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
+      await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
+      await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
+      // Hard delete the user
+      await tx.user.delete({ where: { id } });
+    });
+
+    return { message: 'User permanently deleted' };
+  }
+
   async remove(id: string, actor: JwtPayload) {
     if (actor.role === 'USER') {
       throw new ForbiddenException('USER cannot delete users');
