@@ -472,8 +472,10 @@ export default function IssueDetail() {
         </div>
       )}
 
-      {/* Assign/Reassign Control — hidden when closed because assign requires reopen first */}
-      {issue.status !== 'CLOSED' && (
+      {/* Assign/Reassign Control — only for raiser or current assignee */}
+      {issue.status !== 'CLOSED' && currentUser && (
+        (issue.raisedBy.id === currentUser.id || issue.assignedToUserId === currentUser.id)
+      ) && (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
           Assign / Reassign
