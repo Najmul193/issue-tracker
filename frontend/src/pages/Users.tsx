@@ -231,6 +231,7 @@ export default function Users() {
   }
 
   function canDelete(target: UserListItem): boolean {
+    if (target.role === 'SUPER_ADMIN') return false;
     if (isSuperAdmin) return true;
     if (isOrgAdmin) {
       return target.role === 'USER' && target.organizationId === currentUser!.organizationId;
