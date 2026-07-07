@@ -172,6 +172,7 @@ Issues traverse a defined state machine with enforced transition rules:
   - CLOSED → REOPENED restricted to raiser's org admin or SUPER_ADMIN
   - VERIFY/CLOSE restricted to issue creator or creator's org admin
 - Resolution notes (required for RESOLVED) and re-open comments (required for REOPENED)
+- **Delete issue** — restricted to the issue creator, ORG_ADMIN of the creator's org, or SUPER_ADMIN
 
 #### Comments & Collaboration
 - Add comments to any issue with optional file attachments
@@ -198,7 +199,10 @@ Issues traverse a defined state machine with enforced transition rules:
 
 #### User Management
 - Create, list, and update users with role-based restriction
-- Deactivate users (no hard deletion)
+- Soft-delete users (clear email/password, set INACTIVE) preserving issue history (FK integrity)
+- Delete organizations (soft-deletes all users, keeps org record for historical issues)
+- **Silent Delete section** (SUPER_ADMIN only) showing all soft-deleted users and organizations
+- Permanent delete with cascade (removes user/org and all related issues, comments, attachments, notifications, activity logs)
 - Organization-scoped user listing
 
 #### Dashboard & Reporting
@@ -365,12 +369,18 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | POST | `/api/users` | Admin | Create user |
 | GET | `/api/users` | Authenticated | List users (scoped) |
 | GET | `/api/users/assignable` | Authenticated | Active users for assignment (optional `?issueId=` for assignee context) |
+| GET | `/api/users/deleted` | SUPER_ADMIN | List soft-deleted users |
 | PATCH | `/api/users/:id` | Admin | Update user |
+| DELETE | `/api/users/:id` | Admin | Soft-delete user |
+| DELETE | `/api/users/:id/permanent` | SUPER_ADMIN | Permanently delete user and all related issues |
 
 #### Organizations
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
-| GET | `/api/organizations` | Authenticated | List organizations |
+| GET | `/api/organizations` | Authenticated | List organizations (excludes soft-deleted) |
+| GET | `/api/organizations/deleted` | SUPER_ADMIN | List soft-deleted organizations |
+| DELETE | `/api/organizations/:id` | SUPER_ADMIN | Soft-delete organization |
+| DELETE | `/api/organizations/:id/permanent` | SUPER_ADMIN | Permanently delete organization and all related data |
 
 #### Issues
 | Method | Path | Access | Description |
@@ -380,6 +390,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | GET | `/api/issues/:id` | Authenticated | Issue details |
 | PATCH | `/api/issues/:id/assign` | Authorized | Assign/reassign (role-based rules) |
 | PATCH | `/api/issues/:id/status` | Authorized | Update status (state machine) |
+| DELETE | `/api/issues/:id` | Creator / ORG_ADMIN of raised org / SUPER_ADMIN | Delete issue permanently |
 | POST | `/api/issues/:id/attachments` | Authenticated | Upload files (max 5) |
 | POST | `/api/issues/:id/comments` | Authenticated | Add comment |
 | GET | `/api/issues/:id/activity` | Authenticated | Activity log |
@@ -518,7 +529,7 @@ frontend/src/
 | **SQL Injection** | Prisma ORM (parameterized queries) |
 | **XSS** | React's built-in sanitization |
 | **CSRF** | Cookie-based auth (sameSite: lax) |
-| **User Deactivation** | Soft delete (status: INACTIVE) preserving audit trail |
+| **User Deactivation** | Soft delete (clear email/password, status: INACTIVE) preserving audit trail and FK integrity |
 
 ---
 

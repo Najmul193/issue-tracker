@@ -14,7 +14,7 @@ There are three user roles with different permissions.
 |------|-------------|
 | **SUPER_ADMIN** | Full access — can view, create, assign, edit, delete any issue; manage all users across all organizations |
 | **ORG_ADMIN** | Can view any issue; create, assign (within own org), and delete issues within own organization; manage USER accounts in own organization |
-| **USER** | Can view any issue; create issues; assign issues to users in **other** organizations (cross-org routing); change status on issues they are involved with; add comments and attachments |
+| **USER** | Can view any issue; create issues; assign issues to users in **other** organizations (cross-org routing); change status on issues they are involved with; delete issues they created; add comments and attachments |
 
 ### Login URL
 
@@ -230,7 +230,7 @@ All roles can upload attachments to any issue.
 
 ### 2.10 Deleting an Issue
 
-Only SUPER_ADMIN and ORG_ADMIN can delete issues. ORG_ADMIN can only delete issues raised by their own organization.
+The issue creator, an ORG_ADMIN of the creator's organization, or a SUPER_ADMIN can delete an issue.
 
 1. On the Issue Detail page, click the **Delete** button in the top-right area (next to the title).
 2. A confirmation dialog appears: *"Are you sure you want to delete this issue? This action cannot be undone."*
@@ -262,6 +262,9 @@ Only SUPER_ADMIN and ORG_ADMIN can delete issues. ORG_ADMIN can only delete issu
 3. Filter by organization using the dropdown.
 4. **Create User**: Click **+ New User**, fill in the form (name, email, phone, role, organization, password).
 5. **Edit User**: Click the edit icon next to a user. Can change name, phone, and status (ACTIVE/INACTIVE).
+6. **Delete User**: Click the Delete button next to a user. The user is soft-deleted (email/password cleared, status set to INACTIVE). The record is preserved for issue history.
+7. **Delete Organization**: Below the user table, the **Organizations** section lists all organizations with a Delete button. Deleting an organization soft-deletes all its users and removes it from the active org list. The org record is preserved for historical issues.
+8. **Silent Delete Section**: Below the Organizations section, a **Silent Delete** panel shows all soft-deleted users and organizations. Each item can be **permanently deleted**, which removes it from the database along with all related issues, comments, attachments, notifications, and activity logs.
 
 #### ORG_ADMIN
 
@@ -323,12 +326,18 @@ All endpoints are under the `/api` prefix.
 | POST | /issues/:id/attachments | Upload attachments |
 | POST | /issues/:id/comments | Add comment |
 | GET | /issues/:id/activity | Get activity log |
-| DELETE | /issues/:id | Delete issue (admins only) |
+| DELETE | /issues/:id | Delete issue (creator, raiser's ORG_ADMIN, or SUPER_ADMIN) |
 | GET | /users | List users (admins only) |
 | POST | /users | Create user (admins only) |
 | GET | /users/assignable | List assignable users |
+| GET | /users/deleted | List soft-deleted users (SUPER_ADMIN only) |
 | PATCH | /users/:id | Update user (admins only) |
-| GET | /organizations | List organizations |
+| DELETE | /users/:id | Soft-delete user (admins only) |
+| DELETE | /users/:id/permanent | Permanently delete user (SUPER_ADMIN only) |
+| GET | /organizations | List active organizations |
+| GET | /organizations/deleted | List soft-deleted organizations (SUPER_ADMIN only) |
+| DELETE | /organizations/:id | Soft-delete organization (SUPER_ADMIN only) |
+| DELETE | /organizations/:id/permanent | Permanently delete organization (SUPER_ADMIN only) |
 | GET | /notifications | List notifications |
 | GET | /notifications/unread-count | Unread count |
 | PATCH | /notifications/:id/read | Mark notification read |
