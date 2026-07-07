@@ -56,9 +56,10 @@ export class AuthService {
       throw new ForbiddenException('Cannot assign to a SUPER_ADMIN user');
     }
 
-    // Cross-org assignments cannot target orgs with the same type
+    // Cross-org assignments cannot target orgs with the same type (only when target is a different org)
     const targetType = targetUserOrgType || targetOrgType;
-    if (targetType && targetType === actor.organizationType) {
+    const targetOrganizationId = targetOrgId || targetUserOrgId;
+    if (targetType && targetType === actor.organizationType && targetOrganizationId && targetOrganizationId !== actor.organizationId) {
       throw new ForbiddenException(`Cannot assign to a ${targetType.toLowerCase()} organization from another ${targetType.toLowerCase()} organization`);
     }
 
