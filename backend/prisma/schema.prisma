@@ -69,7 +69,6 @@ model Organization {
   name      String
   type      OrganizationType
   createdAt DateTime         @default(now())
-  deletedAt DateTime?
 
   users          User[]         @relation("OrgUsers")
   raisedIssues   Issue[]        @relation("RaisedOrgIssues")
