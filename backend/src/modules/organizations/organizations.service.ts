@@ -47,11 +47,9 @@ export class OrganizationsService {
         await tx.user.deleteMany({ where: { organizationId: id } });
       }
 
-      // Unset org references on issues
+      // Unset assignedToOrgId (no one left to manage the queue)
       await tx.issue.updateMany({ where: { assignedToOrgId: id }, data: { assignedToOrgId: null } });
-      await tx.issue.updateMany({ where: { raisedByOrgId: id }, data: { raisedByOrgId: null } });
-      // Delete the organization
-      await tx.organization.delete({ where: { id } });
+      // Keep the org record so issue history still shows the creator org name
     });
 
     return { message: 'Organization deleted successfully' };

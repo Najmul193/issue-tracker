@@ -255,7 +255,7 @@ export default function IssueDetail() {
     if (!currentUser || !issue) return false;
     if (currentUser.role === 'SUPER_ADMIN') return true;
     const effectiveAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
-    if (issue.raisedByOrg && currentUser.organizationId === issue.raisedByOrg.id) return true;
+    if (currentUser.organizationId === issue.raisedByOrg.id) return true;
     if (currentUser.role === 'ORG_ADMIN' && effectiveAssignedOrgId === currentUser.organizationId) return true;
     if (issue.assignedToUserId && currentUser.id === issue.assignedToUserId) return true;
     return false;
@@ -327,7 +327,7 @@ export default function IssueDetail() {
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Raised By</p>
           <p className="mt-0.5 text-sm font-medium text-gray-900">{issue.raisedBy.name}</p>
-          <p className="text-xs text-gray-500">{issue.raisedByOrg?.name ?? 'Deleted Org'}</p>
+          <p className="text-xs text-gray-500">{issue.raisedByOrg.name}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Assigned To</p>

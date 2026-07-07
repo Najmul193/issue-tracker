@@ -114,8 +114,8 @@ model Issue {
   deadline        DateTime?
   raisedById      String       @map("raised_by_id")
   raisedBy        User         @relation("RaisedIssues", fields: [raisedById], references: [id])
-  raisedByOrgId   String?      @map("raised_by_org_id")
-  raisedByOrg     Organization? @relation("RaisedOrgIssues", fields: [raisedByOrgId], references: [id])
+  raisedByOrgId   String       @map("raised_by_org_id")
+  raisedByOrg     Organization @relation("RaisedOrgIssues", fields: [raisedByOrgId], references: [id])
   assignedToUserId  String?      @map("assigned_to_user_id")
   assignedToUser    User?        @relation("AssignedUserIssues", fields: [assignedToUserId], references: [id])
   assignedToOrgId   String?      @map("assigned_to_org_id")

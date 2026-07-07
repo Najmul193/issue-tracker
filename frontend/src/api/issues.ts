@@ -42,7 +42,7 @@ export interface Issue {
   createdAt: string;
   raisedById: string;
   raisedBy: IssueUser;
-  raisedByOrg: IssueOrg | null;
+  raisedByOrg: IssueOrg;
   assignedToUserId: string | null;
   assignedToUser: IssueUser | null;
   assignedToOrgId: string | null;

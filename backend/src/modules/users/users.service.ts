@@ -264,8 +264,11 @@ export class UsersService {
       await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
       await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
       await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
-      // Delete the user
-      await tx.user.delete({ where: { id } });
+      // Keep the user record for issue history (raisedById FK), but clear sensitive data
+      await tx.user.update({
+        where: { id },
+        data: { email: `deleted-${id}@deleted.com`, passwordHash: '', phone: null, status: 'INACTIVE' },
+      });
     });
 
     return { message: 'User deleted successfully' };
