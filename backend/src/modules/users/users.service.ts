@@ -91,7 +91,7 @@ export class UsersService {
       throw new ForbiddenException('USER cannot list users');
     }
 
-    const baseWhere = { status: 'ACTIVE' as const };
+    const baseWhere = { email: { not: { startsWith: 'deleted-' } } };
     return this.prisma.user.findMany({
       where: actor.role === 'ORG_ADMIN' ? { ...baseWhere, organizationId: actor.organizationId } : baseWhere,
       orderBy: { name: 'asc' },
