@@ -8,6 +8,7 @@ export class OrganizationsService {
 
   async findAll() {
     return this.prisma.organization.findMany({
+      where: { deletedAt: null },
       select: { id: true, name: true, type: true },
       orderBy: { name: 'asc' },
     });
@@ -54,7 +55,8 @@ export class OrganizationsService {
 
       // Unset assignedToOrgId (no one left to manage the queue)
       await tx.issue.updateMany({ where: { assignedToOrgId: id }, data: { assignedToOrgId: null } });
-      // Keep the org record so issue history still shows the creator org name
+      // Mark org as deleted (keep record for issue history)
+      await tx.organization.update({ where: { id }, data: { deletedAt: new Date() } });
     });
 
     return { message: 'Organization deleted successfully' };
