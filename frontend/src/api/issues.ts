@@ -18,7 +18,6 @@ export interface IssueUser {
   id: string;
   name: string;
   email: string;
-  organizationId?: string;
 }
 
 export interface IssueUserWithOrg extends IssueUser {
