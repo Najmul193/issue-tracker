@@ -303,7 +303,7 @@ export default function IssueDetail() {
               {issue.module}
             </span>
           )}
-          {isAdmin && (
+          {(isAdmin || issue.raisedBy.id === currentUser?.id) && (
             <button
               onClick={() => {
                 if (window.confirm('Are you sure you want to delete this issue? This action cannot be undone.')) {

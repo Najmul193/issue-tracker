@@ -449,8 +449,9 @@ export class IssuesService {
   async delete(id: string, actor: JwtPayload) {
     const issue = await this.findOne(id, actor);
 
-    if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'ORG_ADMIN') {
-      throw new ForbiddenException('Only admins can delete issues');
+    // Creator, ORG_ADMIN of creator's org, or SUPER_ADMIN
+    if (actor.userId !== issue.raisedById && actor.role !== 'SUPER_ADMIN' && actor.role !== 'ORG_ADMIN') {
+      throw new ForbiddenException('Only the creator, their org admin, or SUPER_ADMIN can delete issues');
     }
     if (actor.role === 'ORG_ADMIN' && actor.organizationId !== issue.raisedByOrgId) {
       throw new ForbiddenException('You can only delete issues from your own organization');
