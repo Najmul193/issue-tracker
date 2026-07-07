@@ -47,10 +47,9 @@ export class OrganizationsService {
         await tx.user.deleteMany({ where: { organizationId: id } });
       }
 
-      // Unset assignedToOrgId for issues assigned to this org
+      // Unset org references on issues
       await tx.issue.updateMany({ where: { assignedToOrgId: id }, data: { assignedToOrgId: null } });
-      // Delete issues raised by this org (and cascade: comments, attachments, etc.)
-      await tx.issue.deleteMany({ where: { raisedByOrgId: id } });
+      await tx.issue.updateMany({ where: { raisedByOrgId: id }, data: { raisedByOrgId: null } });
       // Delete the organization
       await tx.organization.delete({ where: { id } });
     });
