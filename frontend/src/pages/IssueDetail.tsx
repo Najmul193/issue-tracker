@@ -532,12 +532,12 @@ export default function IssueDetail() {
               {(orgs || [])
                 .filter((o: UserOrg) => {
                   if (o.type === 'SUPER_ADMIN') return false;
-                  if (currentUser?.role === 'USER') return o.id !== currentUser?.organization?.id;
+                  if (currentUser?.role === 'USER') return o.type !== currentUser?.organization?.type;
                   if (currentUser?.role === 'ORG_ADMIN' && issue) {
                     const isRaiser = issue.raisedByOrg?.id === currentUser.organization.id;
                     const assignedOrgId = issue.assignedToOrgId;
                     const isAssignedToActorOrg = assignedOrgId === currentUser.organization.id;
-                    if (isRaiser && !isAssignedToActorOrg) return o.id !== currentUser.organization.id;
+                    if (isRaiser && !isAssignedToActorOrg) return o.type !== currentUser?.organization?.type;
                     if (isAssignedToActorOrg) return o.id === currentUser.organization.id;
                   }
                   return true;
