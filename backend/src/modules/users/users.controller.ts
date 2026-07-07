@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -44,5 +45,13 @@ export class UsersController {
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.usersService.update(id, dto, actor);
+  }
+
+  @Delete(':id')
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.usersService.remove(id, actor);
   }
 }

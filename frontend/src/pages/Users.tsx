@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchUsers, fetchOrganizations, createUser, updateUser } from '../api/users';
-import type { UserListItem, CreateUserData, UpdateUserData } from '../api/users';
+import { fetchUsers, fetchOrganizations, createUser, updateUser, deleteUser, deleteOrganization } from '../api/users';
+import type { UserListItem, CreateUserData, UpdateUserData, UserOrg } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
@@ -42,6 +42,11 @@ export default function Users() {
   const [editStatus, setEditStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [editError, setEditError] = useState<string | null>(null);
 
+  // Delete confirmation state
+  const [deletingUser, setDeletingUser] = useState<UserListItem | null>(null);
+  const [deletingOrg, setDeletingOrg] = useState<UserOrg | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Org filter for SUPER_ADMIN
   const [orgFilter, setOrgFilter] = useState('');
 
@@ -76,6 +81,31 @@ export default function Users() {
     },
     onError: (err) => {
       setEditError(err instanceof ApiError ? err.message : 'Failed to update user');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      setDeletingUser(null);
+      setDeleteError(null);
+    },
+    onError: (err) => {
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete user');
+    },
+  });
+
+  const deleteOrgMutation = useMutation({
+    mutationFn: (id: string) => deleteOrganization(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['orgs-list'] });
+      setDeletingOrg(null);
+      setDeleteError(null);
+    },
+    onError: (err) => {
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete organization');
     },
   });
 
@@ -200,6 +230,14 @@ export default function Users() {
     return false;
   }
 
+  function canDelete(target: UserListItem): boolean {
+    if (isSuperAdmin) return true;
+    if (isOrgAdmin) {
+      return target.role === 'USER' && target.organizationId === currentUser!.organizationId;
+    }
+    return false;
+  }
+
   const filteredUsers = (users || []).filter((u) => {
     if (isSuperAdmin && orgFilter) {
       return u.organizationId === orgFilter;
@@ -293,6 +331,14 @@ export default function Users() {
                         className="text-sm font-medium text-blue-600 hover:text-blue-700"
                       >
                         Edit
+                      </button>
+                    )}
+                    {canDelete(u) && (
+                      <button
+                        onClick={() => { setDeletingUser(u); setDeleteError(null); }}
+                        className="ml-3 text-sm font-medium text-red-600 hover:text-red-700"
+                      >
+                        Delete
                       </button>
                     )}
                   </td>
@@ -542,6 +588,97 @@ export default function Users() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation */}
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete User</h3>
+            {deleteError && (
+              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {deleteError}
+              </div>
+            )}
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete <strong>{deletingUser.name}</strong> ({deletingUser.email})?
+              This will remove all their notifications, activity logs, comments, and attachments.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setDeletingUser(null)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(deletingUser.id)}
+                disabled={deleteMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUPER_ADMIN: Organization management */}
+      {isSuperAdmin && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Organizations
+          </h3>
+          <div className="space-y-2">
+            {(orgs || []).map((o) => (
+              <div key={o.id} className="flex items-center justify-between rounded-md border border-gray-100 px-3 py-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-900">{o.name}</span>
+                  <span className="ml-2 text-xs text-gray-400">{o.type}</span>
+                </div>
+                <button
+                  onClick={() => { setDeletingOrg(o); setDeleteError(null); }}
+                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Organization Confirmation */}
+      {deletingOrg && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete Organization</h3>
+            {deleteError && (
+              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {deleteError}
+              </div>
+            )}
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete <strong>{deletingOrg.name}</strong>?
+              This will permanently delete all users in this organization and all issues raised by this organization.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setDeletingOrg(null)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteOrgMutation.mutate(deletingOrg.id)}
+                disabled={deleteOrgMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteOrgMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

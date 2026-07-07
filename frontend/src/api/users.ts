@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './client';
+import { apiGet, apiPost, apiPatch, apiDelete } from './client';
 
 export interface UserOrg {
   id: string;
@@ -62,4 +62,12 @@ export async function createUser(data: CreateUserData): Promise<UserListItem> {
 
 export async function updateUser(id: string, data: UpdateUserData): Promise<UserListItem> {
   return apiPatch<UserListItem>(`/users/${id}`, data);
+}
+
+export async function deleteUser(id: string): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>(`/users/${id}`);
+}
+
+export async function deleteOrganization(id: string): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>(`/organizations/${id}`);
 }

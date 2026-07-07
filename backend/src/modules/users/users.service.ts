@@ -224,4 +224,46 @@ export class UsersService {
 
     return updated;
   }
+
+  async remove(id: string, actor: JwtPayload) {
+    if (actor.role === 'USER') {
+      throw new ForbiddenException('USER cannot delete users');
+    }
+
+    if (id === actor.userId) {
+      throw new ForbiddenException('You cannot delete your own account');
+    }
+
+    const target = await this.findById(id);
+
+    if (actor.role === 'ORG_ADMIN') {
+      if (target.organizationId !== actor.organizationId) {
+        throw new ForbiddenException('ORG_ADMIN can only delete users in their own organization');
+      }
+      if (target.role !== 'USER') {
+        throw new ForbiddenException('ORG_ADMIN can only delete USER accounts');
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete user's notifications
+      await tx.notification.deleteMany({ where: { userId: id } });
+      // Delete user's activity logs
+      await tx.activityLog.deleteMany({ where: { userId: id } });
+      // Delete user's comments
+      await tx.comment.deleteMany({ where: { userId: id } });
+      // Delete user's attachments
+      await tx.attachment.deleteMany({ where: { uploadedById: id } });
+      // Delete issue assignee records
+      await tx.issueAssignee.deleteMany({ where: { userId: id } });
+      // Unset issue references
+      await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
+      await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
+      await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
+      // Delete the user
+      await tx.user.delete({ where: { id } });
+    });
+
+    return { message: 'User deleted successfully' };
+  }
 }
