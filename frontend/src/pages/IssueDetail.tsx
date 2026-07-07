@@ -247,8 +247,6 @@ export default function IssueDetail() {
     setCommentFiles((prev) => [...prev, ...newFiles].slice(0, MAX_FILES));
   }
 
-  const isAdmin = currentUser?.role === 'ORG_ADMIN' || currentUser?.role === 'SUPER_ADMIN';
-
   // Determine if the current user is authorized to change status
   // Mirrors backend's canActOnIssue: SUPER_ADMIN always, or org matches raisedByOrg/assignedToOrg, or is the assigned user
   const canChangeStatus = (() => {
@@ -303,7 +301,7 @@ export default function IssueDetail() {
               {issue.module}
             </span>
           )}
-          {(isAdmin || issue.raisedBy.id === currentUser?.id) && (
+          {(issue.raisedBy.id === currentUser?.id || currentUser?.role === 'SUPER_ADMIN' || (currentUser?.role === 'ORG_ADMIN' && issue.raisedByOrg?.id === currentUser.organization.id)) && (
             <button
               onClick={() => {
                 if (window.confirm('Are you sure you want to delete this issue? This action cannot be undone.')) {
