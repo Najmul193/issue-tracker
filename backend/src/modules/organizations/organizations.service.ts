@@ -43,8 +43,13 @@ export class OrganizationsService {
         await tx.issue.updateMany({ where: { assignedToUserId: { in: userIds } }, data: { assignedToUserId: null } });
         await tx.issue.updateMany({ where: { assignedById: { in: userIds } }, data: { assignedById: null } });
         await tx.issue.updateMany({ where: { resolvedById: { in: userIds } }, data: { resolvedById: null } });
-        // Delete all users in this org
-        await tx.user.deleteMany({ where: { organizationId: id } });
+        // Soft-delete users in this org (keep records for raisedById FK)
+        for (const uid of userIds) {
+          await tx.user.update({
+            where: { id: uid },
+            data: { email: `deleted-${uid}@deleted.com`, passwordHash: '', phone: null, status: 'INACTIVE' },
+          });
+        }
       }
 
       // Unset assignedToOrgId (no one left to manage the queue)

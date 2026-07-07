@@ -663,7 +663,7 @@ export default function Users() {
             )}
             <p className="text-sm text-gray-600">
               Are you sure you want to delete <strong>{deletingOrg.name}</strong>?
-              This will permanently delete all users in this organization and all issues raised by this organization.
+              This will permanently delete all users in this organization. Issues raised by this organization will be preserved.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
