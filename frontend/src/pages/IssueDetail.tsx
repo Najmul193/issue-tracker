@@ -255,6 +255,7 @@ export default function IssueDetail() {
     if (!currentUser || !issue) return false;
     if (currentUser.role === 'SUPER_ADMIN') return true;
     const effectiveAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
+    if (currentUser.organizationId === issue.raisedByOrg.id) return true;
     if (currentUser.role === 'ORG_ADMIN' && effectiveAssignedOrgId === currentUser.organizationId) return true;
     if (issue.assignedToUserId && currentUser.id === issue.assignedToUserId) return true;
     return false;
