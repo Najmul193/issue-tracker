@@ -494,7 +494,7 @@ export default function IssueDetail() {
             To user
           </label>
           {issue && currentUser && (
-            (currentUser.role === 'ORG_ADMIN' && issue.assignedToOrgId === currentUser.organization.id) ? null :
+            (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organization.id) ? null :
             (isCurrentAssignee && currentUser.role === 'USER') ? null :
             <label className="flex items-center gap-1.5 text-sm">
               <input
@@ -535,7 +535,7 @@ export default function IssueDetail() {
                   if (currentUser?.role === 'USER') return o.type !== currentUser?.organization?.type;
                   if (currentUser?.role === 'ORG_ADMIN' && issue) {
                     const isRaiser = issue.raisedByOrg?.id === currentUser.organization.id;
-                    const assignedOrgId = issue.assignedToOrgId;
+                    const assignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
                     const isAssignedToActorOrg = assignedOrgId === currentUser.organization.id;
                     if (isRaiser && !isAssignedToActorOrg) return o.type !== currentUser?.organization?.type;
                     if (isAssignedToActorOrg) return o.id === currentUser.organization.id;
