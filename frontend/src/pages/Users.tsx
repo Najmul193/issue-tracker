@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
 const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'USER'] as const;
+const NEW_ORG_VALUE = '__new__';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -31,6 +32,8 @@ export default function Users() {
   const [formPhone, setFormPhone] = useState('');
   const [formRole, setFormRole] = useState('USER');
   const [formOrgId, setFormOrgId] = useState('');
+  const [formNewOrgName, setFormNewOrgName] = useState('');
+  const [formNewOrgType, setFormNewOrgType] = useState('BANK');
   const [formError, setFormError] = useState<string | null>(null);
 
   // Edit form state
@@ -56,6 +59,7 @@ export default function Users() {
     mutationFn: (data: CreateUserData) => createUser(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['orgs-list'] });
       closeCreateModal();
     },
     onError: (err) => {
@@ -82,6 +86,8 @@ export default function Users() {
     setFormPhone('');
     setFormRole('USER');
     setFormOrgId(currentUser?.organizationId || '');
+    setFormNewOrgName('');
+    setFormNewOrgType('BANK');
     setFormError(null);
     setShowCreateModal(true);
   }
@@ -100,9 +106,34 @@ export default function Users() {
     if (!validateEmail(formEmail.trim())) { setFormError('Invalid email format'); return; }
     if (!formPassword.trim()) { setFormError('Password is required'); return; }
     if (formPassword.length < 6) { setFormError('Password must be at least 6 characters'); return; }
-    if (currentUser?.role !== 'ORG_ADMIN') {
-      if (!formOrgId) { setFormError('Organization is required'); return; }
+
+    if (currentUser?.role === 'ORG_ADMIN') {
+      createMutation.mutate({
+        name: formName.trim(),
+        email: formEmail.trim(),
+        password: formPassword,
+        phone: formPhone.trim() || undefined,
+        role: 'USER',
+        organizationId: currentUser.organizationId,
+      });
+      return;
     }
+
+    if (formOrgId === NEW_ORG_VALUE) {
+      if (!formNewOrgName.trim()) { setFormError('Organization name is required'); return; }
+      createMutation.mutate({
+        name: formName.trim(),
+        email: formEmail.trim(),
+        password: formPassword,
+        phone: formPhone.trim() || undefined,
+        role: formRole,
+        newOrganizationName: formNewOrgName.trim(),
+        newOrganizationType: formNewOrgType,
+      });
+      return;
+    }
+
+    if (!formOrgId) { setFormError('Organization is required'); return; }
 
     createMutation.mutate({
       name: formName.trim(),
@@ -110,7 +141,7 @@ export default function Users() {
       password: formPassword,
       phone: formPhone.trim() || undefined,
       role: formRole,
-      organizationId: currentUser?.role === 'ORG_ADMIN' ? currentUser.organizationId : formOrgId,
+      organizationId: formOrgId,
     });
   }
 
@@ -353,14 +384,46 @@ export default function Users() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Organization *</label>
                   <select
                     value={formOrgId}
-                    onChange={(e) => setFormOrgId(e.target.value)}
+                    onChange={(e) => {
+                      setFormOrgId(e.target.value);
+                      if (e.target.value !== NEW_ORG_VALUE) setFormNewOrgName('');
+                    }}
                     className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Select organization...</option>
                     {(orgs || []).map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}
+                    <option value={NEW_ORG_VALUE}>+ New Organization</option>
                   </select>
+                </div>
+              )}
+
+              {isSuperAdmin && formOrgId === NEW_ORG_VALUE && (
+                <div className="space-y-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-xs font-medium text-blue-700">New Organization Details</p>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Organization Name *</label>
+                    <input
+                      type="text"
+                      value={formNewOrgName}
+                      onChange={(e) => setFormNewOrgName(e.target.value)}
+                      placeholder="e.g. Bank2"
+                      className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Organization Type *</label>
+                    <select
+                      value={formNewOrgType}
+                      onChange={(e) => setFormNewOrgType(e.target.value)}
+                      className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="BANK">BANK</option>
+                      <option value="SI">SI</option>
+                      <option value="ORACLE">ORACLE</option>
+                    </select>
+                  </div>
                 </div>
               )}
 

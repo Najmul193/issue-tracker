@@ -24,7 +24,9 @@ export interface CreateUserData {
   password: string;
   phone?: string;
   role: string;
-  organizationId: string;
+  organizationId?: string;
+  newOrganizationName?: string;
+  newOrganizationType?: string;
 }
 
 export interface UpdateUserData {

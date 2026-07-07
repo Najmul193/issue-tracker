@@ -18,7 +18,7 @@ export class UsersController {
 
   @Post()
   create(
-    @Body() dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId: string },
+    @Body() dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId?: string; newOrganizationName?: string; newOrganizationType?: string },
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.usersService.create(dto, actor);

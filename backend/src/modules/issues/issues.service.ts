@@ -177,7 +177,14 @@ export class IssuesService {
     }
 
     const newTargetUser = dto.targetUserId
-      ? await this.prisma.user.findUnique({ where: { id: dto.targetUserId }, select: { id: true, name: true, organizationId: true, role: true } })
+      ? await this.prisma.user.findUnique({
+          where: { id: dto.targetUserId },
+          select: { id: true, name: true, organizationId: true, role: true, organization: { select: { type: true } } },
+        })
+      : null;
+
+    const newTargetOrg = dto.targetOrgId
+      ? await this.prisma.organization.findUnique({ where: { id: dto.targetOrgId }, select: { id: true, name: true, type: true } })
       : null;
 
     // Reopen scenario: raiser's org admin redistributing to outside orgs only
@@ -209,6 +216,8 @@ export class IssuesService {
         issue.assignedToUserId === actor.userId,
         currentAssignedOrgId,
         issue.raisedByOrgId,
+        newTargetUser?.organization?.type,
+        newTargetOrg?.type,
       );
     }
 
@@ -217,9 +226,6 @@ export class IssuesService {
       : null;
     const oldTargetOrg = issue.assignedToOrgId
       ? await this.prisma.organization.findUnique({ where: { id: issue.assignedToOrgId }, select: { id: true, name: true } })
-      : null;
-    const newTargetOrg = dto.targetOrgId
-      ? await this.prisma.organization.findUnique({ where: { id: dto.targetOrgId }, select: { id: true, name: true } })
       : null;
 
     const updated = await this.prisma.issue.update({

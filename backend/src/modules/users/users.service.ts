@@ -29,7 +29,7 @@ export class UsersService {
   }
 
   async create(
-    dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId: string },
+    dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId?: string; newOrganizationName?: string; newOrganizationType?: string },
     actor: JwtPayload,
   ) {
     // Permission check
@@ -44,6 +44,22 @@ export class UsersService {
       if (dto.organizationId !== actor.organizationId) {
         throw new ForbiddenException('ORG_ADMIN can only create users in their own organization');
       }
+    }
+
+    // SUPER_ADMIN: create new org on the fly
+    let orgId = dto.organizationId;
+    if (actor.role === 'SUPER_ADMIN' && dto.newOrganizationName) {
+      const org = await this.prisma.organization.create({
+        data: {
+          name: dto.newOrganizationName,
+          type: (dto.newOrganizationType || 'BANK') as any,
+        },
+      });
+      orgId = org.id;
+    }
+
+    if (!orgId) {
+      throw new Error('Missing organizationId'); // will 500, but should be caught by validation upstream
     }
 
     // Check email uniqueness
@@ -61,7 +77,7 @@ export class UsersService {
         passwordHash,
         phone: dto.phone ?? null,
         role: dto.role as any,
-        organizationId: dto.organizationId,
+        organizationId: orgId,
         status: 'ACTIVE',
       },
       select: { id: true, name: true, email: true, role: true, organizationId: true, status: true, createdAt: true },
@@ -87,13 +103,12 @@ export class UsersService {
   }
 
   async findAssignable(actor: JwtPayload, issueId?: string) {
+    // SUPER_ADMIN users never assign issues — return empty
     if (actor.role === 'SUPER_ADMIN') {
-      return this.prisma.user.findMany({
-        where: { status: 'ACTIVE' },
-        select: { id: true, name: true, email: true, organizationId: true, role: true },
-        orderBy: { name: 'asc' },
-      });
+      return [];
     }
+
+    const actorOrgType = actor.organizationType as any;
 
     if (actor.role === 'ORG_ADMIN') {
       if (issueId) {
@@ -110,10 +125,14 @@ export class UsersService {
           const isRaiser = issue.raisedByOrgId === actor.organizationId;
           const isAssignedToActorOrg = currentAssignedOrgId === actor.organizationId;
 
-          // Raiser's org admin, issue outside their org → show other-org users
+          // Raiser's org admin, issue outside their org → show users from different-typed orgs only
           if (isRaiser && !isAssignedToActorOrg) {
             return this.prisma.user.findMany({
-              where: { organizationId: { not: actor.organizationId }, status: 'ACTIVE' },
+              where: {
+                status: 'ACTIVE',
+                role: { not: 'SUPER_ADMIN' },
+                organization: { type: { not: actorOrgType } },
+              },
               select: { id: true, name: true, email: true, organizationId: true, role: true },
               orderBy: { name: 'asc' },
             });
@@ -122,7 +141,7 @@ export class UsersService {
           // Issue is in actor's org → show internal users
           if (isAssignedToActorOrg) {
             return this.prisma.user.findMany({
-              where: { organizationId: actor.organizationId, status: 'ACTIVE' },
+              where: { organizationId: actor.organizationId, status: 'ACTIVE', role: { not: 'SUPER_ADMIN' } },
               select: { id: true, name: true, email: true, organizationId: true, role: true },
               orderBy: { name: 'asc' },
             });
@@ -131,7 +150,7 @@ export class UsersService {
       }
       // Fallback: internal only
       return this.prisma.user.findMany({
-        where: { organizationId: actor.organizationId, status: 'ACTIVE' },
+        where: { organizationId: actor.organizationId, status: 'ACTIVE', role: { not: 'SUPER_ADMIN' } },
         select: { id: true, name: true, email: true, organizationId: true, role: true },
         orderBy: { name: 'asc' },
       });
@@ -152,9 +171,13 @@ export class UsersService {
       }
     }
 
-    // USER: only users from other orgs (can't assign to own org members)
+    // USER: only users from different-typed orgs (can't assign to own org or same-type orgs)
     return this.prisma.user.findMany({
-      where: { organizationId: { not: actor.organizationId }, status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        role: { not: 'SUPER_ADMIN' },
+        organization: { type: { not: actorOrgType } },
+      },
       select: { id: true, name: true, email: true, organizationId: true, role: true },
       orderBy: { name: 'asc' },
     });

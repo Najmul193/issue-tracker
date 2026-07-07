@@ -43,8 +43,24 @@ export class AuthService {
     isCurrentAssignee?: boolean,
     currentAssignedOrgId?: string | null,
     raisedByOrgId?: string | null,
+    targetUserOrgType?: string,
+    targetOrgType?: string,
   ): void {
-    if (actor.role === 'SUPER_ADMIN') return;
+    // SUPER_ADMIN cannot assign issues
+    if (actor.role === 'SUPER_ADMIN') {
+      throw new ForbiddenException('SUPER_ADMIN cannot assign issues');
+    }
+
+    // No one can assign to a SUPER_ADMIN user
+    if (targetUserRole === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot assign to a SUPER_ADMIN user');
+    }
+
+    // Cross-org assignments cannot target orgs with the same type
+    const targetType = targetUserOrgType || targetOrgType;
+    if (targetType && targetType === actor.organizationType) {
+      throw new ForbiddenException(`Cannot assign to a ${targetType.toLowerCase()} organization from another ${targetType.toLowerCase()} organization`);
+    }
 
     if (actor.role === 'ORG_ADMIN') {
       const isRaiser = raisedByOrgId === actor.organizationId;

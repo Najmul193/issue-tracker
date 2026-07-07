@@ -55,15 +55,15 @@ describe('AuthService', () => {
   });
 
   describe('canAssign', () => {
-    // SUPER_ADMIN: can assign to any user in any org
-    it('SUPER_ADMIN can assign to any user in any org', () => {
+    // SUPER_ADMIN: cannot assign issues
+    it('SUPER_ADMIN cannot assign to any user in any org', () => {
       expect(() =>
         service.canAssign(superAdmin, 'some-user', 'some-org'),
-      ).not.toThrow();
+      ).toThrow(ForbiddenException);
     });
 
-    it('SUPER_ADMIN can assign without target', () => {
-      expect(() => service.canAssign(superAdmin, null, null)).not.toThrow();
+    it('SUPER_ADMIN cannot assign without target', () => {
+      expect(() => service.canAssign(superAdmin, null, null)).toThrow(ForbiddenException);
     });
 
     // ORG_ADMIN: can assign to any user within their OWN org
