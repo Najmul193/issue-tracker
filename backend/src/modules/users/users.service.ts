@@ -236,6 +236,10 @@ export class UsersService {
 
     const target = await this.findById(id);
 
+    if (target.role === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot delete a SUPER_ADMIN user');
+    }
+
     if (actor.role === 'ORG_ADMIN') {
       if (target.organizationId !== actor.organizationId) {
         throw new ForbiddenException('ORG_ADMIN can only delete users in their own organization');
