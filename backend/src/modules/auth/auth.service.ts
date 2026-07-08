@@ -4,12 +4,17 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { JwtPayload } from './decorators/current-user.decorator';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../notifications/email.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
   ) {}
 
   async login(email: string, password: string) {
@@ -162,5 +167,49 @@ export class AuthService {
     if (issue.assignedToUserId && actor.userId === issue.assignedToUserId) return true;
 
     return false;
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      // Return successfully to prevent email enumeration
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+      },
+    });
+
+    await this.emailService.sendPasswordResetEmail(user.email, token);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const resetRecord = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!resetRecord || resetRecord.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired password reset token');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetRecord.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.delete({
+        where: { id: resetRecord.id },
+      }),
+    ]);
   }
 }

@@ -275,4 +275,81 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
       );
     }
   }
+
+  async sendPasswordResetEmail(to: string, resetToken: string): Promise<void> {
+    if (!this.initialized || !this.transporter) {
+      this.logger.log(`[Email skipped] Password Reset to ${to}`);
+      return;
+    }
+
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+    <div style="background-color: #1f2937; padding: 24px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 600;">Flexcube Upgrade — Issue Tracker</h1>
+    </div>
+    
+    <div style="padding: 32px 24px;">
+      <h2 style="color: #111827; margin-top: 0; font-size: 18px;">Password Reset Request</h2>
+      
+      <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+        We received a request to reset the password for your account associated with <strong>${to}</strong>.
+      </p>
+      
+      <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+        If you made this request, please click the button below to set a new password. This link is valid for 1 hour.
+      </p>
+      
+      <div style="margin-top: 32px; text-align: center;">
+        <a href="${resetUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 15px;">Reset Password</a>
+      </div>
+      
+      <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin-top: 32px;">
+        If you didn't request a password reset, you can safely ignore this email.
+      </p>
+    </div>
+    
+    <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+      <p style="color: #6b7280; font-size: 12px; margin: 0;">This is an automated notification. Do not reply to this email.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      const text = `Flexcube Upgrade — Issue Tracker
+=====================================
+Password Reset Request
+
+We received a request to reset the password for your account. 
+If you made this request, please navigate to the following URL to set a new password. This link is valid for 1 hour.
+
+Reset URL: ${resetUrl}
+
+If you didn't request a password reset, you can safely ignore this email.
+-------------------------------------
+This is an automated notification. Do not reply to this email.`;
+
+      await this.transporter.sendMail({
+        from: this.getFromAddress(),
+        to,
+        subject: '[Issue Tracker] Password Reset Request',
+        html,
+        text,
+      });
+      this.logger.log(`Password reset email sent to ${to}`);
+    } catch (err) {
+      this.logger.error(
+        `Failed to send password reset email to ${to}: ${(err as Error).message}`,
+      );
+    }
+  }
 }

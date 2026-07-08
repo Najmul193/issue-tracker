@@ -64,6 +64,24 @@ export class AuthController {
     return { message: 'Logged out' };
   }
 
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  async forgotPassword(@Body() dto: { email: string }) {
+    await this.authService.requestPasswordReset(dto.email);
+    return { message: 'If that email is registered, you will receive a reset link shortly.' };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async resetPassword(@Body() dto: { token: string; password: string }) {
+    await this.authService.resetPassword(dto.token, dto.password);
+    return { message: 'Password has been reset successfully.' };
+  }
+
   @Get('me')
   async getProfile(@CurrentUser() user: JwtPayload) {
     const profile = await this.usersService.findById(user.userId);
