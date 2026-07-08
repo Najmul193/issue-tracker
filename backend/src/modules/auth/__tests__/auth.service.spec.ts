@@ -3,6 +3,8 @@ import { ForbiddenException } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../../notifications/email.service';
 import { JwtPayload } from '../decorators/current-user.decorator';
 
 describe('AuthService', () => {
@@ -38,12 +40,17 @@ describe('AuthService', () => {
     sign: jest.fn(() => 'mock-token'),
   };
 
+  const mockPrismaService = {};
+  const mockEmailService = {};
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: EmailService, useValue: mockEmailService },
       ],
     }).compile();
 
@@ -66,28 +73,23 @@ describe('AuthService', () => {
       expect(() => service.canAssign(superAdmin, null, null)).toThrow(ForbiddenException);
     });
 
-    // ORG_ADMIN: can assign to any user within their OWN org
-    it('ORG_ADMIN can assign to a user within their own org', () => {
+    // ORG_ADMIN: can assign to an external org when issue is not currently assigned to their org
+    it('ORG_ADMIN cannot assign to a user within their own org if unassigned/raised by them', () => {
+      // The issue is raised by org-bank and unassigned, so they can only route it outside
       expect(() =>
-        service.canAssign(orgAdmin, 'user-in-bank', 'org-bank'),
-      ).not.toThrow();
-    });
-
-    it('ORG_ADMIN cannot assign to a user in a different org', () => {
-      expect(() =>
-        service.canAssign(orgAdmin, 'user-in-oracle', 'org-oracle'),
+        service.canAssign(orgAdmin, 'user-in-bank', 'org-bank', 'org-bank', 'USER', false, null, 'org-bank'),
       ).toThrow(ForbiddenException);
     });
 
-    it('ORG_ADMIN can assign org-level handoff (targetOrgId only, no userId)', () => {
+    it('ORG_ADMIN can route to a user in a different org', () => {
       expect(() =>
-        service.canAssign(orgAdmin, null, 'org-oracle'),
+        service.canAssign(orgAdmin, 'user-in-si', 'org-si', 'org-si', 'USER', false, null, 'org-bank', 'SI', 'SI'),
       ).not.toThrow();
     });
 
-    it('ORG_ADMIN can assign with only userId (no org change)', () => {
+    it('ORG_ADMIN can assign org-level handoff (targetOrgId only) to different org', () => {
       expect(() =>
-        service.canAssign(orgAdmin, 'user-in-bank', null),
+        service.canAssign(orgAdmin, null, 'org-si', undefined, undefined, false, null, 'org-bank', undefined, 'SI'),
       ).not.toThrow();
     });
 

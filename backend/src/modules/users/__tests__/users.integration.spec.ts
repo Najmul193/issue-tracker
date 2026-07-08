@@ -325,6 +325,8 @@ describe('Users Management (12 scenarios)', () => {
   describe('Scenario 9: Scoped status change - assigned user can change status (Part B)', () => {
     it('returns 200 for assigned user changing status', async () => {
       const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const siAdminToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      const siUserToken = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const createRes = await request(app.getHttpServer())
         .post('/api/issues')
@@ -333,17 +335,22 @@ describe('Users Management (12 scenarios)', () => {
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
-      // Assign to bank user (status auto-moves to ASSIGNED)
+      // Route to SI org first
       await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/assign`)
         .set('Cookie', `access_token=${bankAdminToken}`)
-        .send({ targetUserId: bankUserId, targetOrgId: bankOrgId });
+        .send({ targetOrgId: dataEdgeOrgId });
 
-      // Bank user (assigned) changes status — ASSIGNED -> IN_PROGRESS is valid
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      // Assign to SI user internally
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issueId}/assign`)
+        .set('Cookie', `access_token=${siAdminToken}`)
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+
+      // SI user (assigned) changes status — ASSIGNED -> IN_PROGRESS is valid
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/status`)
-        .set('Cookie', `access_token=${bankUserToken}`)
+        .set('Cookie', `access_token=${siUserToken}`)
         .send({ status: 'IN_PROGRESS' });
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('IN_PROGRESS');

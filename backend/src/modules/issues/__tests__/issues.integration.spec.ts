@@ -199,28 +199,27 @@ describe('Issues Integration (all 10 scenarios)', () => {
     });
   });
 
-  describe('Scenario 2: ORG_ADMIN assigns within own org', () => {
-    it('succeeds', async () => {
+  describe('Scenario 2: ORG_ADMIN assigns within own org when unassigned', () => {
+    it('fails with 403 because issue is unassigned in raisers org', async () => {
       const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
         .set('Cookie', `access_token=${t}`)
         .send({ targetUserId: bankUserId, targetOrgId: bankOrgId });
-      expect(res.status).toBe(200);
-      expect(res.body.assignedToUserId).toBe(bankUserId);
+      expect(res.status).toBe(403);
     });
   });
 
   describe('Scenario 3: ORG_ADMIN assigns to user in different org', () => {
-    it('fails with 403', async () => {
+    it('succeeds with 200', async () => {
       const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
         .set('Cookie', `access_token=${t}`)
         .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(200);
     });
   });
 
@@ -290,35 +289,21 @@ describe('Issues Integration (all 10 scenarios)', () => {
 
   describe('Scenario 8: REOPENED without comment', () => {
     it('fails with 400', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
-      const issue = await createIssue({ token: t });
+      const userToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const issue = await createIssue({ token: userToken });
+      
+      // Progress state to CLOSED
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminToken}`).send({ targetOrgId: dataEdgeOrgId });
+      const siToken = token(siUserId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siToken}`).send({ status: 'RESOLVED', comment: 'Fixed' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'CLOSED' });
 
-      // Transition NEW -> ACKNOWLEDGED first (need a valid path to RESOLVED)
-      await request(app.getHttpServer())
-        .patch(`/api/issues/${issue.body.id}/status`)
-        .set('Cookie', `access_token=${t}`)
-        .send({ status: 'ACKNOWLEDGED' });
-
-      // Need to assign and progress through the chain to get to RESOLVED
-      await request(app.getHttpServer())
-        .patch(`/api/issues/${issue.body.id}/assign`)
-        .set('Cookie', `access_token=${t}`)
-        .send({ targetUserId: bankUserId, targetOrgId: bankOrgId });
-
-      await request(app.getHttpServer())
-        .patch(`/api/issues/${issue.body.id}/status`)
-        .set('Cookie', `access_token=${t}`)
-        .send({ status: 'IN_PROGRESS' });
-
-      await request(app.getHttpServer())
-        .patch(`/api/issues/${issue.body.id}/status`)
-        .set('Cookie', `access_token=${t}`)
-        .send({ status: 'RESOLVED' });
-
-      // Now REOPENED without comment
+      // Attempt to reopen without comment
       const reopenRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
-        .set('Cookie', `access_token=${t}`)
+        .set('Cookie', `access_token=${userToken}`)
         .send({ status: 'REOPENED' });
       expect(reopenRes.status).toBe(400);
       expect(reopenRes.body.message).toContain('comment is required');

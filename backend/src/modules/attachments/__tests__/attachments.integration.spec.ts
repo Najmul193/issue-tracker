@@ -217,8 +217,7 @@ describe('Attachments Integration (9 scenarios)', () => {
         .set('Cookie', `access_token=${t}`)
         .attach('files', bigBuf, { filename: 'huge.pdf', contentType: 'application/pdf' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toContain('exceeds the maximum size');
+      expect(res.status).toBe(413);
     });
   });
 

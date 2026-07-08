@@ -212,10 +212,10 @@ describe('Notifications Integration', () => {
         .set('Cookie', `access_token=${bankAdminToken}`)
         .send({ targetUserId: bankAdminId, targetOrgId: bankOrgId });
 
-      // Now status = ASSIGNED. Valid transition: ASSIGNED -> IN_PROGRESS
+      // Now status = ASSIGNED. Valid transition: ASSIGNED -> IN_PROGRESS by assignee
       const statusRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/status`)
-        .set('Cookie', `access_token=${bankUserToken}`)
+        .set('Cookie', `access_token=${bankAdminToken}`)
         .send({ status: 'IN_PROGRESS' });
       expect(statusRes.status).toBe(200);
 
@@ -417,7 +417,7 @@ describe('Notifications Integration', () => {
       const assignRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/assign`)
         .set('Cookie', `access_token=${adminToken}`)
-        .send({ targetUserId: bankUserId, targetOrgId: bankOrgId });
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       expect(assignRes.status).toBe(200);
       expect(assignRes.body.id).toBe(issueId);
     });
