@@ -471,11 +471,11 @@ export default function IssueDetail() {
         </div>
       )}
 
-      {/* Assign/Reassign Control — raiser, current assignee, or ORG_ADMIN of the assigned org */}
+      {/* Assign/Reassign Control — raiser's org, current assignee, or ORG_ADMIN of the assigned org */}
       {issue.status !== 'CLOSED' && currentUser && (
-        issue.raisedBy.id === currentUser.id ||
+        issue.raisedByOrg.id === currentUser.organizationId ||
         issue.assignedToUserId === currentUser.id ||
-        (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organization.id)
+        (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organizationId)
       ) && (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">

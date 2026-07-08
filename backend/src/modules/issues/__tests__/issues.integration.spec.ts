@@ -83,7 +83,6 @@ describe('Issues Integration (all 10 scenarios)', () => {
   });
 
   async function cleanup() {
-    // Delete in FK-safe order: children before parents
     if (createdIssueIds.length > 0) {
       await prisma.notification.deleteMany({ where: { issueId: { in: createdIssueIds } } });
       await prisma.activityLog.deleteMany({ where: { issueId: { in: createdIssueIds } } });
@@ -106,6 +105,8 @@ describe('Issues Integration (all 10 scenarios)', () => {
       await prisma.issue.deleteMany({ where: { id: { in: createdIssueIds } } });
     }
     if (createdUserIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { userId: { in: createdUserIds } } });
+      await prisma.activityLog.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     if (createdOrgIds.length > 0) {

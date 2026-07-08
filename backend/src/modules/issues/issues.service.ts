@@ -296,11 +296,13 @@ export class IssuesService {
           type: 'ASSIGNMENT',
         })),
       );
-      // Send assignment emails (non-blocking)
+      // Send assignment emails (non-blocking) - only to ORG_ADMINs for org queue routing
       for (const u of orgUsers) {
-        this.emailService
-          .sendAssignmentEmail(u.email, issue.title, id)
-          .catch((err) => this.logger.error('Assignment email failed', err));
+        if (u.role === 'ORG_ADMIN') {
+          this.emailService
+            .sendAssignmentEmail(u.email, issue.title, id)
+            .catch((err) => this.logger.error('Assignment email failed', err));
+        }
       }
     }
 

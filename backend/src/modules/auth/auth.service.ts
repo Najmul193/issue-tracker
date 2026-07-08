@@ -111,6 +111,11 @@ export class AuthService {
         return;
       }
 
+      // If not the assignee, only users in the raiser's org can reroute
+      if (raisedByOrgId !== actor.organizationId) {
+        throw new ForbiddenException('Only the assignee or users from the raising organization can reroute this issue');
+      }
+
       if (targetUserId) {
         if (!targetUserOrgId) {
           throw new ForbiddenException('Cannot assign to unknown user');

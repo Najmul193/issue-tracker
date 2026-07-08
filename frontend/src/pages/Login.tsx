@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ApiError, RateLimitError } from '../api/client';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,6 +16,9 @@ export default function Login() {
     password?: string;
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Where to redirect after login (default to dashboard)
+  const from = location.state?.from?.pathname || '/dashboard';
 
   function validate(): boolean {
     const errors: { email?: string; password?: string } = {};
@@ -42,7 +46,7 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       await login(email.trim(), password);
-      navigate('/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(
