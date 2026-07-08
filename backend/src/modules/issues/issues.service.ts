@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   BadRequestException,
   NotFoundException,
   ForbiddenException,
@@ -22,6 +23,8 @@ import { EmailService } from '../notifications/email.service';
 
 @Injectable()
 export class IssuesService {
+  private readonly logger = new Logger(IssuesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
@@ -279,7 +282,7 @@ export class IssuesService {
       if (targetUser) {
         this.emailService
           .sendAssignmentEmail(targetUser.email, issue.title, id)
-          .catch((err) => {});
+          .catch((err) => this.logger.error('Assignment email failed', err));
       }
     } else if (dto.targetOrgId) {
       const orgUsers = await this.prisma.user.findMany({
@@ -297,7 +300,7 @@ export class IssuesService {
       for (const u of orgUsers) {
         this.emailService
           .sendAssignmentEmail(u.email, issue.title, id)
-          .catch((err) => {});
+          .catch((err) => this.logger.error('Assignment email failed', err));
       }
     }
 
