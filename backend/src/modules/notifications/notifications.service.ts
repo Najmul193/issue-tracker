@@ -348,4 +348,152 @@ export class NotificationsService {
 
     return { byStatus: statusSummary, byPriority: prioritySummary, overdue };
   }
+
+  // ------- Dashboard metrics (extended) -------
+  async getDashboardMetrics(actor: JwtPayload) {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const [statusCounts, priorityCounts, typeCounts, overdueCount, resolvedThisMonth] =
+      await Promise.all([
+        this.prisma.issue.groupBy({ by: ['status'], _count: { id: true } }),
+        this.prisma.issue.groupBy({ by: ['priority'], _count: { id: true } }),
+        this.prisma.issue.groupBy({ by: ['type'], _count: { id: true } }),
+        this.prisma.issue.count({
+          where: {
+            deadline: { lt: now },
+            status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+          },
+        }),
+        this.prisma.issue.count({
+          where: {
+            status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
+            updatedAt: { gte: startOfMonth },
+          },
+        }),
+      ]);
+
+    const byStatus: Record<string, number> = {};
+    for (const r of statusCounts) byStatus[r.status] = r._count.id;
+    const byPriority: Record<string, number> = {};
+    for (const r of priorityCounts) byPriority[r.priority] = r._count.id;
+    const byType: Record<string, number> = {};
+    for (const r of typeCounts) byType[r.type] = r._count.id;
+
+    // Average resolution time (days) for closed/verified/resolved issues with resolvedAt
+    const resolvedWithDate = await this.prisma.issue.findMany({
+      where: { status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any }, resolvedAt: { not: null } },
+      select: { createdAt: true, resolvedAt: true },
+    });
+    let avgResolutionDays: number | null = null;
+    if (resolvedWithDate.length > 0) {
+      const totalMs = resolvedWithDate.reduce((sum, i) => {
+        return sum + (i.resolvedAt!.getTime() - i.createdAt.getTime());
+      }, 0);
+      avgResolutionDays = Math.round((totalMs / resolvedWithDate.length) / (1000 * 60 * 60 * 24));
+    }
+
+    // Trend: created vs resolved per day for last 30 days
+    const [createdRaw, resolvedRaw] = await Promise.all([
+      this.prisma.issue.findMany({
+        where: { createdAt: { gte: thirtyDaysAgo } },
+        select: { createdAt: true },
+      }),
+      this.prisma.issue.findMany({
+        where: {
+          resolvedAt: { gte: thirtyDaysAgo, not: null },
+          status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
+        },
+        select: { resolvedAt: true },
+      }),
+    ]);
+
+    const trendMap: Record<string, { created: number; resolved: number }> = {};
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(thirtyDaysAgo);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().split('T')[0];
+      trendMap[key] = { created: 0, resolved: 0 };
+    }
+    for (const r of createdRaw) {
+      const key = r.createdAt.toISOString().split('T')[0];
+      if (trendMap[key]) trendMap[key].created++;
+    }
+    for (const r of resolvedRaw) {
+      const key = r.resolvedAt!.toISOString().split('T')[0];
+      if (trendMap[key]) trendMap[key].resolved++;
+    }
+    const trendLast30Days = Object.entries(trendMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, counts]) => ({ date, ...counts }));
+
+    // My assigned issues (top 5 by deadline)
+    const myAssignedIssues = await this.prisma.issue.findMany({
+      where: {
+        assignedToUserId: actor.userId,
+        status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+      },
+      orderBy: { deadline: 'asc' },
+      take: 5,
+      select: { id: true, title: true, priority: true, status: true, deadline: true },
+    });
+
+    // Recent activity (last 10 entries, all visible issues)
+    const recentActivity = await this.prisma.activityLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        action: true,
+        oldValue: true,
+        newValue: true,
+        createdAt: true,
+        user: { select: { name: true } },
+        issue: { select: { id: true, title: true } },
+      },
+    });
+
+    // Org comparison — SUPER_ADMIN only
+    let orgComparison: Array<{ orgName: string; open: number; overdue: number }> = [];
+    if (actor.role === 'SUPER_ADMIN') {
+      const orgs = await this.prisma.organization.findMany({
+        where: { type: { not: 'SUPER_ADMIN' as any } },
+        select: { id: true, name: true },
+      });
+      const openStatuses = ['NEW', 'ACKNOWLEDGED', 'ASSIGNED', 'IN_PROGRESS', 'REOPENED'];
+      orgComparison = await Promise.all(
+        orgs.map(async (org) => {
+          const [open, overdue] = await Promise.all([
+            this.prisma.issue.count({
+              where: { raisedByOrgId: org.id, status: { in: openStatuses as any } },
+            }),
+            this.prisma.issue.count({
+              where: {
+                raisedByOrgId: org.id,
+                deadline: { lt: now },
+                status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+              },
+            }),
+          ]);
+          return { orgName: org.name, open, overdue };
+        }),
+      );
+    }
+
+    return {
+      byStatus,
+      byPriority,
+      byType,
+      overdue: overdueCount,
+      resolvedThisMonth,
+      avgResolutionDays,
+      trendLast30Days,
+      myAssignedIssues,
+      recentActivity,
+      orgComparison,
+    };
+  }
 }

@@ -66,4 +66,9 @@ export class NotificationsController {
   getDashboardSummary(@CurrentUser() actor: JwtPayload) {
     return this.notificationsService.getDashboardSummary(actor);
   }
+
+  @Get('dashboard/metrics')
+  getDashboardMetrics(@CurrentUser() actor: JwtPayload) {
+    return this.notificationsService.getDashboardMetrics(actor);
+  }
 }
