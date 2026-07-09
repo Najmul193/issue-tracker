@@ -29,7 +29,7 @@ async function main() {
     data: { name: 'Data Edge', type: 'SI' },
   });
   const oracleOrg = await prisma.organization.create({
-    data: { name: 'Oracle', type: 'ORACLE' },
+      data: { name: 'Oracle', type: 'OEM' },
   });
 
   console.log('Organizations created:');

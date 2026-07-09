@@ -127,7 +127,7 @@ describe('Issues Integration (all 10 scenarios)', () => {
       data: { name: `Data-Edge-${suiteId}`, type: 'SI' },
     });
     const oracleOrg = await prisma.organization.create({
-      data: { name: `Oracle-${suiteId}`, type: 'ORACLE' },
+      data: { name: `Oracle-${suiteId}`, type: 'OEM' },
     });
     createdOrgIds.push(superAdminOrg.id, bankOrg.id, dataEdgeOrg.id, oracleOrg.id);
 

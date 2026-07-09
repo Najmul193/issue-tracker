@@ -119,7 +119,7 @@ describe('Users Management (12 scenarios)', () => {
       data: { name: `BankOrg-${suiteId}`, type: 'BANK' },
     });
     const oracleOrg = await prisma.organization.create({
-      data: { name: `OracleOrg-${suiteId}`, type: 'ORACLE' },
+      data: { name: `OracleOrg-${suiteId}`, type: 'OEM' },
     });
     createdOrgIds.push(superAdminOrg.id, bankOrg.id, oracleOrg.id);
 
@@ -269,7 +269,7 @@ describe('Users Management (12 scenarios)', () => {
         .set('Cookie', `access_token=${siToken}`)
         .send({ text: 'SI comment on Bank issue' });
 
-      const oracleToken = token(oracleUserId, 'USER', oracleOrgId, 'ORACLE');
+      const oracleToken = token(oracleUserId, 'USER', oracleOrgId, 'OEM');
       const viewRes = await request(app.getHttpServer())
         .get(`/api/issues/${issueId}`)
         .set('Cookie', `access_token=${oracleToken}`);
@@ -292,7 +292,7 @@ describe('Users Management (12 scenarios)', () => {
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
-      const oracleToken = token(oracleUserId, 'USER', oracleOrgId, 'ORACLE');
+      const oracleToken = token(oracleUserId, 'USER', oracleOrgId, 'OEM');
       const res = await request(app.getHttpServer())
         .post(`/api/issues/${issueId}/comments`)
         .set('Cookie', `access_token=${oracleToken}`)
@@ -313,7 +313,7 @@ describe('Users Management (12 scenarios)', () => {
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
-      const oracleToken = token(oracleUserId, 'USER', oracleOrgId, 'ORACLE');
+      const oracleToken = token(oracleUserId, 'USER', oracleOrgId, 'OEM');
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/status`)
         .set('Cookie', `access_token=${oracleToken}`)

@@ -11,7 +11,7 @@ datasource db {
 enum OrganizationType {
   BANK
   SI
-  ORACLE
+  OEM
   SUPER_ADMIN
 }
 
