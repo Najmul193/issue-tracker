@@ -518,7 +518,7 @@ export default function Users() {
                     >
                       <option value="BANK">BANK</option>
                       <option value="SI">SI</option>
-                      <option value="ORACLE">ORACLE</option>
+                      <option value="OEM">OEM</option>
                     </select>
                   </div>
                 </div>

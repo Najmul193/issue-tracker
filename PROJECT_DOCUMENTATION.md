@@ -44,7 +44,7 @@ The system defines **three user roles** and **four organization types** that col
 | `SUPER_ADMIN` | Governing entity with cross-tenant visibility |
 | `BANK` | Banking client organization |
 | `SI` | System Integrator organization |
-| `ORACLE` | Oracle client organization |
+| `OEM` | OEM (Oracle) client organization |
 
 #### User Roles & Permissions
 
