@@ -4,9 +4,11 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { EmailService } from './email.service';
 import { DeadlineMonitorService } from './deadline-monitor.service';
+import { PrismaModule } from '../prisma/prisma.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [ScheduleModule.forRoot(), PrismaModule, ProjectsModule],
   providers: [
     NotificationsService,
     EmailService,

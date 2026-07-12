@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { fetchDashboardMetrics } from '../api/dashboard';
 import { useAuth } from '../context/AuthContext';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 import SkeletonSection from '../components/dashboard/SkeletonSection';
 import StatusDonut from '../components/dashboard/StatusDonut';
 import PriorityBar from '../components/dashboard/PriorityBar';
@@ -73,10 +74,11 @@ function SectionHeader({ title }: { title: string }) {
 
 export default function Dashboard() {
   const { user: currentUser } = useAuth();
+  const { projectIdsParam } = useProjectFilter();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['dashboard-metrics'],
-    queryFn: fetchDashboardMetrics,
+    queryKey: ['dashboard-metrics', projectIdsParam],
+    queryFn: () => fetchDashboardMetrics(projectIdsParam || undefined),
   });
 
   /* summary cards — show skeletons while loading */

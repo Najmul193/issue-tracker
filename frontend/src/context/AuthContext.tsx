@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   login as apiLogin,
   logout as apiLogout,
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const hydrate = useCallback(async () => {
     setIsLoading(true);
@@ -64,8 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Even if the API call fails, clear local state
     }
     setUser(null);
+    queryClient.clear();
     navigate('/login', { replace: true });
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

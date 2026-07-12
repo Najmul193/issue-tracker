@@ -53,6 +53,9 @@ export interface DashboardMetrics {
   orgComparison: OrgComparison[];
 }
 
-export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
-  return apiGet<DashboardMetrics>('/dashboard/metrics');
+export async function fetchDashboardMetrics(projectIds?: string): Promise<DashboardMetrics> {
+  const params = new URLSearchParams();
+  if (projectIds) params.set('projectIds', projectIds);
+  const qs = params.toString();
+  return apiGet<DashboardMetrics>(`/dashboard/metrics${qs ? `?${qs}` : ''}`);
 }

@@ -45,12 +45,18 @@ export class OrganizationsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Remove org from all projects and remove org's users from all projects
+      await tx.projectOrganization.deleteMany({ where: { organizationId: id } });
+      const users = await tx.user.findMany({ where: { organizationId: id }, select: { id: true } });
+      const userIds = users.map((u) => u.id);
+      if (userIds.length > 0) {
+        await tx.projectUser.deleteMany({ where: { userId: { in: userIds } } });
+      }
+
       // Delete all issues related to this org (cascades to comments, attachments, activityLogs, notifications, issueAssignees)
       await tx.issue.deleteMany({ where: { raisedByOrgId: id } });
       await tx.issue.deleteMany({ where: { assignedToOrgId: id } });
       // Delete all users in this org
-      const users = await tx.user.findMany({ where: { organizationId: id }, select: { id: true } });
-      const userIds = users.map((u) => u.id);
       if (userIds.length > 0) {
         await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
         await tx.activityLog.deleteMany({ where: { userId: { in: userIds } } });
@@ -83,6 +89,11 @@ export class OrganizationsService {
       // Get all users in this org
       const users = await tx.user.findMany({ where: { organizationId: id }, select: { id: true } });
       const userIds = users.map((u) => u.id);
+
+      // Remove org's users from all projects
+      if (userIds.length > 0) {
+        await tx.projectUser.deleteMany({ where: { userId: { in: userIds } } });
+      }
 
       if (userIds.length > 0) {
         // Delete notifications for all users

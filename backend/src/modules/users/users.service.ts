@@ -32,7 +32,6 @@ export class UsersService {
     dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId?: string; newOrganizationName?: string; newOrganizationType?: string },
     actor: JwtPayload,
   ) {
-    // Permission check
     if (actor.role === 'USER') {
       throw new ForbiddenException('USER cannot create users');
     }
@@ -46,7 +45,6 @@ export class UsersService {
       }
     }
 
-    // SUPER_ADMIN: create new org on the fly
     let orgId = dto.organizationId;
     if (actor.role === 'SUPER_ADMIN' && dto.newOrganizationName) {
       const org = await this.prisma.organization.create({
@@ -59,10 +57,9 @@ export class UsersService {
     }
 
     if (!orgId) {
-      throw new Error('Missing organizationId'); // will 500, but should be caught by validation upstream
+      throw new Error('Missing organizationId');
     }
 
-    // Check email uniqueness
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
       throw new ConflictException('A user with this email already exists');
@@ -104,52 +101,67 @@ export class UsersService {
   }
 
   async findAssignable(actor: JwtPayload, issueId?: string) {
-    // SUPER_ADMIN users never assign issues — return empty
     if (actor.role === 'SUPER_ADMIN') {
       return [];
     }
 
     const actorOrgType = actor.organizationType as any;
 
-    if (actor.role === 'ORG_ADMIN') {
-      if (issueId) {
-        const issue = await this.prisma.issue.findUnique({
-          where: { id: issueId },
-          select: {
-            raisedByOrgId: true,
-            assignedToOrgId: true,
-            assignedToUser: { select: { organizationId: true } },
-          },
-        });
-        if (issue) {
-          const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
-          const isRaiser = issue.raisedByOrgId === actor.organizationId;
-          const isAssignedToActorOrg = currentAssignedOrgId === actor.organizationId;
+    // Base project membership filter for the issue's project
+    let projectOrgFilter: any = undefined;
+    if (issueId) {
+      const issue = await this.prisma.issue.findUnique({
+        where: { id: issueId },
+        select: {
+          raisedByOrgId: true,
+          assignedToOrgId: true,
+          projectId: true,
+          assignedToUser: { select: { organizationId: true } },
+        },
+      });
+      if (issue?.projectId) {
+        const memberOrgIds = (
+          await this.prisma.projectOrganization.findMany({
+            where: { projectId: issue.projectId },
+            select: { organizationId: true },
+          })
+        ).map((po) => po.organizationId);
+        projectOrgFilter = { organizationId: { in: memberOrgIds } };
+      }
 
-          // Raiser's org admin, issue outside their org → show users from different-typed orgs only
-          if (isRaiser && !isAssignedToActorOrg) {
-            return this.prisma.user.findMany({
-              where: {
-                status: 'ACTIVE',
-                role: { not: 'SUPER_ADMIN' },
-                organization: { type: { not: actorOrgType } },
-              },
-              select: { id: true, name: true, email: true, organizationId: true, role: true },
-              orderBy: { name: 'asc' },
-            });
-          }
+      if (actor.role === 'ORG_ADMIN' && issue) {
+        const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+        const isRaiser = issue.raisedByOrgId === actor.organizationId;
+        const isAssignedToActorOrg = currentAssignedOrgId === actor.organizationId;
 
-          // Issue is in actor's org → show internal users
-          if (isAssignedToActorOrg) {
-            return this.prisma.user.findMany({
-              where: { organizationId: actor.organizationId, status: 'ACTIVE', role: { not: 'SUPER_ADMIN' } },
-              select: { id: true, name: true, email: true, organizationId: true, role: true },
-              orderBy: { name: 'asc' },
-            });
-          }
+        if (isRaiser && !isAssignedToActorOrg) {
+          return this.prisma.user.findMany({
+            where: {
+              status: 'ACTIVE',
+              role: { not: 'SUPER_ADMIN' },
+              organization: { type: { not: actorOrgType } },
+              ...(projectOrgFilter || {}),
+            },
+            select: { id: true, name: true, email: true, organizationId: true, role: true },
+            orderBy: { name: 'asc' },
+          });
+        }
+
+        if (isAssignedToActorOrg) {
+          return this.prisma.user.findMany({
+            where: {
+              organizationId: actor.organizationId,
+              status: 'ACTIVE',
+              role: { not: 'SUPER_ADMIN' },
+            },
+            select: { id: true, name: true, email: true, organizationId: true, role: true },
+            orderBy: { name: 'asc' },
+          });
         }
       }
-      // Fallback: internal only
+    }
+
+    if (actor.role === 'ORG_ADMIN') {
       return this.prisma.user.findMany({
         where: { organizationId: actor.organizationId, status: 'ACTIVE', role: { not: 'SUPER_ADMIN' } },
         select: { id: true, name: true, email: true, organizationId: true, role: true },
@@ -157,7 +169,6 @@ export class UsersService {
       });
     }
 
-    // If actor is the current assignee, only admins in their own org
     if (issueId) {
       const issue = await this.prisma.issue.findUnique({
         where: { id: issueId },
@@ -172,13 +183,17 @@ export class UsersService {
       }
     }
 
-    // USER: only users from different-typed orgs (can't assign to own org or same-type orgs)
+    const baseWhere: any = {
+      status: 'ACTIVE',
+      role: { not: 'SUPER_ADMIN' },
+      organization: { type: { not: actorOrgType } },
+    };
+    if (projectOrgFilter) {
+      baseWhere.organizationId = projectOrgFilter.organizationId;
+    }
+
     return this.prisma.user.findMany({
-      where: {
-        status: 'ACTIVE',
-        role: { not: 'SUPER_ADMIN' },
-        organization: { type: { not: actorOrgType } },
-      },
+      where: baseWhere,
       select: { id: true, name: true, email: true, organizationId: true, role: true },
       orderBy: { name: 'asc' },
     });
@@ -195,7 +210,6 @@ export class UsersService {
 
     const target = await this.findById(id);
 
-    // Prevent self-deactivation
     if (dto.status === 'INACTIVE' && id === actor.userId) {
       throw new ForbiddenException('You cannot deactivate your own account');
     }
@@ -250,23 +264,16 @@ export class UsersService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Delete all issues raised by this user (cascades to comments, attachments, activityLogs, notifications, issueAssignees)
+      await tx.projectUser.deleteMany({ where: { userId: id } });
       await tx.issue.deleteMany({ where: { raisedById: id } });
-      // Delete issue assignee records for this user
       await tx.issueAssignee.deleteMany({ where: { userId: id } });
-      // Delete user's comments that aren't on issues they raised (already deleted above)
       await tx.comment.deleteMany({ where: { userId: id } });
-      // Delete user's direct attachments
       await tx.attachment.deleteMany({ where: { uploadedById: id } });
-      // Delete activity logs
       await tx.activityLog.deleteMany({ where: { userId: id } });
-      // Delete notifications
       await tx.notification.deleteMany({ where: { userId: id } });
-      // Unset remaining issue references
       await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
       await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
       await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
-      // Hard delete the user
       await tx.user.delete({ where: { id } });
     });
 
@@ -298,21 +305,15 @@ export class UsersService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Delete user's notifications
+      await tx.projectUser.deleteMany({ where: { userId: id } });
       await tx.notification.deleteMany({ where: { userId: id } });
-      // Delete user's activity logs
       await tx.activityLog.deleteMany({ where: { userId: id } });
-      // Delete user's comments
       await tx.comment.deleteMany({ where: { userId: id } });
-      // Delete user's attachments
       await tx.attachment.deleteMany({ where: { uploadedById: id } });
-      // Delete issue assignee records
       await tx.issueAssignee.deleteMany({ where: { userId: id } });
-      // Unset issue references
       await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
       await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
       await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
-      // Keep the user record for issue history (raisedById FK), but clear sensitive data
       await tx.user.update({
         where: { id },
         data: { email: `deleted-${id}@deleted.com`, passwordHash: '', phone: null, status: 'INACTIVE' },

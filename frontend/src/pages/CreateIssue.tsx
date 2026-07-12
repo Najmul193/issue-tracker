@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { createIssue, uploadAttachments, deleteIssue } from '../api/issues';
 import type { IssueType, IssuePriority } from '../api/issues';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 import { ApiError } from '../api/client';
 import { addDays } from 'date-fns';
 
@@ -83,6 +84,17 @@ export default function CreateIssue() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [deadlineManuallyEdited, setDeadlineManuallyEdited] = useState(false);
+  const { allProjects, selectedProjectIds, isAllSelected } = useProjectFilter();
+
+  // Determine which projects to show in the dropdown
+  const visibleProjects = isAllSelected
+    ? allProjects
+    : allProjects.filter((p) => selectedProjectIds.includes(p.id));
+
+  // Auto-set project if only 1 is visible, otherwise require selection
+  const autoProjectId = visibleProjects.length === 1 ? visibleProjects[0].id : '';
+  const showProjectDropdown = visibleProjects.length > 1;
+  const [projectId, setProjectId] = useState(autoProjectId);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -93,6 +105,7 @@ export default function CreateIssue() {
         priority,
         deadline: new Date(deadline).toISOString(),
         module: module.trim() || undefined,
+        projectId,
       });
 
       if (selectedFiles.length > 0) {
@@ -141,6 +154,7 @@ export default function CreateIssue() {
     const errors: Record<string, string> = {};
 
     if (!title.trim()) errors.title = 'Title is required';
+    if (!projectId) errors.projectId = 'Project is required';
     if (!deadline) {
       errors.deadline = 'Deadline is required';
     } else if (new Date(deadline) <= new Date()) {
@@ -198,6 +212,40 @@ export default function CreateIssue() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Project */}
+        {showProjectDropdown ? (
+          <div>
+            <label htmlFor="project" className="block text-sm font-medium text-gray-700">
+              Project <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="project"
+              value={projectId}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                if (fieldErrors.projectId) setFieldErrors((p) => ({ ...p, projectId: '' }));
+              }}
+              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                fieldErrors.projectId ? 'border-red-300' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Select a project...</option>
+              {visibleProjects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.projectId && (
+              <p className="mt-1 text-xs text-red-600">{fieldErrors.projectId}</p>
+            )}
+          </div>
+        ) : visibleProjects.length === 1 ? (
+          <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
+            <span className="font-medium text-gray-700">Project:</span> {visibleProjects[0].name}
+          </div>
+        ) : null}
+
         {/* Title */}
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700">

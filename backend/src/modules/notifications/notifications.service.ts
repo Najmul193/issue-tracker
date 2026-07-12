@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { Prisma, NotifiedStage } from '@prisma/client';
+import { ProjectsService } from '../projects/projects.service';
 
 @Injectable()
 export class NotificationsService {
@@ -11,7 +12,19 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly projectsService: ProjectsService,
   ) {}
+
+  private async buildDashboardFilter(
+    actor: JwtPayload,
+    projectIds?: string,
+  ): Promise<Prisma.IssueWhereInput> {
+    const visibilityFilter = await this.projectsService.getVisibleProjectFilter(actor);
+    if (!projectIds) return visibilityFilter;
+    const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) return visibilityFilter;
+    return { AND: [visibilityFilter, { projectId: { in: ids } }] };
+  }
 
   async createNotification(data: {
     userId: string;
@@ -57,7 +70,7 @@ export class NotificationsService {
 
   async findAllForUser(
     actor: JwtPayload,
-    query: { page?: string; limit?: string; unread?: string },
+    query: { page?: string; limit?: string; unread?: string; projectIds?: string },
   ) {
     const page = Math.max(1, parseInt(query.page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
@@ -66,6 +79,12 @@ export class NotificationsService {
     const where: Prisma.NotificationWhereInput = { userId: actor.userId };
     if (query.unread === 'true') {
       where.isRead = false;
+    }
+    if (query.projectIds) {
+      const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        where.issue = { projectId: { in: ids } };
+      }
     }
 
     const [data, total] = await Promise.all([
@@ -76,7 +95,7 @@ export class NotificationsService {
         orderBy: { createdAt: 'desc' },
         include: {
           issue: {
-            select: { id: true, title: true },
+            select: { id: true, title: true, projectId: true },
           },
         },
       }),
@@ -111,10 +130,15 @@ export class NotificationsService {
     return { success: true };
   }
 
-  async getUnreadCount(actor: JwtPayload) {
-    const count = await this.prisma.notification.count({
-      where: { userId: actor.userId, isRead: false },
-    });
+  async getUnreadCount(actor: JwtPayload, projectIds?: string) {
+    const where: Prisma.NotificationWhereInput = { userId: actor.userId, isRead: false };
+    if (projectIds) {
+      const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        where.issue = { projectId: { in: ids } };
+      }
+    }
+    const count = await this.prisma.notification.count({ where });
     return { count };
   }
 
@@ -139,6 +163,7 @@ export class NotificationsService {
         lastNotifiedStage: true,
         assignedToUserId: true,
         assignedToOrgId: true,
+        projectId: true,
         assignedToUser: { select: { id: true, email: true, name: true } },
         assignedToOrg: {
           select: {
@@ -314,17 +339,18 @@ export class NotificationsService {
   }
 
   // ------- Dashboard summary -------
-  async getDashboardSummary(actor: JwtPayload) {
-    // Part A: No visibility filter — all authenticated users see all issues in dashboard
+  async getDashboardSummary(actor: JwtPayload, projectIds?: string) {
+    const visibilityFilter = await this.buildDashboardFilter(actor, projectIds);
+
     const [statusCounts, priorityCounts] = await Promise.all([
       this.prisma.issue.groupBy({
         by: ['status'],
-        where: {},
+        where: visibilityFilter,
         _count: { id: true },
       }),
       this.prisma.issue.groupBy({
         by: ['priority'],
-        where: {},
+        where: visibilityFilter,
         _count: { id: true },
       }),
     ]);
@@ -341,6 +367,7 @@ export class NotificationsService {
 
     const overdue = await this.prisma.issue.count({
       where: {
+        ...visibilityFilter,
         deadline: { lt: new Date() },
         status: { notIn: ['CLOSED', 'VERIFIED'] as any },
       },
@@ -350,26 +377,30 @@ export class NotificationsService {
   }
 
   // ------- Dashboard metrics (extended) -------
-  async getDashboardMetrics(actor: JwtPayload) {
+  async getDashboardMetrics(actor: JwtPayload, projectIds?: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
 
+    const visibilityFilter = await this.buildDashboardFilter(actor, projectIds);
+
     const [statusCounts, priorityCounts, typeCounts, overdueCount, resolvedThisMonth] =
       await Promise.all([
-        this.prisma.issue.groupBy({ by: ['status'], _count: { id: true } }),
-        this.prisma.issue.groupBy({ by: ['priority'], _count: { id: true } }),
-        this.prisma.issue.groupBy({ by: ['type'], _count: { id: true } }),
+        this.prisma.issue.groupBy({ by: ['status'], where: visibilityFilter, _count: { id: true } }),
+        this.prisma.issue.groupBy({ by: ['priority'], where: visibilityFilter, _count: { id: true } }),
+        this.prisma.issue.groupBy({ by: ['type'], where: visibilityFilter, _count: { id: true } }),
         this.prisma.issue.count({
           where: {
+            ...visibilityFilter,
             deadline: { lt: now },
             status: { notIn: ['CLOSED', 'VERIFIED'] as any },
           },
         }),
         this.prisma.issue.count({
           where: {
+            ...visibilityFilter,
             status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
             updatedAt: { gte: startOfMonth },
           },
@@ -385,7 +416,11 @@ export class NotificationsService {
 
     // Average resolution time (days) for closed/verified/resolved issues with resolvedAt
     const resolvedWithDate = await this.prisma.issue.findMany({
-      where: { status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any }, resolvedAt: { not: null } },
+      where: {
+        ...visibilityFilter,
+        status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
+        resolvedAt: { not: null },
+      },
       select: { createdAt: true, resolvedAt: true },
     });
     let avgResolutionDays: number | null = null;
@@ -399,11 +434,12 @@ export class NotificationsService {
     // Trend: created vs resolved per day for last 30 days
     const [createdRaw, resolvedRaw] = await Promise.all([
       this.prisma.issue.findMany({
-        where: { createdAt: { gte: thirtyDaysAgo } },
+        where: { ...visibilityFilter, createdAt: { gte: thirtyDaysAgo } },
         select: { createdAt: true },
       }),
       this.prisma.issue.findMany({
         where: {
+          ...visibilityFilter,
           resolvedAt: { gte: thirtyDaysAgo, not: null },
           status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
         },
@@ -430,9 +466,10 @@ export class NotificationsService {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, counts]) => ({ date, ...counts }));
 
-    // My assigned issues (top 5 by deadline)
+    // My assigned issues (top 5 by deadline) — scoped to visibility
     const myAssignedIssues = await this.prisma.issue.findMany({
       where: {
+        ...visibilityFilter,
         assignedToUserId: actor.userId,
         status: { notIn: ['CLOSED', 'VERIFIED'] as any },
       },
@@ -441,8 +478,11 @@ export class NotificationsService {
       select: { id: true, title: true, priority: true, status: true, deadline: true },
     });
 
-    // Recent activity (last 10 entries, all visible issues)
+    // Recent activity (last 10 entries) — scoped to visible issues
     const recentActivity = await this.prisma.activityLog.findMany({
+      where: {
+        issue: visibilityFilter,
+      },
       orderBy: { createdAt: 'desc' },
       take: 10,
       select: {
@@ -456,7 +496,7 @@ export class NotificationsService {
       },
     });
 
-    // Org comparison — SUPER_ADMIN only
+    // Org comparison — SUPER_ADMIN only (no project filter)
     let orgComparison: Array<{ orgName: string; open: number; overdue: number }> = [];
     if (actor.role === 'SUPER_ADMIN') {
       const orgs = await this.prisma.organization.findMany({

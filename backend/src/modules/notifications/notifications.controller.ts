@@ -25,17 +25,22 @@ export class NotificationsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('unread') unread?: string,
+    @Query('projectIds') projectIds?: string,
   ) {
     return this.notificationsService.findAllForUser(actor, {
       page,
       limit,
       unread,
+      projectIds,
     });
   }
 
   @Get('notifications/unread-count')
-  getUnreadCount(@CurrentUser() actor: JwtPayload) {
-    return this.notificationsService.getUnreadCount(actor);
+  getUnreadCount(
+    @CurrentUser() actor: JwtPayload,
+    @Query('projectIds') projectIds?: string,
+  ) {
+    return this.notificationsService.getUnreadCount(actor, projectIds);
   }
 
   @Patch('notifications/:id/read')
@@ -63,12 +68,18 @@ export class NotificationsController {
   // ----- Dashboard -----
 
   @Get('dashboard/summary')
-  getDashboardSummary(@CurrentUser() actor: JwtPayload) {
-    return this.notificationsService.getDashboardSummary(actor);
+  getDashboardSummary(
+    @CurrentUser() actor: JwtPayload,
+    @Query('projectIds') projectIds?: string,
+  ) {
+    return this.notificationsService.getDashboardSummary(actor, projectIds);
   }
 
   @Get('dashboard/metrics')
-  getDashboardMetrics(@CurrentUser() actor: JwtPayload) {
-    return this.notificationsService.getDashboardMetrics(actor);
+  getDashboardMetrics(
+    @CurrentUser() actor: JwtPayload,
+    @Query('projectIds') projectIds?: string,
+  ) {
+    return this.notificationsService.getDashboardMetrics(actor, projectIds);
   }
 }

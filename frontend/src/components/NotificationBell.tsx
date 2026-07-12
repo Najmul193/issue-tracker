@@ -2,22 +2,24 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { fetchUnreadCount, fetchNotifications, markAsRead, markAllAsRead } from '../api/notifications';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { projectIdsParam } = useProjectFilter();
 
   const { data: unreadData } = useQuery({
-    queryKey: ['unread-count'],
-    queryFn: fetchUnreadCount,
+    queryKey: ['unread-count', projectIdsParam],
+    queryFn: () => fetchUnreadCount(projectIdsParam || undefined),
     refetchInterval: 60_000,
   });
 
   const { data: notifData } = useQuery({
-    queryKey: ['notifications', 'recent'],
-    queryFn: () => fetchNotifications(1, 10),
+    queryKey: ['notifications', 'recent', projectIdsParam],
+    queryFn: () => fetchNotifications(1, 10, undefined, projectIdsParam || undefined),
     enabled: open,
   });
 

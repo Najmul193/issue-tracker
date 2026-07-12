@@ -24,16 +24,21 @@ export async function fetchNotifications(
   page = 1,
   limit = 10,
   unread?: boolean,
+  projectIds?: string,
 ): Promise<NotificationsResponse> {
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('limit', String(limit));
   if (unread) params.set('unread', 'true');
+  if (projectIds) params.set('projectIds', projectIds);
   return apiGet<NotificationsResponse>(`/notifications?${params.toString()}`);
 }
 
-export async function fetchUnreadCount(): Promise<UnreadCountResponse> {
-  return apiGet<UnreadCountResponse>('/notifications/unread-count');
+export async function fetchUnreadCount(projectIds?: string): Promise<UnreadCountResponse> {
+  const params = new URLSearchParams();
+  if (projectIds) params.set('projectIds', projectIds);
+  const qs = params.toString();
+  return apiGet<UnreadCountResponse>(`/notifications/unread-count${qs ? `?${qs}` : ''}`);
 }
 
 export async function markAsRead(id: string) {

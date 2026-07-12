@@ -25,4 +25,8 @@ export class CreateIssueDto {
   @IsString()
   @IsOptional()
   module?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  projectId: string;
 }

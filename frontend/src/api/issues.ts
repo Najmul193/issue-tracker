@@ -49,6 +49,8 @@ export interface Issue {
   assignedToOrg: IssueOrg | null;
   assignedById: string | null;
   assignedBy: IssueUser | null;
+  projectId: string | null;
+  project: IssueOrg | null;
   resolutionNote: string | null;
   resolvedBy: IssueUserWithOrg | null;
   resolvedAt: string | null;
@@ -102,6 +104,7 @@ export interface IssuesQueryParams {
   page?: string;
   limit?: string;
   assignedOrg?: string;
+  projectId?: string;
 }
 
 export interface CreateIssueData {
@@ -111,6 +114,7 @@ export interface CreateIssueData {
   priority: IssuePriority;
   deadline: string;
   module?: string;
+  projectId: string;
 }
 
 export interface AssignIssueData {

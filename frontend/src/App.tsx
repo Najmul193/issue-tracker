@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
+import { ProjectFilterProvider } from './context/ProjectFilterContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppShell from './components/AppShell';
 import Login from './pages/Login';
@@ -13,6 +14,8 @@ import CreateIssue from './pages/CreateIssue';
 import Concern from './pages/Concern';
 import Notifications from './pages/Notifications';
 import Users from './pages/Users';
+import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +47,8 @@ function AppRoutes() {
         <Route path="/issues/:id" element={<IssueDetail />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/:id" element={<ProjectDetail />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -55,7 +60,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <ProjectFilterProvider>
+            <AppRoutes />
+          </ProjectFilterProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

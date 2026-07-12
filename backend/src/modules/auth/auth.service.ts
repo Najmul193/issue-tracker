@@ -6,6 +6,7 @@ import { JwtPayload } from './decorators/current-user.decorator';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../notifications/email.service';
+import { ProjectsService } from '../projects/projects.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async login(email: string, password: string) {
@@ -143,11 +145,12 @@ export class AuthService {
   }
 
   /**
-   * Part A: All authenticated users can view any issue.
-   * Returns an empty filter (no restrictions) for all roles.
+   * Returns a Prisma filter that restricts issues to projects
+   * the actor has access to.
+   * SUPER_ADMIN: no restrictions (sees all).
    */
-  getVisibleIssuesFilter(_actor: JwtPayload): Prisma.IssueWhereInput {
-    return {};
+  async getVisibleIssuesFilter(actor: JwtPayload): Promise<Prisma.IssueWhereInput> {
+    return this.projectsService.getVisibleProjectFilter(actor);
   }
 
   /**

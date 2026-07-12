@@ -1,6 +1,8 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 import NotificationBell from './NotificationBell';
+import ProjectFilterDropdown from './ProjectFilterDropdown';
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard' },
@@ -9,11 +11,13 @@ const navItems = [
   { label: 'Notifications', path: '/notifications' },
 ];
 
+const superAdminNavItem = { label: 'Projects', path: '/projects' };
 const adminNavItem = { label: 'Users', path: '/users' };
 
 export default function AppShell() {
   const { user, logout, isLoading } = useAuth();
   const location = useLocation();
+  const { hasProjects, isLoadingProjects } = useProjectFilter();
 
   const isAdmin =
     user?.role === 'ORG_ADMIN' || user?.role === 'SUPER_ADMIN';
@@ -24,6 +28,8 @@ export default function AppShell() {
     }
     return location.pathname.startsWith(path);
   }
+
+  const showNoProjectsMessage = !isLoading && !isLoadingProjects && !hasProjects;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -60,6 +66,19 @@ export default function AppShell() {
               {adminNavItem.label}
             </Link>
           )}
+          {isAdmin && (
+            <Link
+              key={superAdminNavItem.path}
+              to={superAdminNavItem.path}
+              className={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                isActive(superAdminNavItem.path)
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              {superAdminNavItem.label}
+            </Link>
+          )}
         </nav>
         <div className="border-t border-gray-200 px-4 py-3">
           <p className="text-xs text-gray-400">
@@ -92,6 +111,7 @@ export default function AppShell() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <ProjectFilterDropdown />
             <NotificationBell />
             <button
               onClick={logout}
@@ -104,7 +124,19 @@ export default function AppShell() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          {showNoProjectsMessage ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <svg className="mb-4 h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <h2 className="text-lg font-semibold text-gray-700">No Projects Assigned</h2>
+              <p className="mt-2 max-w-sm text-sm text-gray-500">
+                You are not assigned to any project. Please contact your administrator to get access.
+              </p>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

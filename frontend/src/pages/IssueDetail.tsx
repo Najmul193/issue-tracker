@@ -296,6 +296,14 @@ export default function IssueDetail() {
           <h2 className="text-xl font-semibold text-gray-900">{issue.title}</h2>
           <PriorityBadge priority={issue.priority} />
           <StatusBadge status={issue.status} />
+          {issue.project && (
+            <Link
+              to={`/projects/${issue.project.id}`}
+              className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200 transition-colors"
+            >
+              {issue.project.name}
+            </Link>
+          )}
           {issue.module && (
             <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
               {issue.module}

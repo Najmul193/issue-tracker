@@ -41,4 +41,12 @@ export class QueryIssuesDto {
   @IsOptional()
   @IsNumberString()
   limit?: string;
+
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @IsOptional()
+  @IsString()
+  projectIds?: string;
 }

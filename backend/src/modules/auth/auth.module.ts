@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -7,11 +7,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { RolesGuard } from './guards/roles.guard';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
   imports: [
     UsersModule,
     NotificationsModule,
+    forwardRef(() => ProjectsModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'dev-secret-do-not-use-in-prod',

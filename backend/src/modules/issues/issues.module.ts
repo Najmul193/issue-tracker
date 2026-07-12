@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { AttachmentsModule } from '../attachments/attachments.module';
 import { StorageModule } from '../storage/storage.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     AttachmentsModule,
     StorageModule,
     forwardRef(() => NotificationsModule),
+    ProjectsModule,
   ],
   controllers: [IssuesController],
   providers: [IssuesService, StateMachine],

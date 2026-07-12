@@ -10,6 +10,7 @@ import { IssuesModule } from './modules/issues/issues.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     OrganizationsModule,
     AttachmentsModule,
     NotificationsModule,
+    ProjectsModule,
   ],
   providers: [
     {

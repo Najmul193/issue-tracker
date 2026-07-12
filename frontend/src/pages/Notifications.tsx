@@ -8,6 +8,7 @@ import {
   markAllAsRead,
 } from '../api/notifications';
 import type { NotificationItem } from '../api/notifications';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 import { ApiError } from '../api/client';
 
 function formatDateTime(iso: string): string {
@@ -24,15 +25,16 @@ export default function Notifications() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const { projectIdsParam } = useProjectFilter();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['notifications', page, filter],
-    queryFn: () => fetchNotifications(page, LIMIT, filter === 'unread'),
+    queryKey: ['notifications', page, filter, projectIdsParam],
+    queryFn: () => fetchNotifications(page, LIMIT, filter === 'unread', projectIdsParam || undefined),
   });
 
   const { data: unreadData } = useQuery({
-    queryKey: ['unread-count'],
-    queryFn: fetchUnreadCount,
+    queryKey: ['unread-count', projectIdsParam],
+    queryFn: () => fetchUnreadCount(projectIdsParam || undefined),
     refetchInterval: 30_000,
   });
 

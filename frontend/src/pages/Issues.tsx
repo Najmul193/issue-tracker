@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchIssues } from '../api/issues';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 import type {
   Issue,
   IssueStatus,
@@ -77,6 +78,7 @@ export default function Issues() {
   const page = parseInt(searchParams.get('page') || '1', 10);
 
   const [searchInput, setSearchInput] = useState('');
+  const { projectIdsParam } = useProjectFilter();
 
   const queryParams = useMemo(
     () => ({
@@ -85,10 +87,11 @@ export default function Issues() {
       ...(type ? { type: type as IssueType } : {}),
       ...(overdue ? { overdue } : {}),
       ...(module ? { module } : {}),
+      ...(projectIdsParam ? { projectIds: projectIdsParam } : {}),
       page: String(page),
       limit: '20',
     }),
-    [status, priority, type, overdue, module, page],
+    [status, priority, type, overdue, module, projectIdsParam, page],
   );
 
   const { data, isLoading, error } = useQuery({
@@ -224,6 +227,9 @@ export default function Issues() {
                   Title
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Project
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -250,7 +256,7 @@ export default function Issues() {
               {filteredData.data.length === 0 && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     No issues found.
@@ -269,6 +275,9 @@ export default function Issues() {
                   >
                     <td className="max-w-xs truncate px-4 py-3 text-sm font-medium text-gray-900">
                       {issue.title}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {issue.project?.name || '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {issue.type.replace('_', ' ')}

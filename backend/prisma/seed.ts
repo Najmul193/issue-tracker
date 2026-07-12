@@ -7,6 +7,9 @@ async function main() {
   console.log('Seeding database...\n');
 
   // Clean existing data
+  await prisma.projectUser.deleteMany();
+  await prisma.projectOrganization.deleteMany();
+  await prisma.project.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.attachment.deleteMany();
@@ -69,6 +72,32 @@ async function main() {
   const userCount = await prisma.user.count();
   const orgCount = await prisma.organization.count();
   console.log(`\nTotal: ${orgCount} organizations, ${userCount} users`);
+
+  // Create default project and add all orgs + users
+  const project = await prisma.project.create({
+    data: {
+      name: 'NRB Bank CBS Upgrade',
+      description: 'Core banking system upgrade for NRB Bank',
+    },
+  });
+  console.log(`\nProject created: ${project.name} (${project.id})`);
+
+  const allOrgs = [bankOrg, dataEdgeOrg, oracleOrg];
+  for (const org of allOrgs) {
+    await prisma.projectOrganization.create({
+      data: { projectId: project.id, organizationId: org.id },
+    });
+    console.log(`  Added org: ${org.name}`);
+  }
+
+  const allUsers = await prisma.user.findMany();
+  for (const user of allUsers) {
+    await prisma.projectUser.create({
+      data: { projectId: project.id, userId: user.id },
+    });
+    console.log(`  Added user: ${user.name}`);
+  }
+
   console.log('\nAll passwords: password123');
 }
 

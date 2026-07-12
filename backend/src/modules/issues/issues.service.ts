@@ -20,6 +20,7 @@ import { IssueStatus, IssuePriority, IssueType, Prisma } from '@prisma/client';
 import { AttachmentsService } from '../attachments/attachments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../notifications/email.service';
+import { ProjectsService } from '../projects/projects.service';
 
 @Injectable()
 export class IssuesService {
@@ -34,12 +35,17 @@ export class IssuesService {
     private readonly notificationsService: NotificationsService,
     @Inject(forwardRef(() => EmailService))
     private readonly emailService: EmailService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async create(dto: CreateIssueDto, actor: JwtPayload) {
     const deadline = new Date(dto.deadline);
     if (deadline <= new Date()) {
       throw new BadRequestException('Deadline must be in the future');
+    }
+
+    if (actor.role !== 'SUPER_ADMIN') {
+      await this.assertProjectAccess(dto.projectId, actor);
     }
 
     const issue = await this.prisma.issue.create({
@@ -52,10 +58,12 @@ export class IssuesService {
         module: dto.module ?? null,
         raisedById: actor.userId,
         raisedByOrgId: actor.organizationId,
+        projectId: dto.projectId,
       },
       include: {
         raisedBy: { select: { id: true, name: true, email: true } },
         raisedByOrg: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true } },
       },
     });
 
@@ -73,8 +81,23 @@ export class IssuesService {
   }
 
   async findAll(query: QueryIssuesDto, actor: JwtPayload) {
-    // Part A: No visibility filter — all authenticated users see all issues
     const andClauses: Prisma.IssueWhereInput[] = [];
+
+    const projectFilter = await this.authService.getVisibleIssuesFilter(actor);
+    if (Object.keys(projectFilter).length > 0) {
+      andClauses.push(projectFilter);
+    }
+
+    if (query.projectId) {
+      andClauses.push({ projectId: query.projectId });
+    }
+
+    if (query.projectIds) {
+      const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        andClauses.push({ projectId: { in: ids } });
+      }
+    }
 
     if (query.status) andClauses.push({ status: query.status });
     if (query.priority) andClauses.push({ priority: query.priority });
@@ -134,6 +157,7 @@ export class IssuesService {
         assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
           raisedByOrg: { select: { id: true, name: true } },
           assignedToOrg: { select: { id: true, name: true } },
+          project: { select: { id: true, name: true } },
         },
       }),
       this.prisma.issue.count({ where }),
@@ -142,7 +166,7 @@ export class IssuesService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string, _actor: JwtPayload) {
+  async findOne(id: string, actor: JwtPayload) {
     const issue = await this.prisma.issue.findUnique({
       where: { id },
       include: {
@@ -163,12 +187,16 @@ export class IssuesService {
           include: { user: { select: { id: true, name: true, email: true } } },
           orderBy: { createdAt: 'desc' },
         },
+        project: { select: { id: true, name: true } },
       },
     });
 
     if (!issue) throw new NotFoundException('Issue not found');
 
-    // Part A: No visibility check — all authenticated users can view any issue
+    if (issue.projectId) {
+      await this.assertProjectAccess(issue.projectId, actor);
+    }
+
     return issue;
   }
 
@@ -190,7 +218,32 @@ export class IssuesService {
       ? await this.prisma.organization.findUnique({ where: { id: dto.targetOrgId }, select: { id: true, name: true, type: true } })
       : null;
 
-    // Reopen scenario: raiser's org admin redistributing to outside orgs only
+    if (issue.projectId) {
+      if (dto.targetUserId && newTargetUser) {
+        const targetInProject = await this.prisma.projectUser.findUnique({
+          where: { projectId_userId: { projectId: issue.projectId, userId: dto.targetUserId } },
+        });
+        const targetOrgInProject = await this.prisma.projectOrganization.findUnique({
+          where: {
+            projectId_organizationId: { projectId: issue.projectId, organizationId: newTargetUser.organizationId },
+          },
+        });
+        if (!targetInProject && !targetOrgInProject) {
+          throw new ForbiddenException('Target user is not a member of this issue\'s project');
+        }
+      }
+      if (dto.targetOrgId && newTargetOrg) {
+        const targetOrgInProject = await this.prisma.projectOrganization.findUnique({
+          where: {
+            projectId_organizationId: { projectId: issue.projectId, organizationId: dto.targetOrgId },
+          },
+        });
+        if (!targetOrgInProject) {
+          throw new ForbiddenException('Target organization is not a member of this issue\'s project');
+        }
+      }
+    }
+
     const isReopenByRaiserOrgAdmin =
       issue.status === 'REOPENED' &&
       actor.role === 'ORG_ADMIN' &&
@@ -264,7 +317,6 @@ export class IssuesService {
       },
     });
 
-    // Reset lastNotifiedStage on reassignment
     await this.notificationsService.resetNotifiedStage(id);
 
     if (dto.targetUserId) {
@@ -274,7 +326,6 @@ export class IssuesService {
         message: `Issue "${issue.title}" has been assigned to you`,
         type: 'ASSIGNMENT',
       });
-      // Send assignment email (non-blocking)
       const targetUser = await this.prisma.user.findUnique({
         where: { id: dto.targetUserId },
         select: { email: true },
@@ -296,7 +347,6 @@ export class IssuesService {
           type: 'ASSIGNMENT',
         })),
       );
-      // Send assignment emails (non-blocking) - only to ORG_ADMINs for org queue routing
       for (const u of orgUsers) {
         if (u.role === 'ORG_ADMIN') {
           this.emailService
@@ -312,7 +362,6 @@ export class IssuesService {
   async updateStatus(id: string, dto: UpdateStatusDto, actor: JwtPayload) {
     const issue = await this.findOne(id, actor);
 
-    // Part B: Status changes are scoped — check canActOnIssue
     if (!this.authService.canActOnIssue(actor, issue)) {
       throw new ForbiddenException('You are not authorized to change the status of this issue');
     }
@@ -322,7 +371,6 @@ export class IssuesService {
       throw new BadRequestException(transition.error);
     }
 
-    // Only the creator or creator's org admin can verify or close a resolved issue
     if (dto.status === 'VERIFIED' || dto.status === 'CLOSED') {
       if (actor.role !== 'SUPER_ADMIN') {
         const isCreator = issue.raisedById === actor.userId;
@@ -335,7 +383,6 @@ export class IssuesService {
       }
     }
 
-    // Only raiser's org admin or super admin can reopen a closed issue
     if (issue.status === 'CLOSED' && dto.status === 'REOPENED') {
       if (actor.role !== 'SUPER_ADMIN' && (actor.role !== 'ORG_ADMIN' || actor.organizationId !== issue.raisedByOrgId)) {
         throw new ForbiddenException('Only the issue creator\'s org admin can reopen a closed issue');
@@ -405,10 +452,7 @@ export class IssuesService {
     actor: JwtPayload,
     files?: Express.Multer.File[],
   ) {
-    // Part B: Comments are fully open — any authenticated user can comment on any issue
-    // Just verify the issue exists (no visibility check)
-    const issue = await this.prisma.issue.findUnique({ where: { id } });
-    if (!issue) throw new NotFoundException('Issue not found');
+    const issue = await this.findOne(id, actor);
 
     const comment = await this.prisma.comment.create({
       data: {
@@ -438,6 +482,7 @@ export class IssuesService {
     files: Express.Multer.File[],
     actor: JwtPayload,
   ) {
+    await this.findOne(id, actor);
     return this.attachmentsService.uploadToIssue(id, files, actor);
   }
 
@@ -454,7 +499,6 @@ export class IssuesService {
   async delete(id: string, actor: JwtPayload) {
     const issue = await this.findOne(id, actor);
 
-    // Creator, ORG_ADMIN of creator's org, or SUPER_ADMIN
     if (actor.userId !== issue.raisedById && actor.role !== 'SUPER_ADMIN' && actor.role !== 'ORG_ADMIN') {
       throw new ForbiddenException('Only the creator, their org admin, or SUPER_ADMIN can delete issues');
     }
@@ -463,5 +507,28 @@ export class IssuesService {
     }
 
     await this.prisma.issue.delete({ where: { id } });
+  }
+
+  private async assertProjectAccess(projectId: string, actor: JwtPayload) {
+    if (actor.role === 'SUPER_ADMIN') return;
+
+    if (actor.role === 'ORG_ADMIN') {
+      const isOrgMember = await this.prisma.projectOrganization.findUnique({
+        where: {
+          projectId_organizationId: { projectId, organizationId: actor.organizationId },
+        },
+      });
+      if (!isOrgMember) {
+        throw new ForbiddenException('You do not have access to this project');
+      }
+      return;
+    }
+
+    const isUserMember = await this.prisma.projectUser.findUnique({
+      where: { projectId_userId: { projectId, userId: actor.userId } },
+    });
+    if (!isUserMember) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
   }
 }
