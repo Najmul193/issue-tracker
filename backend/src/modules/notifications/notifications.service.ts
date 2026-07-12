@@ -460,7 +460,10 @@ export class NotificationsService {
     let orgComparison: Array<{ orgName: string; open: number; overdue: number }> = [];
     if (actor.role === 'SUPER_ADMIN') {
       const orgs = await this.prisma.organization.findMany({
-        where: { type: { not: 'SUPER_ADMIN' as any } },
+        where: {
+          type: { not: 'SUPER_ADMIN' as any },
+          users: { some: { email: { not: { startsWith: 'deleted-' } } } },
+        },
         select: { id: true, name: true },
       });
       const openStatuses = ['NEW', 'ACKNOWLEDGED', 'ASSIGNED', 'IN_PROGRESS', 'REOPENED'];
