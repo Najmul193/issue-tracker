@@ -95,6 +95,9 @@ export class OrganizationsService {
         await tx.projectUser.deleteMany({ where: { userId: { in: userIds } } });
       }
 
+      // Remove org from all projects
+      await tx.projectOrganization.deleteMany({ where: { organizationId: id } });
+
       if (userIds.length > 0) {
         // Delete notifications for all users
         await tx.notification.deleteMany({ where: { userId: { in: userIds } } });

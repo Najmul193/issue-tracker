@@ -272,6 +272,12 @@ export class ProjectsService {
       where: { projectId_organizationId: { projectId, organizationId } },
     });
 
+    // Unset assignedToOrgId on issues in this project that reference the removed org
+    await this.prisma.issue.updateMany({
+      where: { projectId, assignedToOrgId: organizationId },
+      data: { assignedToOrgId: null },
+    });
+
     return { message: 'Organization removed from project' };
   }
 
@@ -387,7 +393,12 @@ export class ProjectsService {
     await this.assertMember(projectId, actor);
 
     return this.prisma.projectOrganization.findMany({
-      where: { projectId },
+      where: {
+        projectId,
+        organization: {
+          users: { some: { email: { not: { startsWith: 'deleted-' } } } },
+        },
+      },
       include: { organization: { select: { id: true, name: true, type: true } } },
       orderBy: { createdAt: 'asc' },
     });

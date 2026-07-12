@@ -2,9 +2,11 @@ import { useState, useRef, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchIssue, assignIssue, updateIssueStatus, addComment, deleteIssue } from '../api/issues';
-import { fetchAssignableUsers, fetchOrganizations } from '../api/users';
+import { fetchAssignableUsers } from '../api/users';
+import { fetchProjectOrganizations } from '../api/projects';
+import type { ProjectOrg } from '../api/projects';
 import type { IssueStatus } from '../api/issues';
-import type { AssignableUser, UserOrg } from '../api/users';
+import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -100,9 +102,10 @@ export default function IssueDetail() {
     enabled: !!id,
   });
 
-  const { data: orgs } = useQuery({
-    queryKey: ['organizations'],
-    queryFn: fetchOrganizations,
+  const { data: projectOrgs } = useQuery({
+    queryKey: ['project-orgs', issue?.projectId],
+    queryFn: () => fetchProjectOrganizations(issue!.projectId!),
+    enabled: !!issue?.projectId,
   });
 
   const statusMutation = useMutation({
@@ -540,8 +543,9 @@ export default function IssueDetail() {
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="">Select org...</option>
-              {(orgs || [])
-                .filter((o: UserOrg) => {
+              {(projectOrgs || [])
+                .filter((po: ProjectOrg) => {
+                  const o = po.organization;
                   if (o.type === 'SUPER_ADMIN') return false;
                   if (currentUser?.role === 'USER') return o.type !== currentUser?.organization?.type;
                   if (currentUser?.role === 'ORG_ADMIN' && issue) {
@@ -553,9 +557,9 @@ export default function IssueDetail() {
                   }
                   return true;
                 })
-                .map((o: UserOrg) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
+                .map((po: ProjectOrg) => (
+                <option key={po.organization.id} value={po.organization.id}>
+                  {po.organization.name}
                 </option>
               ))}
             </select>
@@ -583,7 +587,7 @@ export default function IssueDetail() {
                 <> Selected user: {(users || []).find((u) => u.id === assignUserId)?.name}</>
               )}
               {assignTarget === 'org' && assignOrgId && (
-                <> Route to organization queue: {(orgs || []).find((o) => o.id === assignOrgId)?.name}</>
+                <> Route to organization queue: {(projectOrgs || []).find((po) => po.organization.id === assignOrgId)?.organization.name}</>
               )}
             </p>
             <div className="mt-2 flex gap-2">
