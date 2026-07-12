@@ -48,11 +48,9 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
 
   // Initialize once projects are loaded
   useEffect(() => {
-    if (initialized || isLoadingProjects) return;
-    if (allProjects.length === 0) {
-      setInitialized(true);
-      return;
-    }
+    if (initialized) return;
+    if (isLoadingProjects) return;
+    if (allProjects.length === 0) return; // wait until projects actually load
     if (urlParam && urlParam !== NONE_SENTINEL) {
       const ids = urlParam.split(',').filter((id) =>
         allProjects.some((p) => p.id === id),
@@ -60,11 +58,9 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
       if (ids.length > 0) {
         setSelectedIds(ids);
       } else {
-        // Invalid param → default to all
         setSelectedIds(allProjects.map((p) => p.id));
       }
     } else {
-      // No URL param or __none__ → default to all selected on first load
       setSelectedIds(allProjects.map((p) => p.id));
     }
     setInitialized(true);
