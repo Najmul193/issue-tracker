@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Tracker — Database ERD</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      color: #f8fafc;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-bottom: 2rem;
+    }
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2rem;
+      font-size: 0.8rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+    .erd-container {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 2rem;
+      overflow-x: auto;
+      width: 100%;
+      max-width: 1400px;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+    .mermaid svg {
+      max-width: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bug Tracker — Database ERD</h1>
+  <p class="subtitle">PostgreSQL · Prisma ORM · 12 models</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Core Entity</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div> Junction / Join Table</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Supporting Entity</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Enum</div>
+  </div>
+
+  <div class="erd-container">
+    <pre class="mermaid">
+erDiagram
+    Organization ||--o{ User : "has users"
+    Organization ||--o{ Issue : "raises issues"
+    Organization ||--o{ Issue : "assigned to"
+    Organization ||--o{ ProjectOrganization : "belongs to projects"
+
+    User ||--o{ Issue : "raises"
+    User ||--o{ Issue : "assigned to"
+    User ||--o{ Issue : "assigns"
+    User ||--o{ Issue : "resolves"
+    User ||--o{ Comment : "writes"
+    User ||--o{ Attachment : "uploads"
+    User ||--o{ ActivityLog : "creates"
+    User ||--o{ Notification : "receives"
+    User ||--o{ PasswordResetToken : "resets password"
+    User ||--o{ ProjectUser : "member of projects"
+    User ||--o{ IssueAssignee : "assigned to issues"
+
+    Project ||--o{ ProjectOrganization : "has organizations"
+    Project ||--o{ ProjectUser : "has users"
+    Project ||--o{ Issue : "contains issues"
+
+    Issue ||--o{ Comment : "has comments"
+    Issue ||--o{ Attachment : "has attachments"
+    Issue ||--o{ ActivityLog : "has activity"
+    Issue ||--o{ Notification : "generates"
+    Issue ||--o{ IssueAssignee : "has assignees"
+
+    Comment ||--o{ Attachment : "has attachments"
+
+    Organization {
+        uuid id PK
+        string name
+        OrganizationType type
+        datetime createdAt
+    }
+
+    User {
+        uuid id PK
+        string name
+        string email UK
+        string passwordHash
+        string phone
+        uuid organizationId FK
+        UserRole role
+        UserStatus status
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    PasswordResetToken {
+        uuid id PK
+        uuid userId FK
+        string token UK
+        datetime expiresAt
+        datetime createdAt
+    }
+
+    Project {
+        uuid id PK
+        string name UK
+        string description
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ProjectOrganization {
+        uuid id PK
+        uuid projectId FK
+        uuid organizationId FK
+        datetime createdAt
+    }
+
+    ProjectUser {
+        uuid id PK
+        uuid projectId FK
+        uuid userId FK
+        uuid addedById FK
+        datetime createdAt
+    }
+
+    Issue {
+        uuid id PK
+        string title
+        string description
+        IssueType type
+        IssuePriority priority
+        IssueStatus status
+        string module
+        datetime deadline
+        uuid raisedById FK
+        uuid raisedByOrgId FK
+        uuid assignedToUserId FK
+        uuid assignedToOrgId FK
+        uuid assignedById FK
+        uuid projectId FK
+        datetime createdAt
+        datetime updatedAt
+        datetime closedAt
+        NotifiedStage lastNotifiedStage
+        string resolutionNote
+        uuid resolvedById FK
+        datetime resolvedAt
+    }
+
+    IssueAssignee {
+        uuid id PK
+        uuid issueId FK
+        uuid userId FK
+        uuid assignedById FK
+        datetime assignedAt
+    }
+
+    Comment {
+        uuid id PK
+        uuid issueId FK
+        uuid userId FK
+        string text
+        datetime createdAt
+    }
+
+    Attachment {
+        uuid id PK
+        uuid issueId FK
+        uuid commentId FK
+        uuid uploadedById FK
+        string fileName
+        string fileType
+        int fileSize
+        string storagePath
+        datetime createdAt
+    }
+
+    ActivityLog {
+        uuid id PK
+        uuid issueId FK
+        uuid userId FK
+        string action
+        string oldValue
+        string newValue
+        datetime createdAt
+    }
+
+    Notification {
+        uuid id PK
+        uuid userId FK
+        uuid issueId FK
+        string message
+        NotificationType type
+        boolean isRead
+        datetime createdAt
+    }
+    </pre>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      er: {
+        useMaxWidth: false,
+        layoutDirection: 'TB',
+        entityPadding: 15,
+        minEntityWidth: 100,
+      },
+      themeVariables: {
+        primaryColor: '#3b82f6',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#60a5fa',
+        lineColor: '#64748b',
+        secondaryColor: '#8b5cf6',
+        tertiaryColor: '#1e293b',
+      },
+    });
+  </script>
+</body>
+</html>
