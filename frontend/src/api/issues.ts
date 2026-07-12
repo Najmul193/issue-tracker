@@ -105,6 +105,7 @@ export interface IssuesQueryParams {
   limit?: string;
   assignedOrg?: string;
   projectId?: string;
+  projectIds?: string;
 }
 
 export interface CreateIssueData {

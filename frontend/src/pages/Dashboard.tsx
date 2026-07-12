@@ -78,7 +78,7 @@ export default function Dashboard() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard-metrics', projectIdsParam],
-    queryFn: () => fetchDashboardMetrics(projectIdsParam || undefined),
+    queryFn: () => fetchDashboardMetrics(projectIdsParam ?? undefined),
   });
 
   /* summary cards — show skeletons while loading */

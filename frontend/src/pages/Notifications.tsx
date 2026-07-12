@@ -29,12 +29,12 @@ export default function Notifications() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['notifications', page, filter, projectIdsParam],
-    queryFn: () => fetchNotifications(page, LIMIT, filter === 'unread', projectIdsParam || undefined),
+    queryFn: () => fetchNotifications(page, LIMIT, filter === 'unread', projectIdsParam ?? undefined),
   });
 
   const { data: unreadData } = useQuery({
     queryKey: ['unread-count', projectIdsParam],
-    queryFn: () => fetchUnreadCount(projectIdsParam || undefined),
+    queryFn: () => fetchUnreadCount(projectIdsParam ?? undefined),
     refetchInterval: 30_000,
   });
 

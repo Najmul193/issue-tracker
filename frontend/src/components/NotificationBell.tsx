@@ -13,13 +13,13 @@ export default function NotificationBell() {
 
   const { data: unreadData } = useQuery({
     queryKey: ['unread-count', projectIdsParam],
-    queryFn: () => fetchUnreadCount(projectIdsParam || undefined),
+    queryFn: () => fetchUnreadCount(projectIdsParam ?? undefined),
     refetchInterval: 60_000,
   });
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications', 'recent', projectIdsParam],
-    queryFn: () => fetchNotifications(1, 10, undefined, projectIdsParam || undefined),
+    queryFn: () => fetchNotifications(1, 10, undefined, projectIdsParam ?? undefined),
     enabled: open,
   });
 

@@ -21,8 +21,9 @@ export class NotificationsService {
   ): Promise<Prisma.IssueWhereInput> {
     const visibilityFilter = await this.projectsService.getVisibleProjectFilter(actor);
     if (!projectIds) return visibilityFilter;
+    if (projectIds === '__none__') return { id: { in: [] } };
     const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
-    if (ids.length === 0) return visibilityFilter;
+    if (ids.length === 0) return { id: { in: [] } };
     return { AND: [visibilityFilter, { projectId: { in: ids } }] };
   }
 
@@ -81,9 +82,15 @@ export class NotificationsService {
       where.isRead = false;
     }
     if (query.projectIds) {
-      const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
-      if (ids.length > 0) {
-        where.issue = { projectId: { in: ids } };
+      if (query.projectIds === '__none__') {
+        where.issue = { id: { in: [] } };
+      } else {
+        const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+        if (ids.length > 0) {
+          where.issue = { projectId: { in: ids } };
+        } else {
+          where.issue = { id: { in: [] } };
+        }
       }
     }
 
@@ -133,9 +140,15 @@ export class NotificationsService {
   async getUnreadCount(actor: JwtPayload, projectIds?: string) {
     const where: Prisma.NotificationWhereInput = { userId: actor.userId, isRead: false };
     if (projectIds) {
-      const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
-      if (ids.length > 0) {
-        where.issue = { projectId: { in: ids } };
+      if (projectIds === '__none__') {
+        where.issue = { id: { in: [] } };
+      } else {
+        const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+        if (ids.length > 0) {
+          where.issue = { projectId: { in: ids } };
+        } else {
+          where.issue = { id: { in: [] } };
+        }
       }
     }
     const count = await this.prisma.notification.count({ where });

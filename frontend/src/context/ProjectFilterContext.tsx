@@ -13,12 +13,15 @@ import { fetchProjects } from '../api/projects';
 import type { Project } from '../api/projects';
 import { useAuth } from './AuthContext';
 
+export const NONE_SENTINEL = '__none__';
+
 interface ProjectFilterContextValue {
   allProjects: Project[];
   selectedProjectIds: string[];
   setSelectedProjectIds: (ids: string[]) => void;
   toggleProject: (id: string) => void;
   selectAll: () => void;
+  clearAll: () => void;
   isAllSelected: boolean;
   hasProjects: boolean;
   isLoadingProjects: boolean;
@@ -40,27 +43,28 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
 
   const hasProjects = allProjects.length > 0;
 
-  // Read initial selection from URL params, or default to all
   const urlParam = searchParams.get('projects');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Initialize selection once projects are loaded
+  // Initialize once projects are loaded
   useEffect(() => {
     if (initialized || isLoadingProjects) return;
     if (allProjects.length === 0) {
       setInitialized(true);
       return;
     }
-    if (urlParam) {
+    if (urlParam && urlParam !== NONE_SENTINEL) {
       const ids = urlParam.split(',').filter((id) =>
         allProjects.some((p) => p.id === id),
       );
       if (ids.length > 0) {
         setSelectedIds(ids);
       } else {
+        // Invalid param → default to all
         setSelectedIds(allProjects.map((p) => p.id));
       }
     } else {
+      // No URL param or __none__ → default to all selected on first load
       setSelectedIds(allProjects.map((p) => p.id));
     }
     setInitialized(true);
@@ -72,8 +76,10 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!initialized) return;
     const next = new URLSearchParams(searchParams);
-    if (isAllSelected || selectedIds.length === 0) {
+    if (isAllSelected) {
       next.delete('projects');
+    } else if (selectedIds.length === 0) {
+      next.set('projects', NONE_SENTINEL);
     } else {
       next.set('projects', selectedIds.join(','));
     }
@@ -97,9 +103,14 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
     setSelectedIds(allProjects.map((p) => p.id));
   }, [allProjects]);
 
-  // Comma-separated param for API calls; null when all selected
+  const clearAll = useCallback(() => {
+    setSelectedIds([]);
+  }, []);
+
+  // null = all selected (no filter), __none__ = nothing selected (show nothing)
   const projectIdsParam = useMemo(() => {
-    if (isAllSelected || selectedIds.length === 0) return null;
+    if (isAllSelected) return null;
+    if (selectedIds.length === 0) return NONE_SENTINEL;
     return selectedIds.join(',');
   }, [selectedIds, isAllSelected]);
 
@@ -110,6 +121,7 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
       setSelectedProjectIds,
       toggleProject,
       selectAll,
+      clearAll,
       isAllSelected,
       hasProjects,
       isLoadingProjects,
@@ -121,6 +133,7 @@ export function ProjectFilterProvider({ children }: { children: ReactNode }) {
       setSelectedProjectIds,
       toggleProject,
       selectAll,
+      clearAll,
       isAllSelected,
       hasProjects,
       isLoadingProjects,

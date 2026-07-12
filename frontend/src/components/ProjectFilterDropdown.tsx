@@ -7,6 +7,7 @@ export default function ProjectFilterDropdown() {
     selectedProjectIds,
     toggleProject,
     selectAll,
+    clearAll,
     isAllSelected,
     hasProjects,
     isLoadingProjects,
@@ -29,27 +30,41 @@ export default function ProjectFilterDropdown() {
   }, [isOpen]);
 
   if (isLoadingProjects) return null;
-
   if (!hasProjects) return null;
 
   const selectedCount = selectedProjectIds.length;
   const total = allProjects.length;
   const isFiltered = !isAllSelected;
 
+  // Determine button text
+  let buttonText: string;
+  if (isAllSelected) {
+    buttonText = 'All Projects';
+  } else if (selectedCount === 0) {
+    buttonText = 'No Projects';
+  } else {
+    buttonText = `${selectedCount} of ${total} Projects`;
+  }
+
+  // Determine button style
+  const isNothingSelected = selectedCount === 0 && !isAllSelected;
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-          isFiltered
-            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
+          isNothingSelected
+            ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+            : isFiltered
+              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
         }`}
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
         </svg>
-        {isFiltered ? `${selectedCount} of ${total} Projects` : 'All Projects'}
+        {buttonText}
         <svg className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
@@ -64,7 +79,9 @@ export default function ProjectFilterDropdown() {
                 type="checkbox"
                 checked={isAllSelected}
                 onChange={() => {
-                  if (!isAllSelected) {
+                  if (isAllSelected) {
+                    clearAll();
+                  } else {
                     selectAll();
                   }
                 }}

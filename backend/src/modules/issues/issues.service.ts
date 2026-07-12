@@ -93,9 +93,15 @@ export class IssuesService {
     }
 
     if (query.projectIds) {
-      const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
-      if (ids.length > 0) {
-        andClauses.push({ projectId: { in: ids } });
+      if (query.projectIds === '__none__') {
+        andClauses.push({ id: { in: [] } });
+      } else {
+        const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+        if (ids.length > 0) {
+          andClauses.push({ projectId: { in: ids } });
+        } else {
+          andClauses.push({ id: { in: [] } });
+        }
       }
     }
 
