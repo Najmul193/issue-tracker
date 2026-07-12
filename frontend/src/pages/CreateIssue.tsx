@@ -213,7 +213,12 @@ export default function CreateIssue() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Project */}
-        {showProjectDropdown ? (
+        {visibleProjects.length === 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="font-medium">No projects selected</p>
+            <p className="mt-0.5 text-xs text-amber-600">Select at least one project from the filter in the top navigation bar before creating an issue.</p>
+          </div>
+        ) : showProjectDropdown ? (
           <div>
             <label htmlFor="project" className="block text-sm font-medium text-gray-700">
               Project <span className="text-red-500">*</span>
