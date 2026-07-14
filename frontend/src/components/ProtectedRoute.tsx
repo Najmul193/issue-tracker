@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import type { ReactNode } from 'react';
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isLoggingOut } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -36,6 +36,11 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
+    // Deep link: preserve location so user returns after login
+    // Explicit logout: don't preserve — user should land on dashboard
+    if (isLoggingOut) {
+      return <Navigate to="/login" replace />;
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

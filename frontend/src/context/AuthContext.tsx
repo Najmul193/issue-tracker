@@ -21,6 +21,7 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isLoggingOut: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -52,14 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      setIsLoggingOut(false);
+      queryClient.clear();
       await apiLogin(email, password);
       const currentUser = await getMe();
       setUser(currentUser);
     },
-    [],
+    [queryClient],
   );
 
   const logout = useCallback(async () => {
+    setIsLoggingOut(true);
     try {
       await apiLogout();
     } catch {
@@ -75,10 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isLoading,
       isAuthenticated: user !== null,
+      isLoggingOut,
       login,
       logout,
     }),
-    [user, isLoading, login, logout],
+    [user, isLoading, isLoggingOut, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

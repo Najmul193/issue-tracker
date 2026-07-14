@@ -18,7 +18,9 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Where to redirect after login (default to dashboard)
-  const from = location.state?.from?.pathname || '/dashboard';
+  // Safety net: never redirect back to /login itself
+  const rawFrom = location.state?.from?.pathname;
+  const from = rawFrom && rawFrom !== '/login' ? rawFrom : '/dashboard';
 
   function validate(): boolean {
     const errors: { email?: string; password?: string } = {};

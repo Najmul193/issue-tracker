@@ -31,9 +31,14 @@ interface ProjectFilterContextValue {
 const ProjectFilterContext = createContext<ProjectFilterContextValue | null>(null);
 
 export function ProjectFilterProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [initialized, setInitialized] = useState(false);
+
+  // Reset project filter state when user changes
+  useEffect(() => {
+    setInitialized(false);
+  }, [user]);
 
   const { data: allProjects = [], isLoading: isLoadingProjects } = useQuery({
     queryKey: ['projects'],
