@@ -99,6 +99,7 @@ The test setup automatically:
 │   │       ├── auth/
 │   │       ├── issues/
 │   │       ├── organizations/
+│   │       ├── projects/
 │   │       ├── attachments/
 │   │       └── notifications/
 │   ├── Dockerfile

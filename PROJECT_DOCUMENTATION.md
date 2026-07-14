@@ -54,9 +54,10 @@ The system defines **three user roles** and **four organization types** that col
 │  (Global authority — full access across all organizations)          │
 │                                                                     │
 │  • Create / read / update any user in any organization              │
-│  • Assign issues to any user or organization                        │
+│  • Create / manage projects                                         │
 │  • Change status on any issue                                       │
 │  • Full visibility into all issues, comments, attachments           │
+│  • Cannot assign issues (assignment restricted to ORG_ADMIN/USER)   │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
                     ┌───────────────┴───────────────┐
@@ -157,22 +158,32 @@ Issues traverse a defined state machine with enforced transition rules:
 ### 2.3 Feature Inventory
 
 #### Issue Management
-- Create issues with title, description, type, priority, deadline, and module classification
-- List and filter issues by status, priority, type, module, overdue status, and assigned organization
+- Create issues with title, description, type, priority, deadline, module, and project classification
+- List and filter issues by status, priority, type, module, overdue status, assigned organization, and project
 - **Concern tab** — personalized issue view showing issues relevant to the user (raised by them, assigned to them, or related to their org)
   - Sub-filters: All, Raised, Assign (org admin sees org-wide; user sees own only)
 - Paginated issue listing with configurable page size
 - Assign/reassign issues to users or organizations with cross-org routing rules:
+  - SUPER_ADMIN cannot assign issues (full access to all other operations)
   - USER can assign to users in other organizations only (cross-org)
   - ORG_ADMIN can assign within their own org only
   - Assigned USER can reroute to their own org admin only
   - Issue in org queue must stay within that org during active lifecycle
   - Reopened issues can be redistributed to outside orgs by raiser's org admin
+  - Cross-org type restriction: cannot assign to an org of the same type as the actor's org
 - Full state machine enforcement with role-based transition authorization
   - CLOSED → REOPENED restricted to raiser's org admin or SUPER_ADMIN
   - VERIFY/CLOSE restricted to issue creator or creator's org admin
 - Resolution notes (required for RESOLVED) and re-open comments (required for REOPENED)
 - **Delete issue** — restricted to the issue creator, ORG_ADMIN of the creator's org, or SUPER_ADMIN
+
+#### Project Management
+- Projects group issues by organizational membership and scope visibility
+- **SUPER_ADMIN** creates projects with at least one BANK, one SI, and one OEM organization
+- All active users from member organizations are auto-added as project members
+- Issue visibility is scoped to project membership — non-members cannot see project-scoped issues
+- ORG_ADMIN can manage project members from their own organization
+- Dashboard, notifications, and issue lists can be filtered by project
 
 #### Comments & Collaboration
 - Add comments to any issue with optional file attachments
@@ -206,8 +217,19 @@ Issues traverse a defined state machine with enforced transition rules:
 - Organization-scoped user listing
 
 #### Dashboard & Reporting
-- Summary cards: total open, overdue, critical, and resolved/closed counts
-- Breakdown by status and priority with drill-down links
+- Summary cards: total open, overdue, critical, and resolved this month counts
+- Breakdown by status, priority, and type with drill-down links
+- 30-day trend (daily created vs resolved issue counts)
+- Average resolution time (days)
+- My assigned issues (top 5 by deadline)
+- Recent activity (last 10 actions)
+- Org comparison (SUPER_ADMIN only): open and overdue counts per organization
+- Project-scoped filtering
+
+#### Password Reset
+- Forgot password flow via email (rate-limited: 3 req/min)
+- Reset password with time-limited token (1 hour expiry)
+- Email enumeration prevention (generic response for unregistered emails)
 
 #### Health Monitoring
 - Public health check endpoint with database connectivity status
@@ -286,7 +308,7 @@ External Services:
 
 ### 3.3 Database Schema
 
-Eight database tables (models) defined in Prisma schema:
+Eleven database tables (models) defined in Prisma schema:
 
 ```
 ┌──────────────┐       ┌──────────────────┐       ┌──────────────────┐
@@ -300,20 +322,21 @@ Eight database tables (models) defined in Prisma schema:
                        │ phone            │       │ status (ENUM)    │
                        │ role (ENUM)      │       │ module           │
                        │ status (ENUM)    │       │ deadline         │
-                       │ createdAt        │       ├──────────────────┤
-                       │ updatedAt        │◄──────│ raisedById (FK)  │
-                       └────────┬─────────┘  1:N │ raisedByOrgId(FK)│
-                                │               │ assignedToUserId │
-                                │ 1:N           │ assignedToOrgId  │
-                                │               │ assignedById     │
-                                │               │ resolutionNote   │
-                                │               │ resolvedById     │
-                                │               │ resolvedAt       │
-                                │               │ closedAt         │
-                                │               │ lastNotifiedStage│
-                                │               └────────┬─────────┘
-                                │                         │
-        ┌───────────────────────┼─────────────────────────┘
+                       │ createdAt        │       │ projectId (FK)   │
+                       │ updatedAt        │       ├──────────────────┤
+                       └────────┬─────────┘       │ raisedById (FK)  │
+                                │                 │ raisedByOrgId(FK)│
+                                │ 1:N             │ assignedToUserId │
+                                │                 │ assignedToOrgId  │
+                                │                 │ assignedById     │
+                                │                 │ resolutionNote   │
+                                │                 │ resolvedById     │
+                                │                 │ resolvedAt       │
+                                │                 │ closedAt         │
+                                │                 │ lastNotifiedStage│
+                                │                 └────────┬─────────┘
+                                │                          │
+        ┌───────────────────────┼──────────────────────────┘
         │                       │
         ▼                       ▼
 ┌───────────────┐      ┌──────────────────┐
@@ -341,6 +364,26 @@ Eight database tables (models) defined in Prisma schema:
 │ storagePath       │   └──────────────────┘   └──────────────────┘
 │ createdAt         │
 └───────────────────┘
+
+┌──────────────────┐   ┌─────────────────────┐   ┌──────────────────────┐
+│     Project      │   │ ProjectOrganization │   │     ProjectUser      │
+├──────────────────┤   ├─────────────────────┤   ├──────────────────────┤
+│ id (PK)          │   │ id (PK)             │   │ id (PK)              │
+│ name (unique)    │   │ projectId (FK)      │   │ projectId (FK)       │
+│ description      │   │ organizationId (FK) │   │ userId (FK)          │
+│ createdAt        │   │ createdAt           │   │ addedById (FK)       │
+│ updatedAt        │   └─────────────────────┘   │ createdAt            │
+└──────────────────┘                             └──────────────────────┘
+
+┌──────────────────────────┐
+│   PasswordResetToken     │
+├──────────────────────────┤
+│ id (PK)                  │
+│ userId (FK)              │
+│ token (unique)           │
+│ expiresAt                │
+│ createdAt                │
+└──────────────────────────┘
 ```
 
 **Enums:** `OrganizationType` · `UserRole` · `UserStatus` · `IssueType` · `IssuePriority` · `IssueStatus` · `NotificationType` · `NotifiedStage`
@@ -362,6 +405,8 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | POST | `/api/auth/login` | Public | Authenticate (rate-limited: 5/60s) |
 | POST | `/api/auth/logout` | Authenticated | Clear session |
 | GET | `/api/auth/me` | Authenticated | Current user profile |
+| POST | `/api/auth/forgot-password` | Public | Request password reset (rate-limited: 3/60s) |
+| POST | `/api/auth/reset-password` | Public | Reset password with token (rate-limited: 5/60s) |
 
 #### Users
 | Method | Path | Access | Description |
@@ -411,7 +456,23 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 #### Dashboard
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
-| GET | `/api/dashboard/summary` | Authenticated | Aggregated issue counts |
+| GET | `/api/dashboard/summary` | Authenticated | Aggregated issue counts (status, priority) |
+| GET | `/api/dashboard/metrics` | Authenticated | Extended metrics (trends, resolution time, org comparison) |
+
+#### Projects
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| POST | `/api/projects` | SUPER_ADMIN | Create project (requires BANK + SI + OEM orgs) |
+| GET | `/api/projects` | Authenticated | List projects (scoped by role) |
+| GET | `/api/projects/:id` | Project member | Get project detail |
+| PATCH | `/api/projects/:id` | SUPER_ADMIN | Update project |
+| DELETE | `/api/projects/:id` | SUPER_ADMIN | Delete project |
+| GET | `/api/projects/:id/organizations` | Project member | List project organizations |
+| POST | `/api/projects/:id/organizations` | SUPER_ADMIN | Add organization to project |
+| DELETE | `/api/projects/:id/organizations/:orgId` | SUPER_ADMIN | Remove organization from project |
+| GET | `/api/projects/:id/users` | Project member | List project users |
+| POST | `/api/projects/:id/users` | SUPER_ADMIN / ORG_ADMIN | Add user to project |
+| DELETE | `/api/projects/:id/users/:userId` | SUPER_ADMIN / ORG_ADMIN | Remove user from project |
 
 ---
 
@@ -432,9 +493,13 @@ backend/src/
     │   ├── strategies/          # JWT strategy (Passport)
     │   ├── decorators/          # @Public(), @Roles(), @CurrentUser()
     │   ├── auth.service.ts      # Login, authorization logic (canAssign, canActOnIssue)
-    │   └── auth.controller.ts   # Login, logout, me
+    │   └── auth.controller.ts   # Login, logout, me, forgot-password, reset-password
     ├── users/                   # User CRUD with role-based restrictions
-    ├── organizations/           # Organization listing
+    ├── organizations/           # Organization listing and management
+    ├── projects/                # Project management (org/user membership, visibility scoping)
+    │   ├── projects.service.ts  # CRUD + membership + visibility filter logic
+    │   ├── projects.controller.ts
+    │   └── dto/                 # Request validation DTOs
     ├── issues/                  # Core issue management
     │   ├── state-machine.ts     # Transition rules and validations
     │   └── dto/                 # Request validation DTOs
@@ -468,10 +533,11 @@ frontend/src/
 │
 ├── api/                         # HTTP client layer
 │   ├── client.ts                # Fetch wrapper (apiGet, apiPost, apiPatch) with auth handling
-│   ├── auth.ts                  # Login, logout, getMe
+│   ├── auth.ts                  # Login, logout, getMe, forgot-password, reset-password
 │   ├── users.ts                 # User CRUD + organization listing
 │   ├── issues.ts                # Issues CRUD + comments + attachments
-│   ├── dashboard.ts             # Dashboard summary data
+│   ├── projects.ts              # Projects CRUD + org/user membership
+│   ├── dashboard.ts             # Dashboard summary + metrics
 │   └── notifications.ts         # Notifications + unread count
 │
 ├── context/
@@ -487,11 +553,15 @@ frontend/src/
 │
 └── pages/                       # Route-level page components
     ├── Login.tsx                # Authentication form with validation
-    ├── Dashboard.tsx            # Summary cards + breakdowns (status, priority)
+    ├── ForgotPassword.tsx       # Password reset request form
+    ├── ResetPassword.tsx        # Password reset form with token
+    ├── Dashboard.tsx            # Summary cards + extended metrics + trends
     ├── Concern.tsx              # Personalized issue list (raised/assigned/org-related)
     ├── Issues.tsx               # Filterable, paginated issue list
     ├── IssueDetail.tsx          # Full detail: metadata, status transitions, comments, activity
     ├── CreateIssue.tsx          # Issue creation form with file upload
+    ├── Projects.tsx             # Project listing and management
+    ├── ProjectDetail.tsx        # Project detail with org/user membership
     ├── Notifications.tsx        # Notification center with filter/pagination
     └── Users.tsx                # Admin user management with modals
 ```
