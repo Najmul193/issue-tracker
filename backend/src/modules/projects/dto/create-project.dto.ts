@@ -1,5 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, ValidateNested, ArrayMinSize, ArrayNotEmpty } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsNotEmpty, IsOptional, IsArray, ArrayMinSize, ArrayNotEmpty } from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()
@@ -13,7 +12,6 @@ export class CreateProjectDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMinSize(3)
-  @ValidateNested({ each: true })
-  @Type(() => String)
+  @IsString({ each: true })
   organizationIds: string[];
 }
