@@ -28,13 +28,14 @@ const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
 };
 
 const ALLOWED_FILE_TYPES = [
-  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-  'application/pdf', 'text/plain',
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed',
+  'text/csv',
 ];
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
@@ -482,8 +483,8 @@ export default function IssueDetail() {
         </div>
       )}
 
-      {/* Assign/Reassign Control — raiser's org, current assignee, or ORG_ADMIN of the assigned org */}
-      {issue.status !== 'CLOSED' && currentUser && (
+      {/* Assign/Reassign Control — raiser's org, current assignee, or ORG_ADMIN of the assigned org (not SUPER_ADMIN) */}
+      {issue.status !== 'CLOSED' && currentUser && currentUser.role !== 'SUPER_ADMIN' && (
         issue.raisedByOrg.id === currentUser.organizationId ||
         issue.assignedToUserId === currentUser.id ||
         (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organizationId)

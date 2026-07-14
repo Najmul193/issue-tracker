@@ -207,6 +207,10 @@ export class IssuesService {
   }
 
   async assign(id: string, dto: AssignIssueDto, actor: JwtPayload) {
+    if (!dto.targetUserId && !dto.targetOrgId) {
+      throw new BadRequestException('At least one of targetUserId or targetOrgId must be provided');
+    }
+
     const issue = await this.findOne(id, actor);
 
     if (issue.status === 'CLOSED') {
@@ -215,7 +219,7 @@ export class IssuesService {
 
     const newTargetUser = dto.targetUserId
       ? await this.prisma.user.findUnique({
-          where: { id: dto.targetUserId },
+          where: { id: dto.targetUserId, status: 'ACTIVE' },
           select: { id: true, name: true, organizationId: true, role: true, organization: { select: { type: true } } },
         })
       : null;
@@ -411,7 +415,14 @@ export class IssuesService {
     }
     if (dto.status === 'RESOLVED') {
       updateData.resolutionNote = dto.resolutionNote?.trim();
-      updateData.resolvedBy = { connect: { id: actor.userId } };
+      // Verify user still exists before connecting
+      const userExists = await this.prisma.user.findUnique({
+        where: { id: actor.userId },
+        select: { id: true },
+      });
+      if (userExists) {
+        updateData.resolvedBy = { connect: { id: actor.userId } };
+      }
       updateData.resolvedAt = new Date();
     }
 
@@ -430,7 +441,7 @@ export class IssuesService {
       },
     });
 
-    if (dto.comment?.trim()) {
+    if (dto.comment && dto.comment.trim().length > 0) {
       await this.prisma.comment.create({
         data: {
           issueId: id,

@@ -31,17 +31,12 @@ const priorityDeadlineDays: Record<IssuePriority, number> = {
 const ALLOWED_FILE_TYPES = [
   'image/jpeg',
   'image/png',
-  'image/gif',
-  'image/webp',
   'application/pdf',
-  'text/plain',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/zip',
-  'application/x-rar-compressed',
-  'application/x-7z-compressed',
+  'text/csv',
 ];
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB

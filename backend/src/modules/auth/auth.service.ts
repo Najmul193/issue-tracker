@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ForbiddenException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
@@ -28,6 +28,10 @@ export class AuthService {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.status === 'INACTIVE') {
+      throw new UnauthorizedException('Account has been deactivated');
     }
 
     const payload: JwtPayload = {
@@ -179,6 +183,11 @@ export class AuthService {
       return;
     }
 
+    // Delete any existing reset tokens for this user
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
@@ -194,6 +203,13 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long');
+    }
+    if (newPassword.length > 128) {
+      throw new BadRequestException('Password must not exceed 128 characters');
+    }
+
     const resetRecord = await this.prisma.passwordResetToken.findUnique({
       where: { token },
       include: { user: true },
