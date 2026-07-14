@@ -266,7 +266,25 @@ export class UsersService {
     await this.prisma.$transaction(async (tx) => {
       await tx.projectUser.deleteMany({ where: { userId: id } });
       await tx.issue.deleteMany({ where: { raisedById: id } });
+
+      // Log assignee removals for audit trail before deleting
+      const assigneeIssues = await tx.issueAssignee.findMany({
+        where: { userId: id },
+        select: { issueId: true },
+      });
+      for (const ai of assigneeIssues) {
+        await tx.activityLog.create({
+          data: {
+            issueId: ai.issueId,
+            userId: id,
+            action: 'ASSIGNEE_REMOVED',
+            oldValue: JSON.stringify({ userId: id }),
+            newValue: null,
+          },
+        });
+      }
       await tx.issueAssignee.deleteMany({ where: { userId: id } });
+
       await tx.comment.deleteMany({ where: { userId: id } });
       await tx.attachment.deleteMany({ where: { uploadedById: id } });
       await tx.activityLog.deleteMany({ where: { userId: id } });

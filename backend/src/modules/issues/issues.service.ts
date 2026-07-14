@@ -44,6 +44,15 @@ export class IssuesService {
       throw new BadRequestException('Deadline must be in the future');
     }
 
+    // Verify project exists before creating issue
+    const projectExists = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
+      select: { id: true },
+    });
+    if (!projectExists) {
+      throw new BadRequestException('Project not found');
+    }
+
     if (actor.role !== 'SUPER_ADMIN') {
       await this.assertProjectAccess(dto.projectId, actor);
     }

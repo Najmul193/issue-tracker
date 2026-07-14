@@ -172,6 +172,7 @@ export class NotificationsService {
         id: true,
         title: true,
         createdAt: true,
+        updatedAt: true,
         deadline: true,
         lastNotifiedStage: true,
         assignedToUserId: true,
@@ -199,7 +200,9 @@ export class NotificationsService {
 
       if (totalDuration <= 0) continue;
 
-      const elapsed = now.getTime() - createdAt.getTime();
+      // Use updatedAt as proxy for last meaningful activity (assignment, status change)
+      const lastActivity = issue.updatedAt || createdAt;
+      const elapsed = now.getTime() - lastActivity.getTime();
       const pct = (elapsed / totalDuration) * 100;
 
       // ---- Overdue check ----

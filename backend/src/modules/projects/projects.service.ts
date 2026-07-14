@@ -189,9 +189,14 @@ export class ProjectsService {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
 
+    // Clear project reference and assignments for issues in this project
     await this.prisma.issue.updateMany({
       where: { projectId: id },
-      data: { projectId: null },
+      data: {
+        projectId: null,
+        assignedToUserId: null,
+        assignedToOrgId: null,
+      },
     });
 
     await this.prisma.project.delete({ where: { id } });
@@ -277,6 +282,18 @@ export class ProjectsService {
       where: { projectId, assignedToOrgId: organizationId },
       data: { assignedToOrgId: null },
     });
+
+    // Also clear individual user assignments for users from the removed org
+    const userIdsToRemove = usersToRemove.map((u) => u.id);
+    if (userIdsToRemove.length > 0) {
+      await this.prisma.issue.updateMany({
+        where: {
+          projectId,
+          assignedToUserId: { in: userIdsToRemove },
+        },
+        data: { assignedToUserId: null },
+      });
+    }
 
     return { message: 'Organization removed from project' };
   }
@@ -442,12 +459,26 @@ export class ProjectsService {
       };
     }
 
+    // USER role: see issues in projects they're members of, OR non-project issues they're directly involved with
     return {
-      project: {
-        users: {
-          some: { userId: actor.userId },
+      OR: [
+        // Issues in projects the user is a member of
+        {
+          project: {
+            users: {
+              some: { userId: actor.userId },
+            },
+          },
         },
-      },
+        // Issues without a project where user is directly involved
+        {
+          projectId: null,
+          OR: [
+            { raisedById: actor.userId },
+            { assignedToUserId: actor.userId },
+          ],
+        },
+      ],
     };
   }
 }
