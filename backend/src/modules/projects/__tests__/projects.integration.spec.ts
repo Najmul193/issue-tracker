@@ -353,7 +353,7 @@ describe('Projects Integration', () => {
         .post(`/api/projects/${projId}/organizations`)
         .set('Cookie', `access_token=${t}`)
         .send({ organizationId: extraOrg.id });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
 
       const userInProject = await prisma.projectUser.findFirst({
         where: { projectId: projId, userId: extraUser.id },

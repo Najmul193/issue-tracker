@@ -231,21 +231,21 @@ describe('Notifications Integration', () => {
       const issueRes = await createIssue({ token: bankUserToken });
       const issueId = issueRes.body.id;
 
-      // Assign to bankAdmin as assignee
-      // To assign, the assigner needs perms - bankAdmin can assign to bankAdmin
+      // Bank admin (raiser's org admin) routes to dataEdgeOrg and assigns to siUser
       await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/assign`)
         .set('Cookie', `access_token=${bankAdminToken}`)
-        .send({ targetUserId: bankAdminId, targetOrgId: bankOrgId });
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
 
       // Now status = ASSIGNED. Valid transition: ASSIGNED -> IN_PROGRESS by assignee
+      const siUserToken = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
       const statusRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/status`)
-        .set('Cookie', `access_token=${bankAdminToken}`)
+        .set('Cookie', `access_token=${siUserToken}`)
         .send({ status: 'IN_PROGRESS' });
       expect(statusRes.status).toBe(200);
 
-      // Should have STATUS_CHANGE for raiser (bankUser) and assignee (bankAdmin)
+      // Should have STATUS_CHANGE for raiser (bankUser) and assignee (siUser)
       const raiserNotifs = await prisma.notification.findMany({
         where: { userId: bankUserId, issueId, type: 'STATUS_CHANGE' },
       });
@@ -253,7 +253,7 @@ describe('Notifications Integration', () => {
       createdNotificationIds.push(...raiserNotifs.map((n) => n.id));
 
       const assigneeNotifs = await prisma.notification.findMany({
-        where: { userId: bankAdminId, issueId, type: 'STATUS_CHANGE' },
+        where: { userId: siUserId, issueId, type: 'STATUS_CHANGE' },
       });
       expect(assigneeNotifs.length).toBeGreaterThanOrEqual(1);
       createdNotificationIds.push(...assigneeNotifs.map((n) => n.id));
@@ -322,10 +322,14 @@ describe('Notifications Integration', () => {
           assignedToOrgId: bankOrgId,
           status: 'ASSIGNED',
           lastNotifiedStage: 'NONE',
+          projectId,
         },
       });
       const issueId = issue.id;
       createdIssueIds.push(issueId);
+
+      // Backdate updatedAt so elapsed calculation works (Prisma @updatedAt auto-sets on create)
+      await prisma.$executeRaw`UPDATE issues SET "updatedAt" = ${createdAt.toISOString()}::timestamp WHERE id = ${issueId}`;
 
       // Run deadline check
       const count = await notificationsService.checkDeadlines();
@@ -370,6 +374,7 @@ describe('Notifications Integration', () => {
           assignedToOrgId: bankOrgId,
           status: 'ASSIGNED',
           lastNotifiedStage: 'NONE',
+          projectId,
         },
       });
       const issueId = issue.id;
@@ -418,6 +423,7 @@ describe('Notifications Integration', () => {
           assignedToOrgId: bankOrgId,
           status: 'ASSIGNED',
           lastNotifiedStage: 'WARNING_SENT',
+          projectId,
         },
       });
       const issueId = issue.id;

@@ -318,13 +318,17 @@ describe('Issues Integration (all scenarios)', () => {
 
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'ACKNOWLEDGED' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminToken}`).send({ targetOrgId: dataEdgeOrgId });
-      const siToken = token(siUserId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siToken}`).send({ status: 'RESOLVED', comment: 'Fixed' });
+      const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'VERIFIED' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'CLOSED' });
 
       const reopenRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
-        .set('Cookie', `access_token=${userToken}`)
+        .set('Cookie', `access_token=${adminToken}`)
         .send({ status: 'REOPENED' });
       expect(reopenRes.status).toBe(400);
       expect(reopenRes.body.message).toContain('comment is required');
@@ -427,7 +431,7 @@ describe('Issues Integration (all scenarios)', () => {
       const res = await request(app.getHttpServer())
         .delete(`/api/issues/${issue.body.id}`)
         .set('Cookie', `access_token=${t}`);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(204);
     });
 
     it('ORG_ADMIN can delete issues in their org', async () => {
@@ -437,7 +441,7 @@ describe('Issues Integration (all scenarios)', () => {
       const res = await request(app.getHttpServer())
         .delete(`/api/issues/${issue.body.id}`)
         .set('Cookie', `access_token=${adminT}`);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(204);
     });
 
     it('non-creator non-admin cannot delete', async () => {
@@ -458,11 +462,10 @@ describe('Issues Integration (all scenarios)', () => {
 
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
-      const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `token-placeholder`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId }).catch(() => {});
-
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -480,6 +483,7 @@ describe('Issues Integration (all scenarios)', () => {
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -501,7 +505,9 @@ describe('Issues Integration (all scenarios)', () => {
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'VERIFIED' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'CLOSED' });
 
       const reopenRes = await request(app.getHttpServer())

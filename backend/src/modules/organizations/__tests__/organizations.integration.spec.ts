@@ -111,8 +111,10 @@ describe('Organizations Integration', () => {
       });
       createdUserIds.push(user.id);
 
+      const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
       const res = await request(app.getHttpServer())
-        .get('/api/organizations');
+        .get('/api/organizations')
+        .set('Cookie', `access_token=${t}`);
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       const ids = res.body.map((o: any) => o.id);
@@ -130,8 +132,10 @@ describe('Organizations Integration', () => {
       });
       createdUserIds.push(deletedUser.id);
 
+      const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
       const res = await request(app.getHttpServer())
-        .get('/api/organizations');
+        .get('/api/organizations')
+        .set('Cookie', `access_token=${t}`);
       expect(res.status).toBe(200);
       const ids = res.body.map((o: any) => o.id);
       expect(ids).not.toContain(deletedOrg.id);
