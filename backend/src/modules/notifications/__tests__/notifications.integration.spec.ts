@@ -331,10 +331,15 @@ describe('Notifications Integration', () => {
       // Backdate updatedAt so elapsed calculation works (Prisma @updatedAt auto-sets on create)
       await prisma.$executeRaw`UPDATE issues SET "updatedAt" = ${createdAt.toISOString()}::timestamp WHERE id = ${issueId}`;
 
-      // Isolate: remove other issues with deadlines so checkDeadlines only processes ours
-      await prisma.issue.deleteMany({
-        where: { id: { not: issueId }, deadline: { not: null } },
-      });
+      // Isolate: spy so checkDeadlines only processes our issue
+      const originalFindMany = prisma.issue.findMany.bind(prisma.issue);
+      const findManySpy = jest.spyOn(prisma.issue, 'findMany').mockImplementation((async (args: any) => {
+        const results = await originalFindMany(args);
+        if (args?.where?.deadline !== undefined && args?.where?.status?.notIn) {
+          return results.filter((i: any) => i.id === issueId);
+        }
+        return results;
+      }) as any);
 
       // Run deadline check
       const count = await notificationsService.checkDeadlines();
@@ -354,6 +359,8 @@ describe('Notifications Integration', () => {
 
       // Run again - should NOT create duplicates
       await notificationsService.checkDeadlines();
+      findManySpy.mockRestore();
+
       const warningNotifs2 = await prisma.notification.findMany({
         where: { issueId, type: 'DEADLINE_WARNING' },
       });
@@ -385,10 +392,15 @@ describe('Notifications Integration', () => {
       const issueId = issue.id;
       createdIssueIds.push(issueId);
 
-      // Isolate: remove other overdue issues so checkDeadlines only processes ours
-      await prisma.issue.deleteMany({
-        where: { id: { not: issueId }, deadline: { not: null } },
-      });
+      // Isolate: spy so checkDeadlines only processes our issue
+      const originalFindMany = prisma.issue.findMany.bind(prisma.issue);
+      const findManySpy = jest.spyOn(prisma.issue, 'findMany').mockImplementation((async (args: any) => {
+        const results = await originalFindMany(args);
+        if (args?.where?.deadline !== undefined && args?.where?.status?.notIn) {
+          return results.filter((i: any) => i.id === issueId);
+        }
+        return results;
+      }) as any);
 
       // Run deadline check
       const count = await notificationsService.checkDeadlines();
@@ -412,6 +424,8 @@ describe('Notifications Integration', () => {
 
       // Run again - should NOT create duplicates
       await notificationsService.checkDeadlines();
+      findManySpy.mockRestore();
+
       const overdueNotifs2 = await prisma.notification.findMany({
         where: { issueId, type: 'OVERDUE' },
       });
