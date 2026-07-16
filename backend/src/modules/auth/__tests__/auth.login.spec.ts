@@ -4,6 +4,9 @@ import * as bcrypt from 'bcryptjs';
 import { AuthService } from '../auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../../notifications/email.service';
+import { ProjectsService } from '../../projects/projects.service';
 
 jest.mock('bcryptjs');
 
@@ -24,6 +27,13 @@ describe('AuthService — login', () => {
     organization: { id: 'org-1', name: 'Test Org', type: 'BANK' },
   };
 
+  const mockInactiveUser = {
+    ...mockUser,
+    id: 'user-inactive',
+    email: 'inactive@example.com',
+    status: 'INACTIVE',
+  };
+
   const mockUsersService = {
     findByEmail: jest.fn(),
     findById: jest.fn(),
@@ -33,12 +43,21 @@ describe('AuthService — login', () => {
     sign: jest.fn(() => 'generated-jwt-token'),
   };
 
+  const mockPrismaService = {};
+  const mockEmailService = {};
+  const mockProjectsService = {
+    getVisibleProjectFilter: jest.fn().mockResolvedValue({}),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: EmailService, useValue: mockEmailService },
+        { provide: ProjectsService, useValue: mockProjectsService },
       ],
     }).compile();
 
@@ -81,6 +100,15 @@ describe('AuthService — login', () => {
 
     await expect(
       service.login('test@example.com', 'wrongpassword'),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('should throw on inactive user', async () => {
+    mockUsersService.findByEmail.mockResolvedValue(mockInactiveUser);
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+    await expect(
+      service.login('inactive@example.com', 'password123'),
     ).rejects.toThrow(UnauthorizedException);
   });
 });
