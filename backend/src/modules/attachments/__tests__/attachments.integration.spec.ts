@@ -41,6 +41,8 @@ describe('Attachments Integration (9 scenarios)', () => {
   const createdCommentIds: string[] = [];
   const createdActivityLogIds: string[] = [];
   const createdNotificationIds: string[] = [];
+  const createdProjectIds: string[] = [];
+  let projectId: string;
 
   // Unique suffix so this suite never collides with other suites
   const suiteId = 'att-' + Math.random().toString(36).substring(2, 8);
@@ -113,7 +115,12 @@ describe('Attachments Integration (9 scenarios)', () => {
       await prisma.issue.deleteMany({ where: { id: { in: createdIssueIds } } });
     }
     if (createdUserIds.length > 0) {
+      await prisma.projectUser.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    if (createdProjectIds.length > 0) {
+      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
       await prisma.organization.deleteMany({ where: { id: { in: createdOrgIds } } });
@@ -148,6 +155,24 @@ describe('Attachments Integration (9 scenarios)', () => {
     bankAdminId = bankAdmin.id;
     siAdminId = siAdmin.id;
     siUserId = siUser.id;
+
+    const project = await prisma.project.create({
+      data: { name: `AttProject-${suiteId}`, description: 'Attachment test project' },
+    });
+    projectId = project.id;
+    createdProjectIds.push(project.id);
+
+    for (const org of [bankOrg, dataEdgeOrg]) {
+      await prisma.projectOrganization.create({
+        data: { projectId: project.id, organizationId: org.id },
+      });
+    }
+
+    for (const user of [bankUser, bankAdmin, siAdmin, siUser]) {
+      await prisma.projectUser.create({
+        data: { projectId: project.id, userId: user.id },
+      });
+    }
   }
 
   async function createIssue(tokenStr: string) {
@@ -155,7 +180,7 @@ describe('Attachments Integration (9 scenarios)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/issues')
       .set('Cookie', `access_token=${tokenStr}`)
-      .send({ title: 'Attachment Test Issue', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future });
+      .send({ title: 'Attachment Test Issue', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
     const issue = res.body;
     if (issue && issue.id) {
       createdIssueIds.push(issue.id);
