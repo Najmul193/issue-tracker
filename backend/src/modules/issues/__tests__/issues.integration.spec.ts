@@ -12,15 +12,15 @@ import { HealthModule } from '../../health/health.module';
 import { UsersModule } from '../../users/users.module';
 import { AuthModule } from '../../auth/auth.module';
 import { IssuesModule } from '../issues.module';
+import { ProjectsModule } from '../../projects/projects.module';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../../auth/decorators/current-user.decorator';
 
-describe('Issues Integration (all 10 scenarios)', () => {
+describe('Issues Integration (all scenarios)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwtService: JwtService;
 
-  // User/org references populated during seed
   let bankOrgId: string;
   let dataEdgeOrgId: string;
   let oracleOrgId: string;
@@ -31,8 +31,8 @@ describe('Issues Integration (all 10 scenarios)', () => {
   let oracleAdminId: string;
   let oracleUserId: string;
   let superAdminId: string;
+  let projectId: string;
 
-  // Track only records created by THIS suite for targeted cleanup
   const createdOrgIds: string[] = [];
   const createdUserIds: string[] = [];
   const createdIssueIds: string[] = [];
@@ -40,8 +40,8 @@ describe('Issues Integration (all 10 scenarios)', () => {
   const createdActivityLogIds: string[] = [];
   const createdNotificationIds: string[] = [];
   const createdAttachmentIds: string[] = [];
+  const createdProjectIds: string[] = [];
 
-  // Unique suffix so this suite never collides with other suites
   const suiteId = 'iss-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
@@ -57,6 +57,7 @@ describe('Issues Integration (all 10 scenarios)', () => {
         UsersModule,
         AuthModule,
         IssuesModule,
+        ProjectsModule,
       ],
       providers: [
         { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -73,7 +74,6 @@ describe('Issues Integration (all 10 scenarios)', () => {
     prisma = app.get(PrismaService);
     jwtService = app.get(JwtService);
 
-    // Seed fresh data
     await seed();
   });
 
@@ -107,7 +107,12 @@ describe('Issues Integration (all 10 scenarios)', () => {
     if (createdUserIds.length > 0) {
       await prisma.notification.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.activityLog.deleteMany({ where: { userId: { in: createdUserIds } } });
+      await prisma.projectUser.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    if (createdProjectIds.length > 0) {
+      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
       await prisma.organization.deleteMany({ where: { id: { in: createdOrgIds } } });
@@ -165,11 +170,28 @@ describe('Issues Integration (all 10 scenarios)', () => {
     siUserId = siUser.id;
     oracleAdminId = oracleAdmin.id;
     oracleUserId = oracleUser.id;
+
+    const project = await prisma.project.create({
+      data: { name: `TestProject-${suiteId}`, description: 'Integration test project' },
+    });
+    projectId = project.id;
+    createdProjectIds.push(project.id);
+
+    for (const org of [bankOrg, dataEdgeOrg, oracleOrg]) {
+      await prisma.projectOrganization.create({
+        data: { projectId: project.id, organizationId: org.id },
+      });
+    }
+
+    for (const user of [superAdmin, bankAdmin, bankUser, siAdmin, siUser, oracleAdmin, oracleUser]) {
+      await prisma.projectUser.create({
+        data: { projectId: project.id, userId: user.id },
+      });
+    }
   }
 
-  // Helper to create an issue as a specific user
   async function createIssue(actor: { token: string }, overrides: Record<string, any> = {}) {
-    const future = new Date(Date.now() + 86_400_000).toISOString(); // tomorrow
+    const future = new Date(Date.now() + 86_400_000).toISOString();
     const res = await request(app.getHttpServer())
       .post('/api/issues')
       .set('Cookie', `access_token=${actor.token}`)
@@ -179,6 +201,7 @@ describe('Issues Integration (all 10 scenarios)', () => {
         type: 'BUG',
         priority: 'HIGH',
         deadline: future,
+        projectId,
         ...overrides,
       });
     if (res.body && res.body.id) {
@@ -292,15 +315,13 @@ describe('Issues Integration (all 10 scenarios)', () => {
       const userToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
       const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
       const issue = await createIssue({ token: userToken });
-      
-      // Progress state to CLOSED
+
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'ACKNOWLEDGED' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminToken}`).send({ targetOrgId: dataEdgeOrgId });
       const siToken = token(siUserId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siToken}`).send({ status: 'RESOLVED', comment: 'Fixed' });
       await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'CLOSED' });
 
-      // Attempt to reopen without comment
       const reopenRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
         .set('Cookie', `access_token=${userToken}`)
@@ -310,13 +331,12 @@ describe('Issues Integration (all 10 scenarios)', () => {
     });
   });
 
-  describe('Scenario 9: Cross-org visibility — now open to all', () => {
-    it('Bank user can view an issue only involving SI/Oracle (Part A: open visibility)', async () => {
+  describe('Scenario 9: Cross-org visibility — open to all', () => {
+    it('Bank user can view an issue only involving SI/Oracle', async () => {
       const siToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
       const siIssue = await createIssue({ token: siToken });
       const issueId = siIssue.body.id;
 
-      // Bank user (unrelated org) can now view the issue — Part A
       const bankToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
       const res = await request(app.getHttpServer())
         .get(`/api/issues/${issueId}`)
@@ -327,16 +347,14 @@ describe('Issues Integration (all 10 scenarios)', () => {
     });
   });
 
-  describe('Scenario 10: GET /api/issues — all users see all issues (Part A)', () => {
+  describe('Scenario 10: GET /api/issues — all users see all issues', () => {
     it('Bank user list includes all issues regardless of org', async () => {
       const bankToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
       const siToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
 
-      // Create 2 issues: 1 Bank, 1 SI (no Bank involvement)
       await createIssue({ token: bankToken });
       const siIssue = await createIssue({ token: siToken });
 
-      // Bank user's list now includes ALL issues
       const bankList = await request(app.getHttpServer())
         .get('/api/issues')
         .set('Cookie', `access_token=${bankToken}`);
@@ -344,6 +362,154 @@ describe('Issues Integration (all 10 scenarios)', () => {
 
       const issueIds = bankList.body.data.map((i: any) => i.id);
       expect(issueIds).toContain(siIssue.body.id);
+    });
+  });
+
+  describe('Scenario 11: Create issue with past deadline', () => {
+    it('fails with 400', async () => {
+      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const past = new Date(Date.now() - 86_400_000).toISOString();
+      const res = await request(app.getHttpServer())
+        .post('/api/issues')
+        .set('Cookie', `access_token=${t}`)
+        .send({ title: 'Past Deadline', type: 'BUG', priority: 'HIGH', deadline: past, projectId });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Scenario 12: Create issue without project access', () => {
+    it('fails with 403 for user not in project', async () => {
+      const otherOrg = await prisma.organization.create({
+        data: { name: `OtherOrg-${suiteId}`, type: 'BANK' },
+      });
+      createdOrgIds.push(otherOrg.id);
+      const otherUser = await prisma.user.create({
+        data: { name: 'Other User', email: `other-${suiteId}@test.dev`, passwordHash: await bcrypt.hash('password123', 4), role: 'USER', organizationId: otherOrg.id, status: 'ACTIVE' },
+      });
+      createdUserIds.push(otherUser.id);
+
+      const t = token(otherUser.id, 'USER', otherOrg.id, 'BANK');
+      const future = new Date(Date.now() + 86_400_000).toISOString();
+      const res = await request(app.getHttpServer())
+        .post('/api/issues')
+        .set('Cookie', `access_token=${t}`)
+        .send({ title: 'No Access', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('Scenario 13: Create issue with missing required fields', () => {
+    it('fails with 400 when title is missing', async () => {
+      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const future = new Date(Date.now() + 86_400_000).toISOString();
+      const res = await request(app.getHttpServer())
+        .post('/api/issues')
+        .set('Cookie', `access_token=${t}`)
+        .send({ type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+      expect(res.status).toBe(400);
+    });
+
+    it('fails with 400 when projectId is missing', async () => {
+      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const future = new Date(Date.now() + 86_400_000).toISOString();
+      const res = await request(app.getHttpServer())
+        .post('/api/issues')
+        .set('Cookie', `access_token=${t}`)
+        .send({ title: 'No Project', type: 'BUG', priority: 'HIGH', deadline: future });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Scenario 14: Issue deletion', () => {
+    it('creator can delete their own issue', async () => {
+      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const issue = await createIssue({ token: t });
+      const res = await request(app.getHttpServer())
+        .delete(`/api/issues/${issue.body.id}`)
+        .set('Cookie', `access_token=${t}`);
+      expect(res.status).toBe(200);
+    });
+
+    it('ORG_ADMIN can delete issues in their org', async () => {
+      const userT = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const issue = await createIssue({ token: userT });
+      const res = await request(app.getHttpServer())
+        .delete(`/api/issues/${issue.body.id}`)
+        .set('Cookie', `access_token=${adminT}`);
+      expect(res.status).toBe(200);
+    });
+
+    it('non-creator non-admin cannot delete', async () => {
+      const creatorT = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const otherT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      const issue = await createIssue({ token: creatorT });
+      const res = await request(app.getHttpServer())
+        .delete(`/api/issues/${issue.body.id}`)
+        .set('Cookie', `access_token=${otherT}`);
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('Scenario 15: RESOLVED requires resolutionNote', () => {
+    it('fails with 400 when resolutionNote is missing', async () => {
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const issue = await createIssue({ token: adminT });
+
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
+      const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `token-placeholder`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId }).catch(() => {});
+
+      const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'RESOLVED' });
+      expect(res.status).toBe(400);
+    });
+
+    it('succeeds with resolutionNote', async () => {
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const issue = await createIssue({ token: adminT });
+
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
+      const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'RESOLVED', resolutionNote: 'Fixed the bug' });
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('RESOLVED');
+    });
+  });
+
+  describe('Scenario 16: CLOSED -> REOPENED permission check', () => {
+    it('ORG_ADMIN of raiser org can reopen', async () => {
+      const userT = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const issue = await createIssue({ token: userT });
+
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
+      const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
+      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'CLOSED' });
+
+      const reopenRes = await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ status: 'REOPENED', comment: 'Not actually fixed' });
+      expect(reopenRes.status).toBe(200);
+      expect(reopenRes.body.status).toBe('REOPENED');
     });
   });
 });
