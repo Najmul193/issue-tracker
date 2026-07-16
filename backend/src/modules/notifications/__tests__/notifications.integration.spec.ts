@@ -39,6 +39,8 @@ describe('Notifications Integration', () => {
   const createdUserIds: string[] = [];
   const createdIssueIds: string[] = [];
   const createdNotificationIds: string[] = [];
+  const createdProjectIds: string[] = [];
+  let projectId: string;
 
   // Unique suffix so this suite never collides with other suites
   const suiteId = 'notif-' + Math.random().toString(36).substring(2, 8);
@@ -93,7 +95,12 @@ describe('Notifications Integration', () => {
       await prisma.issue.deleteMany({ where: { id: { in: createdIssueIds } } });
     }
     if (createdUserIds.length > 0) {
+      await prisma.projectUser.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+    if (createdProjectIds.length > 0) {
+      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
       await prisma.organization.deleteMany({ where: { id: { in: createdOrgIds } } });
@@ -144,6 +151,24 @@ describe('Notifications Integration', () => {
     bankUserId = bankUser.id;
     siUserId = siUser.id;
     oracleUserId = oracleUser.id;
+
+    const project = await prisma.project.create({
+      data: { name: `NotifProject-${suiteId}`, description: 'Notifications test project' },
+    });
+    projectId = project.id;
+    createdProjectIds.push(project.id);
+
+    for (const org of [bankOrg, dataEdgeOrg, oracleOrg]) {
+      await prisma.projectOrganization.create({
+        data: { projectId: project.id, organizationId: org.id },
+      });
+    }
+
+    for (const user of [superAdmin, bankAdmin, bankUser, siUser, oracleUser]) {
+      await prisma.projectUser.create({
+        data: { projectId: project.id, userId: user.id },
+      });
+    }
   }
 
   async function createIssue(
@@ -160,6 +185,7 @@ describe('Notifications Integration', () => {
         type: 'BUG',
         priority: 'HIGH',
         deadline: future,
+        projectId,
         ...overrides,
       });
     if (res.body && res.body.id) {
