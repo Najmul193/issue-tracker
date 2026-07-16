@@ -331,6 +331,11 @@ describe('Notifications Integration', () => {
       // Backdate updatedAt so elapsed calculation works (Prisma @updatedAt auto-sets on create)
       await prisma.$executeRaw`UPDATE issues SET "updatedAt" = ${createdAt.toISOString()}::timestamp WHERE id = ${issueId}`;
 
+      // Isolate: remove other issues with deadlines so checkDeadlines only processes ours
+      await prisma.issue.deleteMany({
+        where: { id: { not: issueId }, deadline: { not: null } },
+      });
+
       // Run deadline check
       const count = await notificationsService.checkDeadlines();
       expect(count).toBeGreaterThanOrEqual(1);
@@ -379,6 +384,11 @@ describe('Notifications Integration', () => {
       });
       const issueId = issue.id;
       createdIssueIds.push(issueId);
+
+      // Isolate: remove other overdue issues so checkDeadlines only processes ours
+      await prisma.issue.deleteMany({
+        where: { id: { not: issueId }, deadline: { not: null } },
+      });
 
       // Run deadline check
       const count = await notificationsService.checkDeadlines();
