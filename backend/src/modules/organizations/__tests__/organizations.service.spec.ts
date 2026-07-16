@@ -21,7 +21,7 @@ describe('OrganizationsService', () => {
     organizationType: 'BANK',
   };
 
-  const mockPrisma = {
+  const mockPrisma: Record<string, any> = {
     organization: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -43,7 +43,7 @@ describe('OrganizationsService', () => {
     comment: { deleteMany: jest.fn() },
     attachment: { deleteMany: jest.fn() },
     issueAssignee: { deleteMany: jest.fn() },
-    $transaction: jest.fn((fn: any) => fn(mockPrisma)),
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -55,6 +55,7 @@ describe('OrganizationsService', () => {
     }).compile();
 
     service = module.get<OrganizationsService>(OrganizationsService);
+    mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
     jest.clearAllMocks();
   });
 

@@ -230,9 +230,9 @@ describe('AuthService', () => {
       expect(service.canActOnIssue(regularUser, unrelatedIssue)).toBe(false);
     });
 
-    it('USER cannot act on issue raised by other org even if assigned to their org', () => {
+    it('USER from assigned org can act on issue assigned to their org', () => {
       const userInSiOrg: JwtPayload = { ...regularUser, userId: 'si-user-1', organizationId: 'org-si', organizationType: 'SI' };
-      expect(service.canActOnIssue(userInSiOrg, userAssignedIssue)).toBe(false);
+      expect(service.canActOnIssue(userInSiOrg, userAssignedIssue)).toBe(true);
     });
   });
 });

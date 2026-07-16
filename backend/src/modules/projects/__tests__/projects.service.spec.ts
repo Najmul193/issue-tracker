@@ -46,10 +46,12 @@ describe('ProjectsService', () => {
     projectOrganization: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      delete: jest.fn(),
       deleteMany: jest.fn(),
     },
     projectUser: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       createMany: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -147,7 +149,8 @@ describe('ProjectsService', () => {
   describe('findOne', () => {
     it('returns project for member', async () => {
       mockPrisma.project.findUnique.mockResolvedValue({ id: 'p1', name: 'Test' });
-      mockPrisma.projectUser.findMany.mockResolvedValue([{ userId: 'user-1' }]);
+      mockPrisma.projectOrganization.findUnique.mockResolvedValue({ id: 'po-1' });
+      mockPrisma.projectUser.findUnique.mockResolvedValue({ id: 'pu-1' });
 
       const result = await service.findOne('p1', user);
       expect(result.id).toBe('p1');
@@ -225,7 +228,7 @@ describe('ProjectsService', () => {
       mockPrisma.projectOrganization.findUnique.mockResolvedValue({ id: 'po-1' });
       mockPrisma.user.findMany.mockResolvedValue([{ id: 'u1' }]);
       mockPrisma.projectUser.deleteMany.mockResolvedValue({ count: 1 });
-      mockPrisma.projectOrganization.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrisma.projectOrganization.delete.mockResolvedValue({});
       mockPrisma.issue.updateMany.mockResolvedValue({ count: 0 });
 
       const result = await service.removeOrganization('p1', 'org-1', superAdmin);
