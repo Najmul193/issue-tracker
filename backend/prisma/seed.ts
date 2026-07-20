@@ -26,7 +26,7 @@ async function main() {
     data: { name: 'Super Admin', type: 'SUPER_ADMIN' },
   });
   const bankOrg = await prisma.organization.create({
-    data: { name: 'Bank', type: 'BANK' },
+    data: { name: 'Bank', type: 'CLIENT' },
   });
   const dataEdgeOrg = await prisma.organization.create({
     data: { name: 'Data Edge', type: 'SI' },

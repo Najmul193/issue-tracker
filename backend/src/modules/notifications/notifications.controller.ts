@@ -1,21 +1,11 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Param,
-  Query,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 @Controller()
 export class NotificationsController {
-  constructor(
-    private readonly notificationsService: NotificationsService,
-  ) {}
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   // ----- Notifications -----
 
@@ -36,19 +26,13 @@ export class NotificationsController {
   }
 
   @Get('notifications/unread-count')
-  getUnreadCount(
-    @CurrentUser() actor: JwtPayload,
-    @Query('projectIds') projectIds?: string,
-  ) {
+  getUnreadCount(@CurrentUser() actor: JwtPayload, @Query('projectIds') projectIds?: string) {
     return this.notificationsService.getUnreadCount(actor, projectIds);
   }
 
   @Patch('notifications/:id/read')
   @HttpCode(HttpStatus.OK)
-  async markAsRead(
-    @Param('id') id: string,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  async markAsRead(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
     const result = await this.notificationsService.markAsRead(id, actor);
     if (!result) {
       return {
@@ -68,18 +52,12 @@ export class NotificationsController {
   // ----- Dashboard -----
 
   @Get('dashboard/summary')
-  getDashboardSummary(
-    @CurrentUser() actor: JwtPayload,
-    @Query('projectIds') projectIds?: string,
-  ) {
+  getDashboardSummary(@CurrentUser() actor: JwtPayload, @Query('projectIds') projectIds?: string) {
     return this.notificationsService.getDashboardSummary(actor, projectIds);
   }
 
   @Get('dashboard/metrics')
-  getDashboardMetrics(
-    @CurrentUser() actor: JwtPayload,
-    @Query('projectIds') projectIds?: string,
-  ) {
+  getDashboardMetrics(@CurrentUser() actor: JwtPayload, @Query('projectIds') projectIds?: string) {
     return this.notificationsService.getDashboardMetrics(actor, projectIds);
   }
 }

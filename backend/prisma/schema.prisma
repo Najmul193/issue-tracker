@@ -9,7 +9,7 @@ datasource db {
 }
 
 enum OrganizationType {
-  BANK
+  CLIENT
   SI
   OEM
   SUPER_ADMIN

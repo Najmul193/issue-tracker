@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
 const orgTypeColors: Record<string, string> = {
-  BANK: 'bg-blue-100 text-blue-700',
+  CLIENT: 'bg-blue-100 text-blue-700',
   SI: 'bg-purple-100 text-purple-700',
   OEM: 'bg-amber-100 text-amber-700',
   SUPER_ADMIN: 'bg-gray-100 text-gray-600',
@@ -56,7 +56,7 @@ export default function Projects() {
     },
   });
 
-  const banks = (allOrgs || []).filter((o) => o.type === 'BANK');
+  const clients = (allOrgs || []).filter((o) => o.type === 'CLIENT');
   const sis = (allOrgs || []).filter((o) => o.type === 'SI');
   const oems = (allOrgs || []).filter((o) => o.type === 'OEM');
 
@@ -74,14 +74,14 @@ export default function Projects() {
       return;
     }
     if (selectedOrgIds.length < 3) {
-      setFormError('At least one organization of each type (Bank, SI, OEM) is required');
+      setFormError('At least one organization of each type (Client, SI, OEM) is required');
       return;
     }
-    const hasBank = selectedOrgIds.some((id) => banks.some((o) => o.id === id));
+    const hasClient = selectedOrgIds.some((id) => clients.some((o) => o.id === id));
     const hasSi = selectedOrgIds.some((id) => sis.some((o) => o.id === id));
     const hasOem = selectedOrgIds.some((id) => oems.some((o) => o.id === id));
-    if (!hasBank || !hasSi || !hasOem) {
-      setFormError('At least one organization of each type (Bank, SI, OEM) is required');
+    if (!hasClient || !hasSi || !hasOem) {
+      setFormError('At least one organization of each type (Client, SI, OEM) is required');
       return;
     }
 
@@ -136,13 +136,13 @@ export default function Projects() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Organizations * (at least one of each type: Bank, SI, OEM)
+                Organizations * (at least one of each type: Client, SI, OEM)
               </label>
-              {banks.length > 0 && (
+              {clients.length > 0 && (
                 <div className="mb-2">
-                  <p className="text-xs font-medium text-gray-500 mb-1">Bank</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Client</p>
                   <div className="flex flex-wrap gap-2">
-                    {banks.map((org) => (
+                    {clients.map((org) => (
                       <button
                         key={org.id}
                         onClick={() => toggleOrg(org.id)}

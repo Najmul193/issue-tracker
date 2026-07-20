@@ -63,9 +63,18 @@ export class OrganizationsService {
         await tx.comment.deleteMany({ where: { userId: { in: userIds } } });
         await tx.attachment.deleteMany({ where: { uploadedById: { in: userIds } } });
         await tx.issueAssignee.deleteMany({ where: { userId: { in: userIds } } });
-        await tx.issue.updateMany({ where: { assignedToUserId: { in: userIds } }, data: { assignedToUserId: null } });
-        await tx.issue.updateMany({ where: { assignedById: { in: userIds } }, data: { assignedById: null } });
-        await tx.issue.updateMany({ where: { resolvedById: { in: userIds } }, data: { resolvedById: null } });
+        await tx.issue.updateMany({
+          where: { assignedToUserId: { in: userIds } },
+          data: { assignedToUserId: null },
+        });
+        await tx.issue.updateMany({
+          where: { assignedById: { in: userIds } },
+          data: { assignedById: null },
+        });
+        await tx.issue.updateMany({
+          where: { resolvedById: { in: userIds } },
+          data: { resolvedById: null },
+        });
         await tx.user.deleteMany({ where: { id: { in: userIds } } });
       }
       // Hard delete the org
@@ -110,20 +119,37 @@ export class OrganizationsService {
         // Delete issue assignee records
         await tx.issueAssignee.deleteMany({ where: { userId: { in: userIds } } });
         // Unset issue references for these users
-        await tx.issue.updateMany({ where: { assignedToUserId: { in: userIds } }, data: { assignedToUserId: null } });
-        await tx.issue.updateMany({ where: { assignedById: { in: userIds } }, data: { assignedById: null } });
-        await tx.issue.updateMany({ where: { resolvedById: { in: userIds } }, data: { resolvedById: null } });
+        await tx.issue.updateMany({
+          where: { assignedToUserId: { in: userIds } },
+          data: { assignedToUserId: null },
+        });
+        await tx.issue.updateMany({
+          where: { assignedById: { in: userIds } },
+          data: { assignedById: null },
+        });
+        await tx.issue.updateMany({
+          where: { resolvedById: { in: userIds } },
+          data: { resolvedById: null },
+        });
         // Soft-delete users in this org (keep records for raisedById FK)
         for (const uid of userIds) {
           await tx.user.update({
             where: { id: uid },
-            data: { email: `deleted-${uid}@deleted.com`, passwordHash: '', phone: null, status: 'INACTIVE' },
+            data: {
+              email: `deleted-${uid}@deleted.com`,
+              passwordHash: '',
+              phone: null,
+              status: 'INACTIVE',
+            },
           });
         }
       }
 
       // Unset assignedToOrgId (no one left to manage the queue)
-      await tx.issue.updateMany({ where: { assignedToOrgId: id }, data: { assignedToOrgId: null } });
+      await tx.issue.updateMany({
+        where: { assignedToOrgId: id },
+        data: { assignedToOrgId: null },
+      });
       // Keep the org record so issue history still shows the creator org name
     });
 

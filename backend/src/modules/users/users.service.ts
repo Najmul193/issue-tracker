@@ -29,7 +29,16 @@ export class UsersService {
   }
 
   async create(
-    dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId?: string; newOrganizationName?: string; newOrganizationType?: string },
+    dto: {
+      name: string;
+      email: string;
+      password: string;
+      phone?: string;
+      role: string;
+      organizationId?: string;
+      newOrganizationName?: string;
+      newOrganizationType?: string;
+    },
     actor: JwtPayload,
   ) {
     if (actor.role === 'USER') {
@@ -50,7 +59,7 @@ export class UsersService {
       const org = await this.prisma.organization.create({
         data: {
           name: dto.newOrganizationName,
-          type: (dto.newOrganizationType || 'BANK') as any,
+          type: (dto.newOrganizationType || 'CLIENT') as any,
         },
       });
       orgId = org.id;
@@ -77,7 +86,15 @@ export class UsersService {
         organizationId: orgId,
         status: 'ACTIVE',
       },
-      select: { id: true, name: true, email: true, role: true, organizationId: true, status: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        organizationId: true,
+        status: true,
+        createdAt: true,
+      },
     });
 
     return user;
@@ -90,11 +107,20 @@ export class UsersService {
 
     const baseWhere = { email: { not: { startsWith: 'deleted-' } } };
     return this.prisma.user.findMany({
-      where: actor.role === 'ORG_ADMIN' ? { ...baseWhere, organizationId: actor.organizationId } : baseWhere,
+      where:
+        actor.role === 'ORG_ADMIN'
+          ? { ...baseWhere, organizationId: actor.organizationId }
+          : baseWhere,
       orderBy: { name: 'asc' },
       select: {
-        id: true, name: true, email: true, role: true,
-        organizationId: true, status: true, phone: true, createdAt: true,
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        organizationId: true,
+        status: true,
+        phone: true,
+        createdAt: true,
         organization: { select: { id: true, name: true } },
       },
     });
@@ -130,7 +156,8 @@ export class UsersService {
       }
 
       if (actor.role === 'ORG_ADMIN' && issue) {
-        const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+        const currentAssignedOrgId =
+          issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
         const isRaiser = issue.raisedByOrgId === actor.organizationId;
         const isAssignedToActorOrg = currentAssignedOrgId === actor.organizationId;
 
@@ -163,7 +190,11 @@ export class UsersService {
 
     if (actor.role === 'ORG_ADMIN') {
       return this.prisma.user.findMany({
-        where: { organizationId: actor.organizationId, status: 'ACTIVE', role: { not: 'SUPER_ADMIN' } },
+        where: {
+          organizationId: actor.organizationId,
+          status: 'ACTIVE',
+          role: { not: 'SUPER_ADMIN' },
+        },
         select: { id: true, name: true, email: true, organizationId: true, role: true },
         orderBy: { name: 'asc' },
       });
@@ -231,8 +262,14 @@ export class UsersService {
         ...(dto.status !== undefined ? { status: dto.status as any } : {}),
       },
       select: {
-        id: true, name: true, email: true, role: true,
-        organizationId: true, status: true, phone: true, createdAt: true,
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        organizationId: true,
+        status: true,
+        phone: true,
+        createdAt: true,
         organization: { select: { id: true, name: true } },
       },
     });
@@ -245,8 +282,14 @@ export class UsersService {
       where: { email: { startsWith: 'deleted-' } },
       orderBy: { createdAt: 'desc' },
       select: {
-        id: true, name: true, email: true, role: true,
-        organizationId: true, status: true, phone: true, createdAt: true,
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        organizationId: true,
+        status: true,
+        phone: true,
+        createdAt: true,
         organization: { select: { id: true, name: true, type: true } },
       },
     });
@@ -289,7 +332,10 @@ export class UsersService {
       await tx.attachment.deleteMany({ where: { uploadedById: id } });
       await tx.activityLog.deleteMany({ where: { userId: id } });
       await tx.notification.deleteMany({ where: { userId: id } });
-      await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
+      await tx.issue.updateMany({
+        where: { assignedToUserId: id },
+        data: { assignedToUserId: null },
+      });
       await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
       await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
       await tx.user.delete({ where: { id } });
@@ -329,12 +375,20 @@ export class UsersService {
       await tx.comment.deleteMany({ where: { userId: id } });
       await tx.attachment.deleteMany({ where: { uploadedById: id } });
       await tx.issueAssignee.deleteMany({ where: { userId: id } });
-      await tx.issue.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } });
+      await tx.issue.updateMany({
+        where: { assignedToUserId: id },
+        data: { assignedToUserId: null },
+      });
       await tx.issue.updateMany({ where: { assignedById: id }, data: { assignedById: null } });
       await tx.issue.updateMany({ where: { resolvedById: id }, data: { resolvedById: null } });
       await tx.user.update({
         where: { id },
-        data: { email: `deleted-${id}@deleted.com`, passwordHash: '', phone: null, status: 'INACTIVE' },
+        data: {
+          email: `deleted-${id}@deleted.com`,
+          passwordHash: '',
+          phone: null,
+          status: 'INACTIVE',
+        },
       });
     });
 

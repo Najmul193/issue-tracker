@@ -9,11 +9,7 @@ import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PrismaModule, ProjectsModule],
-  providers: [
-    NotificationsService,
-    EmailService,
-    DeadlineMonitorService,
-  ],
+  providers: [NotificationsService, EmailService, DeadlineMonitorService],
   controllers: [NotificationsController],
   exports: [NotificationsService, EmailService],
 })

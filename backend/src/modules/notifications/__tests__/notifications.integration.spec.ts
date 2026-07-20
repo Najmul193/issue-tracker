@@ -46,7 +46,12 @@ describe('Notifications Integration', () => {
   const suiteId = 'notif-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
-    return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
+    return jwtService.sign({
+      userId,
+      role,
+      organizationId: orgId,
+      organizationType: orgType,
+    } satisfies JwtPayload);
   }
 
   beforeAll(async () => {
@@ -99,7 +104,9 @@ describe('Notifications Integration', () => {
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     if (createdProjectIds.length > 0) {
-      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.projectOrganization.deleteMany({
+        where: { projectId: { in: createdProjectIds } },
+      });
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
@@ -114,7 +121,7 @@ describe('Notifications Integration', () => {
       data: { name: `Super-Admin-${suiteId}`, type: 'SUPER_ADMIN' },
     });
     const bankOrg = await prisma.organization.create({
-      data: { name: `Bank-${suiteId}`, type: 'BANK' },
+      data: { name: `Bank-${suiteId}`, type: 'CLIENT' },
     });
     const dataEdgeOrg = await prisma.organization.create({
       data: { name: `Data-Edge-${suiteId}`, type: 'SI' },
@@ -130,19 +137,54 @@ describe('Notifications Integration', () => {
     oracleOrgId = oracleOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'SA', email: `sa-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SA',
+        email: `sa-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'SUPER_ADMIN',
+        organizationId: superAdminOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'BA', email: `ba-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'BA',
+        email: `ba-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankUser = await prisma.user.create({
-      data: { name: 'BU', email: `bu-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'BU',
+        email: `bu-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SU', email: `su-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SU',
+        email: `su-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const oracleUser = await prisma.user.create({
-      data: { name: 'OU', email: `ou-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'OU',
+        email: `ou-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: oracleOrg.id,
+        status: 'ACTIVE',
+      },
     });
     createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id, siUser.id, oracleUser.id);
 
@@ -171,10 +213,7 @@ describe('Notifications Integration', () => {
     }
   }
 
-  async function createIssue(
-    actor: { token: string },
-    overrides: Record<string, any> = {},
-  ) {
+  async function createIssue(actor: { token: string }, overrides: Record<string, any> = {}) {
     const future = new Date(Date.now() + 86_400_000).toISOString();
     const res = await request(app.getHttpServer())
       .post('/api/issues')
@@ -198,7 +237,7 @@ describe('Notifications Integration', () => {
 
   describe('Test 1: Status change creates notification for both raiser and assignee', () => {
     it('creates STATUS_CHANGE notification for raiser (and assignee if set)', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
 
       // Create issue as bank user (status=NEW)
       const issueRes = await createIssue({ token: bankUserToken });
@@ -224,8 +263,8 @@ describe('Notifications Integration', () => {
 
   describe('Test 2: Status change creates separate notifications when raiser !== assignee', () => {
     it('creates two STATUS_CHANGE notifications when raiser and assignee differ', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
-      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
 
       // Create issue as bankUser (raiser = bankUser)
       const issueRes = await createIssue({ token: bankUserToken });
@@ -268,7 +307,7 @@ describe('Notifications Integration', () => {
 
   describe('Test 3: GET /api/notifications respects own notifications only', () => {
     it('bank user cannot see SI user notifications', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const siUserToken = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
 
       // Create a notification for SI user directly
@@ -333,7 +372,9 @@ describe('Notifications Integration', () => {
 
       // Isolate: spy so checkDeadlines only processes our issue
       const originalFindMany = prisma.issue.findMany.bind(prisma.issue);
-      const findManySpy = jest.spyOn(prisma.issue, 'findMany').mockImplementation((async (args: any) => {
+      const findManySpy = jest.spyOn(prisma.issue, 'findMany').mockImplementation((async (
+        args: any,
+      ) => {
         const results = await originalFindMany(args);
         if (args?.where?.deadline !== undefined && args?.where?.status?.notIn) {
           return results.filter((i: any) => i.id === issueId);
@@ -394,7 +435,9 @@ describe('Notifications Integration', () => {
 
       // Isolate: spy so checkDeadlines only processes our issue
       const originalFindMany = prisma.issue.findMany.bind(prisma.issue);
-      const findManySpy = jest.spyOn(prisma.issue, 'findMany').mockImplementation((async (args: any) => {
+      const findManySpy = jest.spyOn(prisma.issue, 'findMany').mockImplementation((async (
+        args: any,
+      ) => {
         const results = await originalFindMany(args);
         if (args?.where?.deadline !== undefined && args?.where?.status?.notIn) {
           return results.filter((i: any) => i.id === issueId);
@@ -465,7 +508,7 @@ describe('Notifications Integration', () => {
 
   describe('Test 7: Email sending failure does not break API call', () => {
     it('returns 200 even if SMTP throws', async () => {
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
 
       const issueRes = await createIssue({ token: adminToken });
       const issueId = issueRes.body.id;
@@ -481,7 +524,7 @@ describe('Notifications Integration', () => {
 
   describe('Test 8: GET /api/dashboard/summary returns counts', () => {
     it('returns status and priority counts', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
 
       await createIssue({ token: bankUserToken }, { priority: 'HIGH' });
       await createIssue({ token: bankUserToken }, { priority: 'LOW' });
@@ -499,7 +542,7 @@ describe('Notifications Integration', () => {
 
   describe('Test 9: Mark notification as read', () => {
     it('marks single notification as read', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const issueRes = await createIssue({ token: bankUserToken });
 
       const notif = await prisma.notification.create({
@@ -520,7 +563,7 @@ describe('Notifications Integration', () => {
     });
 
     it('cannot mark another users notification as read', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const siUserToken = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
       const issueRes = await createIssue({ token: siUserToken });
 
@@ -544,14 +587,24 @@ describe('Notifications Integration', () => {
 
   describe('Test 10: Mark all as read', () => {
     it('marks all unread notifications as read', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const issueRes = await createIssue({ token: bankUserToken });
 
       const n1 = await prisma.notification.create({
-        data: { userId: bankUserId, issueId: issueRes.body.id, message: 'N1', type: 'STATUS_CHANGE' },
+        data: {
+          userId: bankUserId,
+          issueId: issueRes.body.id,
+          message: 'N1',
+          type: 'STATUS_CHANGE',
+        },
       });
       const n2 = await prisma.notification.create({
-        data: { userId: bankUserId, issueId: issueRes.body.id, message: 'N2', type: 'STATUS_CHANGE' },
+        data: {
+          userId: bankUserId,
+          issueId: issueRes.body.id,
+          message: 'N2',
+          type: 'STATUS_CHANGE',
+        },
       });
       createdNotificationIds.push(n1.id, n2.id);
 
@@ -570,14 +623,25 @@ describe('Notifications Integration', () => {
 
   describe('Test 11: GET /api/notifications?unread=true filters correctly', () => {
     it('returns only unread notifications when ?unread=true', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const issueRes = await createIssue({ token: bankUserToken });
 
       const n1 = await prisma.notification.create({
-        data: { userId: bankUserId, issueId: issueRes.body.id, message: 'Unread one', type: 'STATUS_CHANGE' },
+        data: {
+          userId: bankUserId,
+          issueId: issueRes.body.id,
+          message: 'Unread one',
+          type: 'STATUS_CHANGE',
+        },
       });
       const n2 = await prisma.notification.create({
-        data: { userId: bankUserId, issueId: issueRes.body.id, message: 'Read one', type: 'STATUS_CHANGE', isRead: true },
+        data: {
+          userId: bankUserId,
+          issueId: issueRes.body.id,
+          message: 'Read one',
+          type: 'STATUS_CHANGE',
+          isRead: true,
+        },
       });
       createdNotificationIds.push(n1.id, n2.id);
 
@@ -597,14 +661,25 @@ describe('Notifications Integration', () => {
 
   describe('Test 12: Unread count endpoint', () => {
     it('returns correct unread count', async () => {
-      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const issueRes = await createIssue({ token: bankUserToken });
 
       const n1 = await prisma.notification.create({
-        data: { userId: bankUserId, issueId: issueRes.body.id, message: 'UC1', type: 'STATUS_CHANGE' },
+        data: {
+          userId: bankUserId,
+          issueId: issueRes.body.id,
+          message: 'UC1',
+          type: 'STATUS_CHANGE',
+        },
       });
       const n2 = await prisma.notification.create({
-        data: { userId: bankUserId, issueId: issueRes.body.id, message: 'UC2', type: 'STATUS_CHANGE', isRead: true },
+        data: {
+          userId: bankUserId,
+          issueId: issueRes.body.id,
+          message: 'UC2',
+          type: 'STATUS_CHANGE',
+          isRead: true,
+        },
       });
       createdNotificationIds.push(n1.id, n2.id);
 

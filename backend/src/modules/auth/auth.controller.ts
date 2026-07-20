@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -31,14 +23,11 @@ export class AuthController {
     @Body() dto: { email: string; password: string },
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, payload } = await this.authService.login(
-      dto.email,
-      dto.password,
-    );
+    const { accessToken, payload } = await this.authService.login(dto.email, dto.password);
 
     const isProduction = process.env.NODE_ENV === 'production';
     const maxAge = parseInt(process.env.JWT_COOKIE_MAX_AGE || '86400000', 10);
-    const sameSite = isProduction ? 'none' as const : 'lax' as const;
+    const sameSite = isProduction ? ('none' as const) : ('lax' as const);
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isProduction,
@@ -54,7 +43,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   logout(@Res({ passthrough: true }) res: Response) {
     const isProduction = process.env.NODE_ENV === 'production';
-    const sameSite = isProduction ? 'none' as const : 'lax' as const;
+    const sameSite = isProduction ? ('none' as const) : ('lax' as const);
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: isProduction,

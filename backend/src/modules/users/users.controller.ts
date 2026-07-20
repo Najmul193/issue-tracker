@@ -19,7 +19,17 @@ export class UsersController {
 
   @Post()
   create(
-    @Body() dto: { name: string; email: string; password: string; phone?: string; role: string; organizationId?: string; newOrganizationName?: string; newOrganizationType?: string },
+    @Body()
+    dto: {
+      name: string;
+      email: string;
+      password: string;
+      phone?: string;
+      role: string;
+      organizationId?: string;
+      newOrganizationName?: string;
+      newOrganizationType?: string;
+    },
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.usersService.create(dto, actor);
@@ -37,10 +47,7 @@ export class UsersController {
   }
 
   @Get('assignable')
-  findAssignable(
-    @CurrentUser() actor: JwtPayload,
-    @Query('issueId') issueId?: string,
-  ) {
+  findAssignable(@CurrentUser() actor: JwtPayload, @Query('issueId') issueId?: string) {
     return this.usersService.findAssignable(actor, issueId);
   }
 
@@ -54,18 +61,12 @@ export class UsersController {
   }
 
   @Delete(':id')
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
     return this.usersService.remove(id, actor);
   }
 
   @Delete(':id/permanent')
-  permanentRemove(
-    @Param('id') id: string,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  permanentRemove(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
     if (actor.role !== 'SUPER_ADMIN') throw new ForbiddenException('SUPER_ADMIN only');
     return this.usersService.permanentRemove(id, actor);
   }

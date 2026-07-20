@@ -22,7 +22,10 @@ export class NotificationsService {
     const visibilityFilter = await this.projectsService.getVisibleProjectFilter(actor);
     if (!projectIds) return visibilityFilter;
     if (projectIds === '__none__') return { id: { in: [] } };
-    const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+    const ids = projectIds
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (ids.length === 0) return { id: { in: [] } };
     return { AND: [visibilityFilter, { projectId: { in: ids } }] };
   }
@@ -37,7 +40,12 @@ export class NotificationsService {
   }
 
   async createNotificationsBulk(
-    items: { userId: string; issueId: string; message: string; type: 'ASSIGNMENT' | 'STATUS_CHANGE' | 'DEADLINE_WARNING' | 'OVERDUE' }[],
+    items: {
+      userId: string;
+      issueId: string;
+      message: string;
+      type: 'ASSIGNMENT' | 'STATUS_CHANGE' | 'DEADLINE_WARNING' | 'OVERDUE';
+    }[],
   ) {
     if (items.length === 0) return;
     await this.prisma.notification.createMany({ data: items });
@@ -85,7 +93,10 @@ export class NotificationsService {
       if (query.projectIds === '__none__') {
         where.issue = { id: { in: [] } };
       } else {
-        const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+        const ids = query.projectIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
         if (ids.length > 0) {
           where.issue = { projectId: { in: ids } };
         } else {
@@ -143,7 +154,10 @@ export class NotificationsService {
       if (projectIds === '__none__') {
         where.issue = { id: { in: [] } };
       } else {
-        const ids = projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+        const ids = projectIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
         if (ids.length > 0) {
           where.issue = { projectId: { in: ids } };
         } else {
@@ -219,10 +233,7 @@ export class NotificationsService {
       }
 
       // ---- Warning check (only if not already past overdue) ----
-      if (
-        pct >= 80 &&
-        issue.lastNotifiedStage === NotifiedStage.NONE
-      ) {
+      if (pct >= 80 && issue.lastNotifiedStage === NotifiedStage.NONE) {
         totalNotifications += await this.sendWarningNotifications(issue);
         await this.prisma.issue.update({
           where: { id: issue.id },
@@ -238,10 +249,15 @@ export class NotificationsService {
     id: string;
     title: string;
     assignedToUserId: string | null;
-    assignedToOrg: { id: string; name: string; users: { id: string; email: string; name: string }[] } | null;
+    assignedToOrg: {
+      id: string;
+      name: string;
+      users: { id: string; email: string; name: string }[];
+    } | null;
   }): Promise<number> {
     const message = `Issue "${issue.title}" deadline is approaching (80% of time elapsed)`;
-    const notifs: { userId: string; issueId: string; message: string; type: 'DEADLINE_WARNING' }[] = [];
+    const notifs: { userId: string; issueId: string; message: string; type: 'DEADLINE_WARNING' }[] =
+      [];
 
     if (issue.assignedToUserId) {
       notifs.push({
@@ -273,7 +289,11 @@ export class NotificationsService {
     deadline: Date;
     assignedToUserId: string | null;
     assignedToOrgId: string | null;
-    assignedToOrg: { id: string; name: string; users: { id: string; email: string; name: string }[] } | null;
+    assignedToOrg: {
+      id: string;
+      name: string;
+      users: { id: string; email: string; name: string }[];
+    } | null;
   }): Promise<number> {
     const message = `Issue "${issue.title}" is past its deadline (OVERDUE)`;
     const notifs: { userId: string; issueId: string; message: string; type: 'OVERDUE' }[] = [];
@@ -336,9 +356,7 @@ export class NotificationsService {
         this.emailService
           .sendOverdueEmail(user.email, issue.title, issue.id, issue.deadline)
           .catch((err) =>
-            this.logger.error(
-              `Overdue email failed for ${user.email}: ${err.message}`,
-            ),
+            this.logger.error(`Overdue email failed for ${user.email}: ${err.message}`),
           );
       }
     }
@@ -404,8 +422,16 @@ export class NotificationsService {
 
     const [statusCounts, priorityCounts, typeCounts, overdueCount, resolvedThisMonth] =
       await Promise.all([
-        this.prisma.issue.groupBy({ by: ['status'], where: visibilityFilter, _count: { id: true } }),
-        this.prisma.issue.groupBy({ by: ['priority'], where: visibilityFilter, _count: { id: true } }),
+        this.prisma.issue.groupBy({
+          by: ['status'],
+          where: visibilityFilter,
+          _count: { id: true },
+        }),
+        this.prisma.issue.groupBy({
+          by: ['priority'],
+          where: visibilityFilter,
+          _count: { id: true },
+        }),
         this.prisma.issue.groupBy({ by: ['type'], where: visibilityFilter, _count: { id: true } }),
         this.prisma.issue.count({
           where: {
@@ -444,7 +470,7 @@ export class NotificationsService {
       const totalMs = resolvedWithDate.reduce((sum, i) => {
         return sum + (i.resolvedAt!.getTime() - i.createdAt.getTime());
       }, 0);
-      avgResolutionDays = Math.round((totalMs / resolvedWithDate.length) / (1000 * 60 * 60 * 24));
+      avgResolutionDays = Math.round(totalMs / resolvedWithDate.length / (1000 * 60 * 60 * 24));
     }
 
     // Trend: created vs resolved per day for last 30 days

@@ -1,4 +1,9 @@
-import { Injectable, ForbiddenException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
@@ -70,8 +75,15 @@ export class AuthService {
     // Cross-org assignments cannot target orgs with the same type (only when target is a different org)
     const targetType = targetUserOrgType || targetOrgType;
     const targetOrganizationId = targetOrgId || targetUserOrgId;
-    if (targetType && targetType === actor.organizationType && targetOrganizationId && targetOrganizationId !== actor.organizationId) {
-      throw new ForbiddenException(`Cannot assign to a ${targetType.toLowerCase()} organization from another ${targetType.toLowerCase()} organization`);
+    if (
+      targetType &&
+      targetType === actor.organizationType &&
+      targetOrganizationId &&
+      targetOrganizationId !== actor.organizationId
+    ) {
+      throw new ForbiddenException(
+        `Cannot assign to a ${targetType.toLowerCase()} organization from another ${targetType.toLowerCase()} organization`,
+      );
     }
 
     if (actor.role === 'ORG_ADMIN') {
@@ -81,10 +93,14 @@ export class AuthService {
       // Raiser's org admin, issue currently outside their org → can route outside only
       if (isRaiser && !isAssignedToActorOrg) {
         if (targetUserId && targetUserOrgId && targetUserOrgId === actor.organizationId) {
-          throw new ForbiddenException('This issue was raised by your organization but is assigned elsewhere; you can only route to other organizations');
+          throw new ForbiddenException(
+            'This issue was raised by your organization but is assigned elsewhere; you can only route to other organizations',
+          );
         }
         if (targetOrgId && targetOrgId === actor.organizationId) {
-          throw new ForbiddenException('This issue was raised by your organization but is assigned elsewhere; you can only route to other organizations');
+          throw new ForbiddenException(
+            'This issue was raised by your organization but is assigned elsewhere; you can only route to other organizations',
+          );
         }
         return;
       }
@@ -92,17 +108,23 @@ export class AuthService {
       // Issue is in actor's org → internal routing only
       if (isAssignedToActorOrg) {
         if (targetUserId && targetUserOrgId && targetUserOrgId !== actor.organizationId) {
-          throw new ForbiddenException('This issue is in your organization queue; you can only assign within your organization');
+          throw new ForbiddenException(
+            'This issue is in your organization queue; you can only assign within your organization',
+          );
         }
         if (targetOrgId && targetOrgId !== actor.organizationId) {
-          throw new ForbiddenException('This issue is in your organization queue; you can only route within your organization');
+          throw new ForbiddenException(
+            'This issue is in your organization queue; you can only route within your organization',
+          );
         }
         return;
       }
 
       // Fallback: internal only
       if (targetUserId && targetUserOrgId && targetUserOrgId !== actor.organizationId) {
-        throw new ForbiddenException('ORG_ADMIN can only assign users within their own organization');
+        throw new ForbiddenException(
+          'ORG_ADMIN can only assign users within their own organization',
+        );
       }
       return;
     }
@@ -111,10 +133,14 @@ export class AuthService {
       // Assignee can only reroute to an admin in their own org
       if (isCurrentAssignee) {
         if (!targetUserId) {
-          throw new ForbiddenException('As the assignee, you can only reassign to an admin in your organization');
+          throw new ForbiddenException(
+            'As the assignee, you can only reassign to an admin in your organization',
+          );
         }
         if (targetUserOrgId !== actor.organizationId) {
-          throw new ForbiddenException('As the assignee, you can only reassign to an admin in your own organization');
+          throw new ForbiddenException(
+            'As the assignee, you can only reassign to an admin in your own organization',
+          );
         }
         if (targetUserRole !== 'ORG_ADMIN') {
           throw new ForbiddenException('As the assignee, you can only reassign to an admin');
@@ -124,7 +150,9 @@ export class AuthService {
 
       // If not the assignee, only users in the raiser's org can reroute
       if (raisedByOrgId !== actor.organizationId) {
-        throw new ForbiddenException('Only the assignee or users from the raising organization can reroute this issue');
+        throw new ForbiddenException(
+          'Only the assignee or users from the raising organization can reroute this issue',
+        );
       }
 
       if (targetUserId) {
@@ -165,7 +193,11 @@ export class AuthService {
    */
   canActOnIssue(
     actor: JwtPayload,
-    issue: { raisedByOrgId: string; assignedToOrgId: string | null; assignedToUserId: string | null },
+    issue: {
+      raisedByOrgId: string;
+      assignedToOrgId: string | null;
+      assignedToUserId: string | null;
+    },
   ): boolean {
     if (actor.role === 'SUPER_ADMIN') return true;
 

@@ -45,7 +45,12 @@ describe('Users Management (all scenarios)', () => {
   const suiteId = 'usr-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
-    return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
+    return jwtService.sign({
+      userId,
+      role,
+      organizationId: orgId,
+      organizationType: orgType,
+    } satisfies JwtPayload);
   }
 
   beforeAll(async () => {
@@ -107,7 +112,9 @@ describe('Users Management (all scenarios)', () => {
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     if (createdProjectIds.length > 0) {
-      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.projectOrganization.deleteMany({
+        where: { projectId: { in: createdProjectIds } },
+      });
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
@@ -122,7 +129,7 @@ describe('Users Management (all scenarios)', () => {
       data: { name: `SuperAdminOrg-${suiteId}`, type: 'SUPER_ADMIN' },
     });
     const bankOrg = await prisma.organization.create({
-      data: { name: `BankOrg-${suiteId}`, type: 'BANK' },
+      data: { name: `BankOrg-${suiteId}`, type: 'CLIENT' },
     });
     const dataEdgeOrg = await prisma.organization.create({
       data: { name: `DataEdgeOrg-${suiteId}`, type: 'SI' },
@@ -138,24 +145,73 @@ describe('Users Management (all scenarios)', () => {
     oracleOrgId = oracleOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'Super Admin', email: `superadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Super Admin',
+        email: `superadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'SUPER_ADMIN',
+        organizationId: superAdminOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'Bank Admin', email: `bankadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank Admin',
+        email: `bankadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankUser = await prisma.user.create({
-      data: { name: 'Bank User', email: `bankuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank User',
+        email: `bankuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siAdmin = await prisma.user.create({
-      data: { name: 'SI Admin', email: `siadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI Admin',
+        email: `siadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SI User', email: `siuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI User',
+        email: `siuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const oracleUser = await prisma.user.create({
-      data: { name: 'Oracle User', email: `oracleuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Oracle User',
+        email: `oracleuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: oracleOrg.id,
+        status: 'ACTIVE',
+      },
     });
-    createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id, siAdmin.id, siUser.id, oracleUser.id);
+    createdUserIds.push(
+      superAdmin.id,
+      bankAdmin.id,
+      bankUser.id,
+      siAdmin.id,
+      siUser.id,
+      oracleUser.id,
+    );
 
     superAdminId = superAdmin.id;
     bankAdminId = bankAdmin.id;
@@ -205,7 +261,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 2: ORG_ADMIN (Bank) attempts to create an ORG_ADMIN', () => {
     it('returns 403', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .post('/api/users')
         .set('Cookie', `access_token=${t}`)
@@ -222,7 +278,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 3: ORG_ADMIN (Bank) creates a USER in their own org', () => {
     it('succeeds', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .post('/api/users')
         .set('Cookie', `access_token=${t}`)
@@ -241,7 +297,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 4: ORG_ADMIN (Bank) attempts to create a USER in Oracle org', () => {
     it('returns 403', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .post('/api/users')
         .set('Cookie', `access_token=${t}`)
@@ -258,7 +314,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 5: USER attempts to create anyone', () => {
     it('returns 403', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .post('/api/users')
         .set('Cookie', `access_token=${t}`)
@@ -275,14 +331,21 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 6: Open issue visibility - Oracle USER views Bank/SI issue', () => {
     it('Oracle user with zero involvement can view a Bank-raised issue', async () => {
-      const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const siToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
 
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const createRes = await request(app.getHttpServer())
         .post('/api/issues')
         .set('Cookie', `access_token=${bankToken}`)
-        .send({ title: 'Cross-Org Test Issue', description: 'Bank issue visible to all', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+        .send({
+          title: 'Cross-Org Test Issue',
+          description: 'Bank issue visible to all',
+          type: 'BUG',
+          priority: 'HIGH',
+          deadline: future,
+          projectId,
+        });
       expect(createRes.status).toBe(201);
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
@@ -311,12 +374,19 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 7: Open comment - Oracle user comments on Bank/SI issue', () => {
     it('Oracle user with zero involvement can comment on a Bank/SI-only issue', async () => {
-      const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const createRes = await request(app.getHttpServer())
         .post('/api/issues')
         .set('Cookie', `access_token=${bankToken}`)
-        .send({ title: 'Comment Test Issue', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+        .send({
+          title: 'Comment Test Issue',
+          description: 'test',
+          type: 'BUG',
+          priority: 'HIGH',
+          deadline: future,
+          projectId,
+        });
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
@@ -332,12 +402,19 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 8: Scoped status change - Oracle user cannot change status on Bank/SI issue', () => {
     it('returns 403 for Oracle user trying to change status', async () => {
-      const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const createRes = await request(app.getHttpServer())
         .post('/api/issues')
         .set('Cookie', `access_token=${bankToken}`)
-        .send({ title: 'Status Test Issue', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+        .send({
+          title: 'Status Test Issue',
+          description: 'test',
+          type: 'BUG',
+          priority: 'HIGH',
+          deadline: future,
+          projectId,
+        });
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
@@ -352,14 +429,21 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 9: Scoped status change - assigned user can change status', () => {
     it('returns 200 for assigned user changing status', async () => {
-      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const siAdminToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
       const siUserToken = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const createRes = await request(app.getHttpServer())
         .post('/api/issues')
         .set('Cookie', `access_token=${bankAdminToken}`)
-        .send({ title: 'Assign Status Test', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+        .send({
+          title: 'Assign Status Test',
+          description: 'test',
+          type: 'BUG',
+          priority: 'HIGH',
+          deadline: future,
+          projectId,
+        });
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
@@ -384,7 +468,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 10: ORG_ADMIN PATCH another org user', () => {
     it('returns 403', async () => {
-      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .patch(`/api/users/${oracleUserId}`)
         .set('Cookie', `access_token=${bankAdminToken}`)
@@ -397,11 +481,18 @@ describe('Users Management (all scenarios)', () => {
     it('returns 403', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const otherAdmin = await prisma.user.create({
-        data: { name: 'Other Admin', email: `otheradmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrgId, status: 'ACTIVE' },
+        data: {
+          name: 'Other Admin',
+          email: `otheradmin-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'ORG_ADMIN',
+          organizationId: bankOrgId,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(otherAdmin.id);
 
-      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .patch(`/api/users/${otherAdmin.id}`)
         .set('Cookie', `access_token=${bankAdminToken}`)
@@ -412,7 +503,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 12: User cannot deactivate own account', () => {
     it('returns 403', async () => {
-      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const bankAdminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .patch(`/api/users/${bankAdminId}`)
         .set('Cookie', `access_token=${bankAdminToken}`)
@@ -425,11 +516,18 @@ describe('Users Management (all scenarios)', () => {
     it('sets email to deleted prefix and status to INACTIVE', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const deleteTarget = await prisma.user.create({
-        data: { name: 'Delete Me', email: `deleteme-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrgId, status: 'ACTIVE' },
+        data: {
+          name: 'Delete Me',
+          email: `deleteme-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: bankOrgId,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(deleteTarget.id);
 
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .delete(`/api/users/${deleteTarget.id}`)
         .set('Cookie', `access_token=${adminToken}`);
@@ -445,7 +543,14 @@ describe('Users Management (all scenarios)', () => {
     it('SUPER_ADMIN can permanently delete a user', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const permanentTarget = await prisma.user.create({
-        data: { name: 'Permanent Delete', email: `permdelete-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrgId, status: 'ACTIVE' },
+        data: {
+          name: 'Permanent Delete',
+          email: `permdelete-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: bankOrgId,
+          status: 'ACTIVE',
+        },
       });
 
       const saToken = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
@@ -461,11 +566,18 @@ describe('Users Management (all scenarios)', () => {
     it('ORG_ADMIN cannot permanently delete a user', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const permanentTarget = await prisma.user.create({
-        data: { name: 'Perm Block', email: `permblock-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrgId, status: 'ACTIVE' },
+        data: {
+          name: 'Perm Block',
+          email: `permblock-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: bankOrgId,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(permanentTarget.id);
 
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .delete(`/api/users/${permanentTarget.id}/permanent`)
         .set('Cookie', `access_token=${adminToken}`);
@@ -484,7 +596,7 @@ describe('Users Management (all scenarios)', () => {
     });
 
     it('ORG_ADMIN cannot list deleted users', async () => {
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .get('/api/users/deleted')
         .set('Cookie', `access_token=${adminToken}`);
@@ -494,11 +606,18 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 16: GET /users/assignable returns role-appropriate users', () => {
     it('returns assignable users for issue context', async () => {
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const createRes = await request(app.getHttpServer())
         .post('/api/issues')
         .set('Cookie', `access_token=${adminToken}`)
-        .send({ title: 'Assignable Test', description: 'test', type: 'BUG', priority: 'HIGH', deadline: new Date(Date.now() + 86_400_000).toISOString(), projectId });
+        .send({
+          title: 'Assignable Test',
+          description: 'test',
+          type: 'BUG',
+          priority: 'HIGH',
+          deadline: new Date(Date.now() + 86_400_000).toISOString(),
+          projectId,
+        });
       const issueId = createRes.body.id;
       createdIssueIds.push(issueId);
 
@@ -512,7 +631,7 @@ describe('Users Management (all scenarios)', () => {
 
   describe('Scenario 17: GET /users returns filtered list', () => {
     it('ORG_ADMIN sees only own org users', async () => {
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .get('/api/users')
         .set('Cookie', `access_token=${adminToken}`);
@@ -524,7 +643,7 @@ describe('Users Management (all scenarios)', () => {
     });
 
     it('USER cannot list users', async () => {
-      const userToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const userToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .get('/api/users')
         .set('Cookie', `access_token=${userToken}`);

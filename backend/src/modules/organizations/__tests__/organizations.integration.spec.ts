@@ -32,7 +32,12 @@ describe('Organizations Integration', () => {
   const suiteId = 'org-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
-    return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
+    return jwtService.sign({
+      userId,
+      role,
+      organizationId: orgId,
+      organizationType: orgType,
+    } satisfies JwtPayload);
   }
 
   beforeAll(async () => {
@@ -72,7 +77,9 @@ describe('Organizations Integration', () => {
 
   async function cleanup() {
     if (createdProjectIds.length > 0) {
-      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.projectOrganization.deleteMany({
+        where: { projectId: { in: createdProjectIds } },
+      });
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdUserIds.length > 0) {
@@ -93,7 +100,14 @@ describe('Organizations Integration', () => {
     superAdminOrgId = superAdminOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'Super Admin', email: `sa-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Super Admin',
+        email: `sa-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'SUPER_ADMIN',
+        organizationId: superAdminOrg.id,
+        status: 'ACTIVE',
+      },
     });
     createdUserIds.push(superAdmin.id);
     superAdminId = superAdmin.id;
@@ -103,11 +117,18 @@ describe('Organizations Integration', () => {
     it('returns organizations that have active users', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const bankOrg = await prisma.organization.create({
-        data: { name: `Bank-${suiteId}`, type: 'BANK' },
+        data: { name: `Bank-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(bankOrg.id);
       const user = await prisma.user.create({
-        data: { name: 'Bank User', email: `bank-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+        data: {
+          name: 'Bank User',
+          email: `bank-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: bankOrg.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(user.id);
 
@@ -128,7 +149,14 @@ describe('Organizations Integration', () => {
       });
       createdOrgIds.push(deletedOrg.id);
       const deletedUser = await prisma.user.create({
-        data: { name: 'Deleted User', email: `deleted-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: deletedOrg.id, status: 'INACTIVE' },
+        data: {
+          name: 'Deleted User',
+          email: `deleted-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: deletedOrg.id,
+          status: 'INACTIVE',
+        },
       });
       createdUserIds.push(deletedUser.id);
 
@@ -155,15 +183,22 @@ describe('Organizations Integration', () => {
     it('non-SUPER_ADMIN cannot list deleted organizations', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const org = await prisma.organization.create({
-        data: { name: `OrgForUser-${suiteId}`, type: 'BANK' },
+        data: { name: `OrgForUser-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(org.id);
       const user = await prisma.user.create({
-        data: { name: 'Org User', email: `orguser-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'Org User',
+          email: `orguser-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'ORG_ADMIN',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(user.id);
 
-      const t = token(user.id, 'ORG_ADMIN', org.id, 'BANK');
+      const t = token(user.id, 'ORG_ADMIN', org.id, 'CLIENT');
       const res = await request(app.getHttpServer())
         .get('/api/organizations/deleted')
         .set('Cookie', `access_token=${t}`);
@@ -178,7 +213,14 @@ describe('Organizations Integration', () => {
         data: { name: `SoftDelOrg-${suiteId}`, type: 'SI' },
       });
       const user = await prisma.user.create({
-        data: { name: 'SoftDel User', email: `softdel-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'SoftDel User',
+          email: `softdel-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
 
       const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
@@ -195,15 +237,22 @@ describe('Organizations Integration', () => {
     it('non-SUPER_ADMIN cannot soft-delete an organization', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const org = await prisma.organization.create({
-        data: { name: `NoDelOrg-${suiteId}`, type: 'BANK' },
+        data: { name: `NoDelOrg-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(org.id);
       const user = await prisma.user.create({
-        data: { name: 'NoDel User', email: `nodel-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'NoDel User',
+          email: `nodel-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'ORG_ADMIN',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(user.id);
 
-      const t = token(user.id, 'ORG_ADMIN', org.id, 'BANK');
+      const t = token(user.id, 'ORG_ADMIN', org.id, 'CLIENT');
       const res = await request(app.getHttpServer())
         .delete(`/api/organizations/${org.id}`)
         .set('Cookie', `access_token=${t}`);
@@ -218,7 +267,14 @@ describe('Organizations Integration', () => {
         data: { name: `PermDelOrg-${suiteId}`, type: 'OEM' },
       });
       const user = await prisma.user.create({
-        data: { name: 'PermDel User', email: `permdel-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'PermDel User',
+          email: `permdel-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
 
       const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
@@ -236,15 +292,22 @@ describe('Organizations Integration', () => {
     it('non-SUPER_ADMIN cannot permanently delete an organization', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const org = await prisma.organization.create({
-        data: { name: `NoPermOrg-${suiteId}`, type: 'BANK' },
+        data: { name: `NoPermOrg-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(org.id);
       const user = await prisma.user.create({
-        data: { name: 'NoPerm User', email: `noperm-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'NoPerm User',
+          email: `noperm-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'ORG_ADMIN',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(user.id);
 
-      const t = token(user.id, 'ORG_ADMIN', org.id, 'BANK');
+      const t = token(user.id, 'ORG_ADMIN', org.id, 'CLIENT');
       const res = await request(app.getHttpServer())
         .delete(`/api/organizations/${org.id}/permanent`)
         .set('Cookie', `access_token=${t}`);

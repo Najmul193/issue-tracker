@@ -6,8 +6,7 @@ import { AttachmentsController } from './attachments.controller';
 import { StorageModule } from '../storage/storage.module';
 import { AuthModule } from '../auth/auth.module';
 
-const MAX_UPLOAD_SIZE_MB =
-  parseInt(process.env.MAX_UPLOAD_SIZE_MB || '15', 10);
+const MAX_UPLOAD_SIZE_MB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '15', 10);
 
 @Module({
   imports: [

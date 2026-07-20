@@ -105,7 +105,10 @@ export class IssuesService {
       if (query.projectIds === '__none__') {
         andClauses.push({ id: { in: [] } });
       } else {
-        const ids = query.projectIds.split(',').map((s) => s.trim()).filter(Boolean);
+        const ids = query.projectIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
         if (ids.length > 0) {
           andClauses.push({ projectId: { in: ids } });
         } else {
@@ -120,7 +123,10 @@ export class IssuesService {
     if (query.module) andClauses.push({ module: { contains: query.module, mode: 'insensitive' } });
     if (query.assignedOrg) andClauses.push({ assignedToOrgId: query.assignedOrg });
     if (query.overdue === 'true') {
-      andClauses.push({ deadline: { lt: new Date() }, status: { notIn: ['CLOSED', 'VERIFIED'] as IssueStatus[] } });
+      andClauses.push({
+        deadline: { lt: new Date() },
+        status: { notIn: ['CLOSED', 'VERIFIED'] as IssueStatus[] },
+      });
     }
 
     if (query.concern === 'true') {
@@ -169,7 +175,7 @@ export class IssuesService {
         orderBy: { createdAt: 'desc' },
         include: {
           raisedBy: { select: { id: true, name: true, email: true } },
-        assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
+          assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
           raisedByOrg: { select: { id: true, name: true } },
           assignedToOrg: { select: { id: true, name: true } },
           project: { select: { id: true, name: true } },
@@ -191,7 +197,12 @@ export class IssuesService {
         assignedToOrg: { select: { id: true, name: true } },
         assignedBy: { select: { id: true, name: true, email: true } },
         resolvedBy: {
-          select: { id: true, name: true, email: true, organization: { select: { id: true, name: true } } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            organization: { select: { id: true, name: true } },
+          },
         },
         comments: {
           include: { user: { select: { id: true, name: true, email: true } } },
@@ -229,12 +240,21 @@ export class IssuesService {
     const newTargetUser = dto.targetUserId
       ? await this.prisma.user.findUnique({
           where: { id: dto.targetUserId, status: 'ACTIVE' },
-          select: { id: true, name: true, organizationId: true, role: true, organization: { select: { type: true } } },
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+            role: true,
+            organization: { select: { type: true } },
+          },
         })
       : null;
 
     const newTargetOrg = dto.targetOrgId
-      ? await this.prisma.organization.findUnique({ where: { id: dto.targetOrgId }, select: { id: true, name: true, type: true } })
+      ? await this.prisma.organization.findUnique({
+          where: { id: dto.targetOrgId },
+          select: { id: true, name: true, type: true },
+        })
       : null;
 
     if (issue.projectId) {
@@ -244,21 +264,29 @@ export class IssuesService {
         });
         const targetOrgInProject = await this.prisma.projectOrganization.findUnique({
           where: {
-            projectId_organizationId: { projectId: issue.projectId, organizationId: newTargetUser.organizationId },
+            projectId_organizationId: {
+              projectId: issue.projectId,
+              organizationId: newTargetUser.organizationId,
+            },
           },
         });
         if (!targetInProject && !targetOrgInProject) {
-          throw new ForbiddenException('Target user is not a member of this issue\'s project');
+          throw new ForbiddenException("Target user is not a member of this issue's project");
         }
       }
       if (dto.targetOrgId && newTargetOrg) {
         const targetOrgInProject = await this.prisma.projectOrganization.findUnique({
           where: {
-            projectId_organizationId: { projectId: issue.projectId, organizationId: dto.targetOrgId },
+            projectId_organizationId: {
+              projectId: issue.projectId,
+              organizationId: dto.targetOrgId,
+            },
           },
         });
         if (!targetOrgInProject) {
-          throw new ForbiddenException('Target organization is not a member of this issue\'s project');
+          throw new ForbiddenException(
+            "Target organization is not a member of this issue's project",
+          );
         }
       }
     }
@@ -271,17 +299,22 @@ export class IssuesService {
     if (isReopenByRaiserOrgAdmin) {
       if (dto.targetUserId) {
         if (!newTargetUser || newTargetUser.organizationId === actor.organizationId) {
-          throw new ForbiddenException('After reopening, you can only assign to users outside your organization');
+          throw new ForbiddenException(
+            'After reopening, you can only assign to users outside your organization',
+          );
         }
       } else if (dto.targetOrgId) {
         if (dto.targetOrgId === actor.organizationId) {
-          throw new ForbiddenException('After reopening, you can only route to other organizations');
+          throw new ForbiddenException(
+            'After reopening, you can only route to other organizations',
+          );
         }
       } else {
         throw new ForbiddenException('Invalid assignment request');
       }
     } else {
-      const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+      const currentAssignedOrgId =
+        issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
       this.authService.canAssign(
         actor,
         dto.targetUserId ?? null,
@@ -297,10 +330,16 @@ export class IssuesService {
     }
 
     const oldTargetUser = issue.assignedToUserId
-      ? await this.prisma.user.findUnique({ where: { id: issue.assignedToUserId }, select: { id: true, name: true } })
+      ? await this.prisma.user.findUnique({
+          where: { id: issue.assignedToUserId },
+          select: { id: true, name: true },
+        })
       : null;
     const oldTargetOrg = issue.assignedToOrgId
-      ? await this.prisma.organization.findUnique({ where: { id: issue.assignedToOrgId }, select: { id: true, name: true } })
+      ? await this.prisma.organization.findUnique({
+          where: { id: issue.assignedToOrgId },
+          select: { id: true, name: true },
+        })
       : null;
 
     const updated = await this.prisma.issue.update({
@@ -309,7 +348,10 @@ export class IssuesService {
         assignedToUserId: dto.targetUserId ?? null,
         assignedToOrgId: dto.targetOrgId ?? newTargetUser?.organizationId ?? null,
         assignedById: actor.userId,
-        status: (issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED' || issue.status === 'REOPENED') ? 'ASSIGNED' : issue.status,
+        status:
+          issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED' || issue.status === 'REOPENED'
+            ? 'ASSIGNED'
+            : issue.status,
         closedAt: null,
       },
     });
@@ -393,7 +435,8 @@ export class IssuesService {
     if (dto.status === 'VERIFIED' || dto.status === 'CLOSED') {
       if (actor.role !== 'SUPER_ADMIN') {
         const isCreator = issue.raisedById === actor.userId;
-        const isCreatorOrgAdmin = actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
+        const isCreatorOrgAdmin =
+          actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
         if (!isCreator && !isCreatorOrgAdmin) {
           throw new ForbiddenException(
             'Only the issue creator or their org admin can verify and close this issue',
@@ -403,8 +446,13 @@ export class IssuesService {
     }
 
     if (issue.status === 'CLOSED' && dto.status === 'REOPENED') {
-      if (actor.role !== 'SUPER_ADMIN' && (actor.role !== 'ORG_ADMIN' || actor.organizationId !== issue.raisedByOrgId)) {
-        throw new ForbiddenException('Only the issue creator\'s org admin can reopen a closed issue');
+      if (
+        actor.role !== 'SUPER_ADMIN' &&
+        (actor.role !== 'ORG_ADMIN' || actor.organizationId !== issue.raisedByOrgId)
+      ) {
+        throw new ForbiddenException(
+          "Only the issue creator's org admin can reopen a closed issue",
+        );
       }
     }
 
@@ -492,22 +540,13 @@ export class IssuesService {
     });
 
     if (files && files.length > 0) {
-      await this.attachmentsService.uploadToComment(
-        comment.id,
-        files,
-        id,
-        actor,
-      );
+      await this.attachmentsService.uploadToComment(comment.id, files, id, actor);
     }
 
     return comment;
   }
 
-  async addAttachments(
-    id: string,
-    files: Express.Multer.File[],
-    actor: JwtPayload,
-  ) {
+  async addAttachments(id: string, files: Express.Multer.File[], actor: JwtPayload) {
     await this.findOne(id, actor);
     return this.attachmentsService.uploadToIssue(id, files, actor);
   }
@@ -525,8 +564,14 @@ export class IssuesService {
   async delete(id: string, actor: JwtPayload) {
     const issue = await this.findOne(id, actor);
 
-    if (actor.userId !== issue.raisedById && actor.role !== 'SUPER_ADMIN' && actor.role !== 'ORG_ADMIN') {
-      throw new ForbiddenException('Only the creator, their org admin, or SUPER_ADMIN can delete issues');
+    if (
+      actor.userId !== issue.raisedById &&
+      actor.role !== 'SUPER_ADMIN' &&
+      actor.role !== 'ORG_ADMIN'
+    ) {
+      throw new ForbiddenException(
+        'Only the creator, their org admin, or SUPER_ADMIN can delete issues',
+      );
     }
     if (actor.role === 'ORG_ADMIN' && actor.organizationId !== issue.raisedByOrgId) {
       throw new ForbiddenException('You can only delete issues from your own organization');

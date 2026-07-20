@@ -30,8 +30,8 @@ export class ProjectsService {
     }
 
     const types = new Set(orgs.map((o) => o.type));
-    if (!types.has('BANK')) {
-      throw new BadRequestException('At least one BANK organization is required');
+    if (!types.has('CLIENT')) {
+      throw new BadRequestException('At least one CLIENT organization is required');
     }
     if (!types.has('SI')) {
       throw new BadRequestException('At least one SI organization is required');
@@ -333,7 +333,9 @@ export class ProjectsService {
       where: { projectId_organizationId: { projectId, organizationId: user.organizationId } },
     });
     if (!isOrgMember) {
-      throw new BadRequestException('User must belong to an organization that is a member of this project');
+      throw new BadRequestException(
+        'User must belong to an organization that is a member of this project',
+      );
     }
 
     if (actor.role !== 'SUPER_ADMIN') {
@@ -473,10 +475,7 @@ export class ProjectsService {
         // Issues without a project where user is directly involved
         {
           projectId: null,
-          OR: [
-            { raisedById: actor.userId },
-            { assignedToUserId: actor.userId },
-          ],
+          OR: [{ raisedById: actor.userId }, { assignedToUserId: actor.userId }],
         },
       ],
     };

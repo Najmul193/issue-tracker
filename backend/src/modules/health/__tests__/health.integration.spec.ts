@@ -36,8 +36,7 @@ describe('Health Integration', () => {
 
   describe('GET /health', () => {
     it('returns status ok with connected database', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/health');
+      const res = await request(app.getHttpServer()).get('/api/health');
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('ok');
       expect(res.body.database).toBe('connected');
@@ -45,8 +44,7 @@ describe('Health Integration', () => {
     });
 
     it('does not require authentication (public endpoint)', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/health');
+      const res = await request(app.getHttpServer()).get('/api/health');
       expect(res.status).toBe(200);
     });
   });

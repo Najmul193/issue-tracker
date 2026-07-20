@@ -42,7 +42,7 @@ The system defines **three user roles** and **four organization types** that col
 | Type | Description |
 |---|---|
 | `SUPER_ADMIN` | Governing entity with cross-tenant visibility |
-| `BANK` | Banking client organization |
+| `CLIENT` | Client organization |
 | `SI` | System Integrator organization |
 | `OEM` | OEM (Oracle) client organization |
 
@@ -179,7 +179,7 @@ Issues traverse a defined state machine with enforced transition rules:
 
 #### Project Management
 - Projects group issues by organizational membership and scope visibility
-- **SUPER_ADMIN** creates projects with at least one BANK, one SI, and one OEM organization
+- **SUPER_ADMIN** creates projects with at least one CLIENT, one SI, and one OEM organization
 - All active users from member organizations are auto-added as project members
 - Issue visibility is scoped to project membership — non-members cannot see project-scoped issues
 - ORG_ADMIN can manage project members from their own organization
@@ -462,7 +462,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 #### Projects
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
-| POST | `/api/projects` | SUPER_ADMIN | Create project (requires BANK + SI + OEM orgs) |
+| POST | `/api/projects` | SUPER_ADMIN | Create project (requires CLIENT + SI + OEM orgs) |
 | GET | `/api/projects` | Authenticated | List projects (scoped by role) |
 | GET | `/api/projects/:id` | Project member | Get project detail |
 | PATCH | `/api/projects/:id` | SUPER_ADMIN | Update project |

@@ -38,11 +38,7 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateProjectDto,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  update(@Param('id') id: string, @Body() dto: UpdateProjectDto, @CurrentUser() actor: JwtPayload) {
     return this.projectsService.update(id, dto, actor);
   }
 
@@ -81,11 +77,7 @@ export class ProjectsController {
   }
 
   @Post(':id/users')
-  addUser(
-    @Param('id') id: string,
-    @Body() dto: AddUserDto,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  addUser(@Param('id') id: string, @Body() dto: AddUserDto, @CurrentUser() actor: JwtPayload) {
     return this.projectsService.addUser(id, dto.userId, actor);
   }
 

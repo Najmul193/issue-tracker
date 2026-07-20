@@ -45,7 +45,12 @@ describe('Issues Integration (all scenarios)', () => {
   const suiteId = 'iss-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
-    return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
+    return jwtService.sign({
+      userId,
+      role,
+      organizationId: orgId,
+      organizationType: orgType,
+    } satisfies JwtPayload);
   }
 
   beforeAll(async () => {
@@ -111,7 +116,9 @@ describe('Issues Integration (all scenarios)', () => {
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     if (createdProjectIds.length > 0) {
-      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.projectOrganization.deleteMany({
+        where: { projectId: { in: createdProjectIds } },
+      });
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
@@ -126,7 +133,7 @@ describe('Issues Integration (all scenarios)', () => {
       data: { name: `Super-Admin-${suiteId}`, type: 'SUPER_ADMIN' },
     });
     const bankOrg = await prisma.organization.create({
-      data: { name: `Bank-${suiteId}`, type: 'BANK' },
+      data: { name: `Bank-${suiteId}`, type: 'CLIENT' },
     });
     const dataEdgeOrg = await prisma.organization.create({
       data: { name: `Data-Edge-${suiteId}`, type: 'SI' },
@@ -141,27 +148,84 @@ describe('Issues Integration (all scenarios)', () => {
     oracleOrgId = oracleOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'Super Admin', email: `superadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Super Admin',
+        email: `superadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'SUPER_ADMIN',
+        organizationId: superAdminOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'Bank Admin', email: `bankadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank Admin',
+        email: `bankadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankUser = await prisma.user.create({
-      data: { name: 'Bank User', email: `bankuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank User',
+        email: `bankuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siAdmin = await prisma.user.create({
-      data: { name: 'SI Admin', email: `siadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI Admin',
+        email: `siadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SI User', email: `siuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI User',
+        email: `siuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const oracleAdmin = await prisma.user.create({
-      data: { name: 'Oracle Admin', email: `oracleadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Oracle Admin',
+        email: `oracleadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: oracleOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const oracleUser = await prisma.user.create({
-      data: { name: 'Oracle User', email: `oracleuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Oracle User',
+        email: `oracleuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: oracleOrg.id,
+        status: 'ACTIVE',
+      },
     });
-    createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id, siAdmin.id, siUser.id, oracleAdmin.id, oracleUser.id);
+    createdUserIds.push(
+      superAdmin.id,
+      bankAdmin.id,
+      bankUser.id,
+      siAdmin.id,
+      siUser.id,
+      oracleAdmin.id,
+      oracleUser.id,
+    );
 
     superAdminId = superAdmin.id;
     bankAdminId = bankAdmin.id;
@@ -183,7 +247,15 @@ describe('Issues Integration (all scenarios)', () => {
       });
     }
 
-    for (const user of [superAdmin, bankAdmin, bankUser, siAdmin, siUser, oracleAdmin, oracleUser]) {
+    for (const user of [
+      superAdmin,
+      bankAdmin,
+      bankUser,
+      siAdmin,
+      siUser,
+      oracleAdmin,
+      oracleUser,
+    ]) {
       await prisma.projectUser.create({
         data: { projectId: project.id, userId: user.id },
       });
@@ -212,7 +284,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 1: Create issue as Bank user', () => {
     it('auto-sets raised_by_id and raised_by_org_id from JWT', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const res = await createIssue({ token: t });
       expect(res.status).toBe(201);
       expect(res.body.raisedById).toBe(bankUserId);
@@ -224,7 +296,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 2: ORG_ADMIN assigns within own org when unassigned', () => {
     it('fails with 403 because issue is unassigned in raisers org', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
@@ -236,7 +308,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 3: ORG_ADMIN assigns to user in different org', () => {
     it('succeeds with 200', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
@@ -248,7 +320,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 4: ORG_ADMIN org-level handoff (no userId)', () => {
     it('succeeds, assigned_to_user_id stays null', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
@@ -262,7 +334,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 5: USER attempts to assign', () => {
     it('fails with 403', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/assign`)
@@ -274,7 +346,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 6: Valid status transition NEW -> ACKNOWLEDGED', () => {
     it('succeeds and creates ActivityLog entry', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -287,7 +359,12 @@ describe('Issues Integration (all scenarios)', () => {
         .get(`/api/issues/${issue.body.id}/activity`)
         .set('Cookie', `access_token=${t}`);
       const logs = activity.body;
-      expect(logs.some((l: any) => l.action === 'STATUS_CHANGED' && l.oldValue === 'NEW' && l.newValue === 'ACKNOWLEDGED')).toBe(true);
+      expect(
+        logs.some(
+          (l: any) =>
+            l.action === 'STATUS_CHANGED' && l.oldValue === 'NEW' && l.newValue === 'ACKNOWLEDGED',
+        ),
+      ).toBe(true);
       if (Array.isArray(logs)) {
         for (const log of logs) {
           if (log.id && !createdActivityLogIds.includes(log.id)) {
@@ -300,7 +377,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 7: Invalid status transition NEW -> CLOSED', () => {
     it('fails with 400', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -312,19 +389,40 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 8: REOPENED without comment', () => {
     it('fails with 400', async () => {
-      const userToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
-      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const userToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+      const adminToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: userToken });
 
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'ACKNOWLEDGED' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminToken}`).send({ targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminToken}`)
+        .send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${adminToken}`)
+        .send({ targetOrgId: dataEdgeOrgId });
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${siAdminT}`)
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'VERIFIED' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminToken}`).send({ status: 'CLOSED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'IN_PROGRESS' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminToken}`)
+        .send({ status: 'VERIFIED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminToken}`)
+        .send({ status: 'CLOSED' });
 
       const reopenRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -341,7 +439,7 @@ describe('Issues Integration (all scenarios)', () => {
       const siIssue = await createIssue({ token: siToken });
       const issueId = siIssue.body.id;
 
-      const bankToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .get(`/api/issues/${issueId}`)
         .set('Cookie', `access_token=${bankToken}`);
@@ -353,7 +451,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 10: GET /api/issues — all users see all issues', () => {
     it('Bank user list includes all issues regardless of org', async () => {
-      const bankToken = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const bankToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const siToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
 
       await createIssue({ token: bankToken });
@@ -371,7 +469,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 11: Create issue with past deadline', () => {
     it('fails with 400', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const past = new Date(Date.now() - 86_400_000).toISOString();
       const res = await request(app.getHttpServer())
         .post('/api/issues')
@@ -384,15 +482,22 @@ describe('Issues Integration (all scenarios)', () => {
   describe('Scenario 12: Create issue without project access', () => {
     it('fails with 403 for user not in project', async () => {
       const otherOrg = await prisma.organization.create({
-        data: { name: `OtherOrg-${suiteId}`, type: 'BANK' },
+        data: { name: `OtherOrg-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(otherOrg.id);
       const otherUser = await prisma.user.create({
-        data: { name: 'Other User', email: `other-${suiteId}@test.dev`, passwordHash: await bcrypt.hash('password123', 4), role: 'USER', organizationId: otherOrg.id, status: 'ACTIVE' },
+        data: {
+          name: 'Other User',
+          email: `other-${suiteId}@test.dev`,
+          passwordHash: await bcrypt.hash('password123', 4),
+          role: 'USER',
+          organizationId: otherOrg.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(otherUser.id);
 
-      const t = token(otherUser.id, 'USER', otherOrg.id, 'BANK');
+      const t = token(otherUser.id, 'USER', otherOrg.id, 'CLIENT');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const res = await request(app.getHttpServer())
         .post('/api/issues')
@@ -404,7 +509,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 13: Create issue with missing required fields', () => {
     it('fails with 400 when title is missing', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const res = await request(app.getHttpServer())
         .post('/api/issues')
@@ -414,7 +519,7 @@ describe('Issues Integration (all scenarios)', () => {
     });
 
     it('fails with 400 when projectId is missing', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const res = await request(app.getHttpServer())
         .post('/api/issues')
@@ -426,7 +531,7 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 14: Issue deletion', () => {
     it('creator can delete their own issue', async () => {
-      const t = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const t = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: t });
       const res = await request(app.getHttpServer())
         .delete(`/api/issues/${issue.body.id}`)
@@ -435,8 +540,8 @@ describe('Issues Integration (all scenarios)', () => {
     });
 
     it('ORG_ADMIN can delete issues in their org', async () => {
-      const userT = token(bankUserId, 'USER', bankOrgId, 'BANK');
-      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const userT = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: userT });
       const res = await request(app.getHttpServer())
         .delete(`/api/issues/${issue.body.id}`)
@@ -445,7 +550,7 @@ describe('Issues Integration (all scenarios)', () => {
     });
 
     it('non-creator non-admin cannot delete', async () => {
-      const creatorT = token(bankUserId, 'USER', bankOrgId, 'BANK');
+      const creatorT = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
       const otherT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
       const issue = await createIssue({ token: creatorT });
       const res = await request(app.getHttpServer())
@@ -457,15 +562,27 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 15: RESOLVED requires resolutionNote', () => {
     it('fails with 400 when resolutionNote is missing', async () => {
-      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: adminT });
 
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ targetOrgId: dataEdgeOrgId });
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${siAdminT}`)
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'IN_PROGRESS' });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -475,15 +592,27 @@ describe('Issues Integration (all scenarios)', () => {
     });
 
     it('succeeds with resolutionNote', async () => {
-      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: adminT });
 
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ targetOrgId: dataEdgeOrgId });
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${siAdminT}`)
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'IN_PROGRESS' });
 
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
@@ -496,19 +625,40 @@ describe('Issues Integration (all scenarios)', () => {
 
   describe('Scenario 16: CLOSED -> REOPENED permission check', () => {
     it('ORG_ADMIN of raiser org can reopen', async () => {
-      const userT = token(bankUserId, 'USER', bankOrgId, 'BANK');
-      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const userT = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const issue = await createIssue({ token: userT });
 
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'ACKNOWLEDGED' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${adminT}`).send({ targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ status: 'ACKNOWLEDGED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ targetOrgId: dataEdgeOrgId });
       const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/assign`).set('Cookie', `access_token=${siAdminT}`).send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/assign`)
+        .set('Cookie', `access_token=${siAdminT}`)
+        .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
       const siT = token(siUserId, 'USER', dataEdgeOrgId, 'SI');
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'IN_PROGRESS' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${siT}`).send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'VERIFIED' });
-      await request(app.getHttpServer()).patch(`/api/issues/${issue.body.id}/status`).set('Cookie', `access_token=${adminT}`).send({ status: 'CLOSED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'IN_PROGRESS' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${siT}`)
+        .send({ status: 'RESOLVED', resolutionNote: 'Fixed' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ status: 'VERIFIED' });
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issue.body.id}/status`)
+        .set('Cookie', `access_token=${adminT}`)
+        .send({ status: 'CLOSED' });
 
       const reopenRes = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)

@@ -27,9 +27,7 @@ export class EmailService {
       });
       this.initialized = true;
     } else {
-      this.logger.warn(
-        'SMTP not configured. Email sending is disabled.',
-      );
+      this.logger.warn('SMTP not configured. Email sending is disabled.');
     }
   }
 
@@ -39,11 +37,16 @@ export class EmailService {
 
   private getPriorityColor(priority: string): string {
     switch (priority) {
-      case 'CRITICAL': return '#dc2626';
-      case 'HIGH': return '#ea580c';
-      case 'MEDIUM': return '#eab308';
-      case 'LOW': return '#22c55e';
-      default: return '#6b7280';
+      case 'CRITICAL':
+        return '#dc2626';
+      case 'HIGH':
+        return '#ea580c';
+      case 'MEDIUM':
+        return '#eab308';
+      case 'LOW':
+        return '#22c55e';
+      default:
+        return '#6b7280';
     }
   }
 
@@ -51,12 +54,16 @@ export class EmailService {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const issueUrl = `${frontendUrl}/issues/${issue.id}`;
     const priorityColor = this.getPriorityColor(issue.priority);
-    const description = issue.description 
-      ? (issue.description.length > 200 ? issue.description.substring(0, 200) + '...' : issue.description)
+    const description = issue.description
+      ? issue.description.length > 200
+        ? issue.description.substring(0, 200) + '...'
+        : issue.description
       : 'No description provided.';
     const deadline = issue.deadline ? issue.deadline.toISOString().split('T')[0] : 'None';
-    
-    const extraHtml = extraLines.map(l => `<p style="margin: 0 0 10px 0; color: #4b5563; font-size: 15px;">${l}</p>`).join('');
+
+    const extraHtml = extraLines
+      .map((l) => `<p style="margin: 0 0 10px 0; color: #4b5563; font-size: 15px;">${l}</p>`)
+      .join('');
 
     return `
 <!DOCTYPE html>
@@ -125,8 +132,10 @@ export class EmailService {
   private buildText(title: string, issue: any, extraLines: string[]): string {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const issueUrl = `${frontendUrl}/issues/${issue.id}`;
-    const description = issue.description 
-      ? (issue.description.length > 200 ? issue.description.substring(0, 200) + '...' : issue.description)
+    const description = issue.description
+      ? issue.description.length > 200
+        ? issue.description.substring(0, 200) + '...'
+        : issue.description
       : 'No description provided.';
     const deadline = issue.deadline ? issue.deadline.toISOString().split('T')[0] : 'None';
 
@@ -154,15 +163,9 @@ View Issue: ${issueUrl}
 This is an automated notification from the Flexcube Upgrade issue tracker. Do not reply to this email.`;
   }
 
-  async sendAssignmentEmail(
-    to: string,
-    issueTitle: string,
-    issueId: string,
-  ): Promise<void> {
+  async sendAssignmentEmail(to: string, issueTitle: string, issueId: string): Promise<void> {
     if (!this.initialized || !this.transporter) {
-      this.logger.log(
-        `[Email skipped] Assignment: issue "${issueTitle}" to ${to}`,
-      );
+      this.logger.log(`[Email skipped] Assignment: issue "${issueTitle}" to ${to}`);
       return;
     }
 
@@ -185,12 +188,12 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
 
       const extraLinesHtml = [
         `You have been assigned to this issue by <strong>${assignedBy}</strong>.`,
-        `This issue was raised by <strong>${raisedByOrg}</strong>.`
+        `This issue was raised by <strong>${raisedByOrg}</strong>.`,
       ];
 
       const extraLinesText = [
         `You have been assigned to this issue by ${assignedBy}.`,
-        `This issue was raised by ${raisedByOrg}.`
+        `This issue was raised by ${raisedByOrg}.`,
       ];
 
       await this.transporter.sendMail({
@@ -202,9 +205,7 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
       });
       this.logger.log(`Assignment email sent to ${to} for issue ${issueId}`);
     } catch (err) {
-      this.logger.error(
-        `Failed to send assignment email to ${to}: ${(err as Error).message}`,
-      );
+      this.logger.error(`Failed to send assignment email to ${to}: ${(err as Error).message}`);
     }
   }
 
@@ -215,9 +216,7 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
     deadline: Date,
   ): Promise<void> {
     if (!this.initialized || !this.transporter) {
-      this.logger.log(
-        `[Email skipped] Overdue: issue "${issueTitle}" to ${to}`,
-      );
+      this.logger.log(`[Email skipped] Overdue: issue "${issueTitle}" to ${to}`);
       return;
     }
 
@@ -236,12 +235,12 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
       }
 
       const assigneeName = issue.assignedToUser?.name || issue.assignedToOrg?.name || 'Unassigned';
-      
+
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - deadline.getTime());
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-      
+
       let overdueText = '';
       if (diffDays > 0) {
         overdueText = `${diffDays} day${diffDays === 1 ? '' : 's'}`;
@@ -252,13 +251,13 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
       const extraLinesHtml = [
         `This issue is currently <strong>${overdueText} overdue</strong>.`,
         `Current Assignee: <strong>${assigneeName}</strong>`,
-        `Please take action immediately.`
+        `Please take action immediately.`,
       ];
-      
+
       const extraLinesText = [
         `This issue is currently ${overdueText} overdue.`,
         `Current Assignee: ${assigneeName}`,
-        `Please take action immediately.`
+        `Please take action immediately.`,
       ];
 
       await this.transporter.sendMail({
@@ -270,9 +269,7 @@ This is an automated notification from the Flexcube Upgrade issue tracker. Do no
       });
       this.logger.log(`Overdue email sent to ${to} for issue ${issueId}`);
     } catch (err) {
-      this.logger.error(
-        `Failed to send overdue email to ${to}: ${(err as Error).message}`,
-      );
+      this.logger.error(`Failed to send overdue email to ${to}: ${(err as Error).message}`);
     }
   }
 
@@ -347,9 +344,7 @@ This is an automated notification. Do not reply to this email.`;
       });
       this.logger.log(`Password reset email sent to ${to}`);
     } catch (err) {
-      this.logger.error(
-        `Failed to send password reset email to ${to}: ${(err as Error).message}`,
-      );
+      this.logger.error(`Failed to send password reset email to ${to}: ${(err as Error).message}`);
     }
   }
 }

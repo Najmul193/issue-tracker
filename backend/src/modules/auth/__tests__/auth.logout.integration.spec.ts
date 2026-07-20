@@ -46,7 +46,7 @@ describe('Auth — logout cookie invalidation', () => {
 
     const pw = await bcrypt.hash('password123', 4);
     const org = await prisma.organization.create({
-      data: { name: `LogoutTestOrg-${suiteId}`, type: 'BANK' },
+      data: { name: `LogoutTestOrg-${suiteId}`, type: 'CLIENT' },
     });
     orgId = org.id;
 
@@ -78,9 +78,7 @@ describe('Auth — logout cookie invalidation', () => {
     const setCookieHeader: string[] = res.headers['set-cookie'] as unknown as string[];
     expect(setCookieHeader).toBeDefined();
 
-    const accessCookie = setCookieHeader.find((c: string) =>
-      c.startsWith('access_token='),
-    );
+    const accessCookie = setCookieHeader.find((c: string) => c.startsWith('access_token='));
     expect(accessCookie).toBeDefined();
     expect(accessCookie).toContain('HttpOnly');
     expect(accessCookie).toMatch(/Path=\//i);
@@ -108,8 +106,7 @@ describe('Auth — logout cookie invalidation', () => {
     expect(cleared).toBeDefined();
 
     const hasMaxAgeZero = /Max-Age=0/i.test(cleared!);
-    const hasExpiredDate =
-      /Expires=Thu, 0?1 Jan 1970|Expires=.*19\d{2}/i.test(cleared!);
+    const hasExpiredDate = /Expires=Thu, 0?1 Jan 1970|Expires=.*19\d{2}/i.test(cleared!);
     expect(hasMaxAgeZero || hasExpiredDate).toBe(true);
 
     expect(cleared).toContain('HttpOnly');

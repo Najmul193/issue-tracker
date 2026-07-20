@@ -36,7 +36,7 @@ export default function Users() {
   const [formRole, setFormRole] = useState('USER');
   const [formOrgId, setFormOrgId] = useState('');
   const [formNewOrgName, setFormNewOrgName] = useState('');
-  const [formNewOrgType, setFormNewOrgType] = useState('BANK');
+  const [formNewOrgType, setFormNewOrgType] = useState('CLIENT');
   const [formError, setFormError] = useState<string | null>(null);
 
   // Edit form state
@@ -171,7 +171,7 @@ export default function Users() {
     setFormRole('USER');
     setFormOrgId(currentUser?.organizationId || '');
     setFormNewOrgName('');
-    setFormNewOrgType('BANK');
+    setFormNewOrgType('CLIENT');
     setFormError(null);
     setShowCreateModal(true);
   }
@@ -516,7 +516,7 @@ export default function Users() {
                       onChange={(e) => setFormNewOrgType(e.target.value)}
                       className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="BANK">BANK</option>
+                      <option value="CLIENT">CLIENT</option>
                       <option value="SI">SI</option>
                       <option value="OEM">OEM</option>
                     </select>

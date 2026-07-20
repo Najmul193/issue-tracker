@@ -25,8 +25,7 @@ import { AddCommentDto } from './dto/add-comment.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 
-const MAX_UPLOAD_SIZE_MB =
-  parseInt(process.env.MAX_UPLOAD_SIZE_MB || '15', 10);
+const MAX_UPLOAD_SIZE_MB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '15', 10);
 
 @Controller('issues')
 export class IssuesController {
@@ -49,11 +48,7 @@ export class IssuesController {
   }
 
   @Patch(':id/assign')
-  assign(
-    @Param('id') id: string,
-    @Body() dto: AssignIssueDto,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  assign(@Param('id') id: string, @Body() dto: AssignIssueDto, @CurrentUser() actor: JwtPayload) {
     return this.issuesService.assign(id, dto, actor);
   }
 
@@ -79,11 +74,7 @@ export class IssuesController {
     uploadedFiles: { files?: Express.Multer.File[] },
     @CurrentUser() actor: JwtPayload,
   ) {
-    return this.issuesService.addAttachments(
-      id,
-      uploadedFiles?.files || [],
-      actor,
-    );
+    return this.issuesService.addAttachments(id, uploadedFiles?.files || [], actor);
   }
 
   @Post(':id/comments')
@@ -100,19 +91,11 @@ export class IssuesController {
     @Body() dto: AddCommentDto,
     @CurrentUser() actor: JwtPayload,
   ) {
-    return this.issuesService.addComment(
-      id,
-      dto,
-      actor,
-      uploadedFiles?.attachments,
-    );
+    return this.issuesService.addComment(id, dto, actor, uploadedFiles?.attachments);
   }
 
   @Get(':id/activity')
-  getActivity(
-    @Param('id') id: string,
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  getActivity(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
     return this.issuesService.getActivity(id, actor);
   }
 

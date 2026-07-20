@@ -6,9 +6,7 @@ import { NotificationsService } from './notifications.service';
 export class DeadlineMonitorService {
   private readonly logger = new Logger(DeadlineMonitorService.name);
 
-  constructor(
-    private readonly notificationsService: NotificationsService,
-  ) {}
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async handleDeadlineCheck() {

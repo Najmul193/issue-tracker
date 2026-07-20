@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { ProjectsService } from '../projects.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../../auth/decorators/current-user.decorator';
@@ -18,14 +23,14 @@ describe('ProjectsService', () => {
     userId: 'admin-1',
     role: 'ORG_ADMIN',
     organizationId: 'org-bank',
-    organizationType: 'BANK',
+    organizationType: 'CLIENT',
   };
 
   const user: JwtPayload = {
     userId: 'user-1',
     role: 'USER',
     organizationId: 'org-bank',
-    organizationType: 'BANK',
+    organizationType: 'CLIENT',
   };
 
   const mockPrisma = {
@@ -62,10 +67,7 @@ describe('ProjectsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ProjectsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ProjectsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ProjectsService>(ProjectsService);
@@ -75,12 +77,16 @@ describe('ProjectsService', () => {
   describe('create', () => {
     it('SUPER_ADMIN can create project with BANK+SI+OEM', async () => {
       mockPrisma.organization.findMany.mockResolvedValue([
-        { id: 'org-b', type: 'BANK' },
+        { id: 'org-b', type: 'CLIENT' },
         { id: 'org-s', type: 'SI' },
         { id: 'org-o', type: 'OEM' },
       ]);
       mockPrisma.project.findUnique.mockResolvedValue(null);
-      mockPrisma.project.create.mockResolvedValue({ id: 'proj-1', name: 'Test', organizations: [] });
+      mockPrisma.project.create.mockResolvedValue({
+        id: 'proj-1',
+        name: 'Test',
+        organizations: [],
+      });
       mockPrisma.user.findMany.mockResolvedValue([{ id: 'u1' }]);
       mockPrisma.projectUser.createMany.mockResolvedValue({ count: 1 });
 
@@ -93,9 +99,9 @@ describe('ProjectsService', () => {
     });
 
     it('throws ForbiddenException for non-SUPER_ADMIN', async () => {
-      await expect(
-        service.create({ name: 'Test', organizationIds: [] }, orgAdmin),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.create({ name: 'Test', organizationIds: [] }, orgAdmin)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws BadRequestException if missing BANK org', async () => {
@@ -111,7 +117,7 @@ describe('ProjectsService', () => {
 
     it('throws ConflictException for duplicate name', async () => {
       mockPrisma.organization.findMany.mockResolvedValue([
-        { id: 'org-b', type: 'BANK' },
+        { id: 'org-b', type: 'CLIENT' },
         { id: 'org-s', type: 'SI' },
         { id: 'org-o', type: 'OEM' },
       ]);
@@ -174,7 +180,9 @@ describe('ProjectsService', () => {
     });
 
     it('throws ForbiddenException for non-SUPER_ADMIN', async () => {
-      await expect(service.update('p1', { name: 'New' }, orgAdmin)).rejects.toThrow(ForbiddenException);
+      await expect(service.update('p1', { name: 'New' }, orgAdmin)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -202,7 +210,11 @@ describe('ProjectsService', () => {
   describe('addOrganization', () => {
     it('SUPER_ADMIN can add org to project', async () => {
       mockPrisma.project.findUnique.mockResolvedValue({ id: 'p1' });
-      mockPrisma.organization.findUnique.mockResolvedValue({ id: 'org-new', name: 'New Org', type: 'SI' });
+      mockPrisma.organization.findUnique.mockResolvedValue({
+        id: 'org-new',
+        name: 'New Org',
+        type: 'SI',
+      });
       mockPrisma.projectOrganization.findUnique.mockResolvedValue(null);
       mockPrisma.projectOrganization.create.mockResolvedValue({ id: 'po-1' });
       mockPrisma.user.findMany.mockResolvedValue([{ id: 'u1' }]);
@@ -218,7 +230,9 @@ describe('ProjectsService', () => {
       mockPrisma.organization.findUnique.mockResolvedValue({ id: 'org-existing' });
       mockPrisma.projectOrganization.findUnique.mockResolvedValue({ id: 'po-1' });
 
-      await expect(service.addOrganization('p1', 'org-existing', superAdmin)).rejects.toThrow(ConflictException);
+      await expect(service.addOrganization('p1', 'org-existing', superAdmin)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -239,7 +253,9 @@ describe('ProjectsService', () => {
       mockPrisma.project.findUnique.mockResolvedValue({ id: 'p1' });
       mockPrisma.projectOrganization.findUnique.mockResolvedValue(null);
 
-      await expect(service.removeOrganization('p1', 'org-x', superAdmin)).rejects.toThrow(NotFoundException);
+      await expect(service.removeOrganization('p1', 'org-x', superAdmin)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

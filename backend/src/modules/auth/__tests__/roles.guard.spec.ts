@@ -35,15 +35,11 @@ describe('RolesGuard', () => {
 
   it('denies access when user lacks the required role', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['SUPER_ADMIN']);
-    expect(() => guard.canActivate(mockContext('USER'))).toThrow(
-      ForbiddenException,
-    );
+    expect(() => guard.canActivate(mockContext('USER'))).toThrow(ForbiddenException);
   });
 
   it('throws when no authenticated user', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['SUPER_ADMIN']);
-    expect(() => guard.canActivate(mockContext(null))).toThrow(
-      ForbiddenException,
-    );
+    expect(() => guard.canActivate(mockContext(null))).toThrow(ForbiddenException);
   });
 });

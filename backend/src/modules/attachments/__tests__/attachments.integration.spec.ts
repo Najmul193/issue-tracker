@@ -48,7 +48,12 @@ describe('Attachments Integration (9 scenarios)', () => {
   const suiteId = 'att-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
-    return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
+    return jwtService.sign({
+      userId,
+      role,
+      organizationId: orgId,
+      organizationType: orgType,
+    } satisfies JwtPayload);
   }
 
   const validPdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF');
@@ -119,7 +124,9 @@ describe('Attachments Integration (9 scenarios)', () => {
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     if (createdProjectIds.length > 0) {
-      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.projectOrganization.deleteMany({
+        where: { projectId: { in: createdProjectIds } },
+      });
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdOrgIds.length > 0) {
@@ -130,24 +137,56 @@ describe('Attachments Integration (9 scenarios)', () => {
   async function seed() {
     const pw = await bcrypt.hash('password123', 4);
 
-    const bankOrg = await prisma.organization.create({ data: { name: `Bank-${suiteId}`, type: 'BANK' } });
-    const dataEdgeOrg = await prisma.organization.create({ data: { name: `Data-Edge-${suiteId}`, type: 'SI' } });
+    const bankOrg = await prisma.organization.create({
+      data: { name: `Bank-${suiteId}`, type: 'CLIENT' },
+    });
+    const dataEdgeOrg = await prisma.organization.create({
+      data: { name: `Data-Edge-${suiteId}`, type: 'SI' },
+    });
     createdOrgIds.push(bankOrg.id, dataEdgeOrg.id);
 
     bankOrgId = bankOrg.id;
     dataEdgeOrgId = dataEdgeOrg.id;
 
     const bankUser = await prisma.user.create({
-      data: { name: 'Bank User', email: `bankuser-${suiteId}@att.test`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank User',
+        email: `bankuser-${suiteId}@att.test`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'Bank Admin', email: `bankadmin-${suiteId}@att.test`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank Admin',
+        email: `bankadmin-${suiteId}@att.test`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siAdmin = await prisma.user.create({
-      data: { name: 'SI Admin', email: `siadmin-${suiteId}@att.test`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI Admin',
+        email: `siadmin-${suiteId}@att.test`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SI User', email: `siuser-${suiteId}@att.test`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI User',
+        email: `siuser-${suiteId}@att.test`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     createdUserIds.push(bankUser.id, bankAdmin.id, siAdmin.id, siUser.id);
 
@@ -180,7 +219,14 @@ describe('Attachments Integration (9 scenarios)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/issues')
       .set('Cookie', `access_token=${tokenStr}`)
-      .send({ title: 'Attachment Test Issue', description: 'test', type: 'BUG', priority: 'HIGH', deadline: future, projectId });
+      .send({
+        title: 'Attachment Test Issue',
+        description: 'test',
+        type: 'BUG',
+        priority: 'HIGH',
+        deadline: future,
+        projectId,
+      });
     const issue = res.body;
     if (issue && issue.id) {
       createdIssueIds.push(issue.id);
@@ -188,8 +234,8 @@ describe('Attachments Integration (9 scenarios)', () => {
     return issue;
   }
 
-  const bankUserToken = () => token(bankUserId, 'USER', bankOrgId, 'BANK');
-  const bankAdminToken = () => token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+  const bankUserToken = () => token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+  const bankAdminToken = () => token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
   const siAdminToken = () => token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
   const siUserToken = () => token(siUserId, 'USER', dataEdgeOrgId, 'SI');
 
@@ -220,7 +266,9 @@ describe('Attachments Integration (9 scenarios)', () => {
         .get(`/api/issues/${issue.id}/activity`)
         .set('Cookie', `access_token=${t}`);
       const logs = activity.body;
-      expect(logs.some((l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'report.pdf')).toBe(true);
+      expect(
+        logs.some((l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'report.pdf'),
+      ).toBe(true);
       if (Array.isArray(logs)) {
         for (const log of logs) {
           if (log.id && !createdActivityLogIds.includes(log.id)) {
@@ -354,7 +402,10 @@ describe('Attachments Integration (9 scenarios)', () => {
         .set('Cookie', `access_token=${t}`);
 
       for (let i = 0; i < 6; i++) {
-        reqBuilder.attach('files', validPdf, { filename: `file${i}.pdf`, contentType: 'application/pdf' });
+        reqBuilder.attach('files', validPdf, {
+          filename: `file${i}.pdf`,
+          contentType: 'application/pdf',
+        });
       }
 
       const res = await reqBuilder;
@@ -372,7 +423,10 @@ describe('Attachments Integration (9 scenarios)', () => {
         .post(`/api/issues/${issue.id}/comments`)
         .set('Cookie', `access_token=${t}`)
         .field('text', 'Comment with attachment')
-        .attach('attachments', validPdf, { filename: 'comment-file.pdf', contentType: 'application/pdf' });
+        .attach('attachments', validPdf, {
+          filename: 'comment-file.pdf',
+          contentType: 'application/pdf',
+        });
 
       expect(res.status).toBe(201);
       expect(res.body.text).toBe('Comment with attachment');
@@ -385,7 +439,9 @@ describe('Attachments Integration (9 scenarios)', () => {
       const activity = await request(app.getHttpServer())
         .get(`/api/issues/${issue.id}/activity`)
         .set('Cookie', `access_token=${t}`);
-      const attLog = activity.body.find((l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'comment-file.pdf');
+      const attLog = activity.body.find(
+        (l: any) => l.action === 'ATTACHMENT_ADDED' && l.newValue === 'comment-file.pdf',
+      );
       expect(attLog).toBeDefined();
       if (attLog && attLog.id) {
         createdActivityLogIds.push(attLog.id);

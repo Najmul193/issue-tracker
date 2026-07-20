@@ -196,7 +196,7 @@ The assignment UI is available to all users on the Issue Detail page. Assignment
 
 #### Cross-Org Type Restriction
 
-When assigning to a different organization, the target organization cannot be of the same type as the actor's organization. For example, a user in a BANK org cannot assign to another BANK org — only to SI or OEM orgs.
+When assigning to a different organization, the target organization cannot be of the same type as the actor's organization. For example, a user in a CLIENT org cannot assign to another CLIENT org — only to SI or OEM orgs.
 
 #### Issue Detail View — Assignment Dropdown
 
@@ -270,7 +270,7 @@ Projects group issues by organizational membership and scope visibility.
 
 1. Click **+ New Project** on the Projects page.
 2. Enter a name and optional description.
-3. Select at least one organization from each type (BANK, SI, OEM) — all three types are required.
+3. Select at least one organization from each type (CLIENT, SI, OEM) — all three types are required.
 4. All active users from selected organizations are automatically added as project members.
 5. Click **Create**.
 
@@ -418,7 +418,7 @@ All endpoints are under the `/api` prefix.
 | DELETE | /organizations/:id | Soft-delete organization (SUPER_ADMIN only) |
 | DELETE | /organizations/:id/permanent | Permanently delete organization (SUPER_ADMIN only) |
 | GET | /projects | List projects (scoped by role) |
-| POST | /projects | Create project (SUPER_ADMIN only; requires BANK + SI + OEM orgs) |
+| POST | /projects | Create project (SUPER_ADMIN only; requires CLIENT + SI + OEM orgs) |
 | GET | /projects/:id | Get project detail |
 | PATCH | /projects/:id | Update project (SUPER_ADMIN only) |
 | DELETE | /projects/:id | Delete project (SUPER_ADMIN only) |

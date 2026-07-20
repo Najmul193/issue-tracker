@@ -36,7 +36,12 @@ describe('Projects Integration', () => {
   const suiteId = 'proj-' + Math.random().toString(36).substring(2, 8);
 
   function token(userId: string, role: string, orgId: string, orgType: string): string {
-    return jwtService.sign({ userId, role, organizationId: orgId, organizationType: orgType } satisfies JwtPayload);
+    return jwtService.sign({
+      userId,
+      role,
+      organizationId: orgId,
+      organizationType: orgType,
+    } satisfies JwtPayload);
   }
 
   beforeAll(async () => {
@@ -76,7 +81,9 @@ describe('Projects Integration', () => {
   async function cleanup() {
     if (createdProjectIds.length > 0) {
       await prisma.projectUser.deleteMany({ where: { projectId: { in: createdProjectIds } } });
-      await prisma.projectOrganization.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.projectOrganization.deleteMany({
+        where: { projectId: { in: createdProjectIds } },
+      });
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdUserIds.length > 0) {
@@ -96,7 +103,7 @@ describe('Projects Integration', () => {
       data: { name: `SAOrg-${suiteId}`, type: 'SUPER_ADMIN' },
     });
     const bankOrg = await prisma.organization.create({
-      data: { name: `Bank-${suiteId}`, type: 'BANK' },
+      data: { name: `Bank-${suiteId}`, type: 'CLIENT' },
     });
     const siOrg = await prisma.organization.create({
       data: { name: `SI-${suiteId}`, type: 'SI' },
@@ -112,13 +119,34 @@ describe('Projects Integration', () => {
     oemOrgId = oemOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'SA', email: `sa-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SA',
+        email: `sa-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'SUPER_ADMIN',
+        organizationId: superAdminOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'BankAdmin', email: `ba-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'BankAdmin',
+        email: `ba-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankUser = await prisma.user.create({
-      data: { name: 'BankUser', email: `bu-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'BankUser',
+        email: `bu-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id);
 
@@ -145,7 +173,7 @@ describe('Projects Integration', () => {
     });
 
     it('ORG_ADMIN cannot create a project', async () => {
-      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const t = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .post('/api/projects')
         .set('Cookie', `access_token=${t}`)
@@ -195,11 +223,18 @@ describe('Projects Integration', () => {
     it('ORG_ADMIN sees projects their org is member of', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const org = await prisma.organization.create({
-        data: { name: `ProjOrg-${suiteId}`, type: 'BANK' },
+        data: { name: `ProjOrg-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(org.id);
       const admin = await prisma.user.create({
-        data: { name: 'ProjAdmin', email: `pa-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'ProjAdmin',
+          email: `pa-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'ORG_ADMIN',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(admin.id);
 
@@ -211,7 +246,7 @@ describe('Projects Integration', () => {
         data: { projectId: project.id, organizationId: org.id },
       });
 
-      const t = token(admin.id, 'ORG_ADMIN', org.id, 'BANK');
+      const t = token(admin.id, 'ORG_ADMIN', org.id, 'CLIENT');
       const res = await request(app.getHttpServer())
         .get('/api/projects')
         .set('Cookie', `access_token=${t}`);
@@ -229,7 +264,14 @@ describe('Projects Integration', () => {
       });
       createdOrgIds.push(org.id);
       const user = await prisma.user.create({
-        data: { name: 'Member', email: `mem-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'Member',
+          email: `mem-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(user.id);
 
@@ -259,7 +301,14 @@ describe('Projects Integration', () => {
       });
       createdOrgIds.push(org.id);
       const user = await prisma.user.create({
-        data: { name: 'NonMember', email: `nm-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: org.id, status: 'ACTIVE' },
+        data: {
+          name: 'NonMember',
+          email: `nm-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: org.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(user.id);
 
@@ -303,7 +352,7 @@ describe('Projects Integration', () => {
       const projId = createRes.body.id;
       createdProjectIds.push(projId);
 
-      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'BANK');
+      const adminT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
       const res = await request(app.getHttpServer())
         .patch(`/api/projects/${projId}`)
         .set('Cookie', `access_token=${adminT}`)
@@ -335,11 +384,18 @@ describe('Projects Integration', () => {
     it('SUPER_ADMIN can add org to project', async () => {
       const pw = await bcrypt.hash('password123', 4);
       const extraOrg = await prisma.organization.create({
-        data: { name: `ExtraOrg-${suiteId}`, type: 'BANK' },
+        data: { name: `ExtraOrg-${suiteId}`, type: 'CLIENT' },
       });
       createdOrgIds.push(extraOrg.id);
       const extraUser = await prisma.user.create({
-        data: { name: 'Extra', email: `extra-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: extraOrg.id, status: 'ACTIVE' },
+        data: {
+          name: 'Extra',
+          email: `extra-${suiteId}@test.dev`,
+          passwordHash: pw,
+          role: 'USER',
+          organizationId: extraOrg.id,
+          status: 'ACTIVE',
+        },
       });
       createdUserIds.push(extraUser.id);
 

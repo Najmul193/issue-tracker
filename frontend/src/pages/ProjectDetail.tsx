@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
 const orgTypeColors: Record<string, string> = {
-  BANK: 'bg-blue-100 text-blue-700',
+  CLIENT: 'bg-blue-100 text-blue-700',
   SI: 'bg-purple-100 text-purple-700',
   OEM: 'bg-amber-100 text-amber-700',
   SUPER_ADMIN: 'bg-gray-100 text-gray-600',

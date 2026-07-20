@@ -24,7 +24,7 @@ describe('AuthService — login', () => {
     status: 'ACTIVE',
     createdAt: new Date(),
     updatedAt: new Date(),
-    organization: { id: 'org-1', name: 'Test Org', type: 'BANK' },
+    organization: { id: 'org-1', name: 'Test Org', type: 'CLIENT' },
   };
 
   const mockInactiveUser = {
@@ -76,39 +76,39 @@ describe('AuthService — login', () => {
       userId: 'user-1',
       role: 'ORG_ADMIN',
       organizationId: 'org-1',
-      organizationType: 'BANK',
+      organizationType: 'CLIENT',
     });
     expect(mockJwtService.sign).toHaveBeenCalledWith({
       userId: 'user-1',
       role: 'ORG_ADMIN',
       organizationId: 'org-1',
-      organizationType: 'BANK',
+      organizationType: 'CLIENT',
     });
   });
 
   it('should throw on non-existent email', async () => {
     mockUsersService.findByEmail.mockResolvedValue(null);
 
-    await expect(
-      service.login('nonexistent@example.com', 'password123'),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('nonexistent@example.com', 'password123')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('should throw on wrong password', async () => {
     mockUsersService.findByEmail.mockResolvedValue(mockUser);
     (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-    await expect(
-      service.login('test@example.com', 'wrongpassword'),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('test@example.com', 'wrongpassword')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('should throw on inactive user', async () => {
     mockUsersService.findByEmail.mockResolvedValue(mockInactiveUser);
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-    await expect(
-      service.login('inactive@example.com', 'password123'),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(service.login('inactive@example.com', 'password123')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

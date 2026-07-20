@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { AuthService } from '../auth/auth.service';
@@ -35,7 +31,10 @@ function mimeMatch(declared: string, detected: string | undefined): boolean {
   if (detected === declared) {
     return true;
   }
-  if (detected === 'application/zip' && declared.startsWith('application/vnd.openxmlformats-officedocument')) {
+  if (
+    detected === 'application/zip' &&
+    declared.startsWith('application/vnd.openxmlformats-officedocument')
+  ) {
     return true;
   }
   const family = DISGUISED_FAMILY[detected];
@@ -84,22 +83,16 @@ export class AttachmentsService {
 
     for (const file of files) {
       if (file.size > maxSizeBytes) {
-        errors.push(
-          `"${file.originalname}" exceeds the maximum size of ${maxSizeMb}MB`,
-        );
+        errors.push(`"${file.originalname}" exceeds the maximum size of ${maxSizeMb}MB`);
       }
     }
 
     if (errors.length > 0) {
-      throw new BadRequestException(
-        `File validation failed: ${errors.join('; ')}`,
-      );
+      throw new BadRequestException(`File validation failed: ${errors.join('; ')}`);
     }
   }
 
-  private async validateMimeTypes(
-    files: Express.Multer.File[],
-  ): Promise<void> {
+  private async validateMimeTypes(files: Express.Multer.File[]): Promise<void> {
     const errors: string[] = [];
 
     for (const file of files) {
@@ -107,8 +100,7 @@ export class AttachmentsService {
       const detected = this.detectMimeFromBuffer(file.buffer);
 
       if (!mimeMatch(declared, detected)) {
-        const detectedStr =
-          detected || 'unknown (no magic bytes detected)';
+        const detectedStr = detected || 'unknown (no magic bytes detected)';
         errors.push(
           `"${file.originalname}": declared type "${declared}" does not match detected type "${detectedStr}"`,
         );
@@ -116,24 +108,16 @@ export class AttachmentsService {
     }
 
     if (errors.length > 0) {
-      throw new BadRequestException(
-        `File validation failed: ${errors.join('; ')}`,
-      );
+      throw new BadRequestException(`File validation failed: ${errors.join('; ')}`);
     }
   }
 
-  async uploadToIssue(
-    issueId: string,
-    files: Express.Multer.File[],
-    actor: JwtPayload,
-  ) {
+  async uploadToIssue(issueId: string, files: Express.Multer.File[], actor: JwtPayload) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
     if (files.length > 5) {
-      throw new BadRequestException(
-        'Maximum 5 files per request',
-      );
+      throw new BadRequestException('Maximum 5 files per request');
     }
 
     // Part E: No visibility restriction — any authenticated user can attach files to any issue
@@ -147,17 +131,12 @@ export class AttachmentsService {
     const attachments = [];
 
     for (const file of files) {
-      const storagePath = await this.storage.save(
-        file.originalname,
-        file.buffer,
-      );
+      const storagePath = await this.storage.save(file.originalname, file.buffer);
 
       const safe = await this.storage.scanFile(storagePath);
       if (!safe) {
         await this.storage.delete(storagePath);
-        throw new BadRequestException(
-          `File "${file.originalname}" failed security scan`,
-        );
+        throw new BadRequestException(`File "${file.originalname}" failed security scan`);
       }
 
       const attachment = await this.prisma.attachment.create({
@@ -196,9 +175,7 @@ export class AttachmentsService {
     if (!files || files.length === 0) return [];
 
     if (files.length > 5) {
-      throw new BadRequestException(
-        'Maximum 5 files per request',
-      );
+      throw new BadRequestException('Maximum 5 files per request');
     }
 
     this.validateFiles(files);
@@ -207,17 +184,12 @@ export class AttachmentsService {
     const attachments = [];
 
     for (const file of files) {
-      const storagePath = await this.storage.save(
-        file.originalname,
-        file.buffer,
-      );
+      const storagePath = await this.storage.save(file.originalname, file.buffer);
 
       const safe = await this.storage.scanFile(storagePath);
       if (!safe) {
         await this.storage.delete(storagePath);
-        throw new BadRequestException(
-          `File "${file.originalname}" failed security scan`,
-        );
+        throw new BadRequestException(`File "${file.originalname}" failed security scan`);
       }
 
       const attachment = await this.prisma.attachment.create({
@@ -267,9 +239,7 @@ export class AttachmentsService {
     actor: JwtPayload,
   ): Promise<{ stream: Readable; fileName: string; fileType: string; fileSize: number }> {
     const attachment = await this.getAttachmentMeta(id, actor);
-    const stream = await this.storage.getStream(
-      attachment.storagePath,
-    );
+    const stream = await this.storage.getStream(attachment.storagePath);
     return {
       stream,
       fileName: attachment.fileName,

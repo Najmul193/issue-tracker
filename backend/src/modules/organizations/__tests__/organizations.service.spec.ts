@@ -18,7 +18,7 @@ describe('OrganizationsService', () => {
     userId: 'admin-1',
     role: 'ORG_ADMIN',
     organizationId: 'org-bank',
-    organizationType: 'BANK',
+    organizationType: 'CLIENT',
   };
 
   const mockPrisma: Record<string, any> = {
@@ -48,10 +48,7 @@ describe('OrganizationsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        OrganizationsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [OrganizationsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<OrganizationsService>(OrganizationsService);
@@ -61,7 +58,7 @@ describe('OrganizationsService', () => {
 
   describe('findAll', () => {
     it('returns organizations with non-deleted users', async () => {
-      const orgs = [{ id: 'org-1', name: 'Bank', type: 'BANK' }];
+      const orgs = [{ id: 'org-1', name: 'Bank', type: 'CLIENT' }];
       mockPrisma.organization.findMany.mockResolvedValue(orgs);
 
       const result = await service.findAll();
@@ -86,7 +83,11 @@ describe('OrganizationsService', () => {
 
   describe('remove', () => {
     it('SUPER_ADMIN can soft-delete an organization', async () => {
-      mockPrisma.organization.findUnique.mockResolvedValue({ id: 'org-1', name: 'Test', type: 'BANK' });
+      mockPrisma.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+        name: 'Test',
+        type: 'CLIENT',
+      });
       mockPrisma.user.findMany.mockResolvedValue([{ id: 'user-1' }]);
 
       const result = await service.remove('org-1', superAdmin);
@@ -106,7 +107,11 @@ describe('OrganizationsService', () => {
 
   describe('permanentRemove', () => {
     it('SUPER_ADMIN can permanently delete an organization', async () => {
-      mockPrisma.organization.findUnique.mockResolvedValue({ id: 'org-1', name: 'Test', type: 'BANK' });
+      mockPrisma.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+        name: 'Test',
+        type: 'CLIENT',
+      });
       mockPrisma.user.findMany.mockResolvedValue([{ id: 'user-1' }]);
 
       const result = await service.permanentRemove('org-1', superAdmin);
@@ -120,7 +125,9 @@ describe('OrganizationsService', () => {
 
     it('throws NotFoundException for non-existent org', async () => {
       mockPrisma.organization.findUnique.mockResolvedValue(null);
-      await expect(service.permanentRemove('nonexistent', superAdmin)).rejects.toThrow(NotFoundException);
+      await expect(service.permanentRemove('nonexistent', superAdmin)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

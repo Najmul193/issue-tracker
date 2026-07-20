@@ -22,7 +22,7 @@ describe('AuthService', () => {
     userId: 'admin-1',
     role: 'ORG_ADMIN',
     organizationId: 'org-bank',
-    organizationType: 'BANK',
+    organizationType: 'CLIENT',
   };
 
   const siOrgAdmin: JwtPayload = {
@@ -36,7 +36,7 @@ describe('AuthService', () => {
     userId: 'user-1',
     role: 'USER',
     organizationId: 'org-bank',
-    organizationType: 'BANK',
+    organizationType: 'CLIENT',
   };
 
   const mockUsersService = {
@@ -76,9 +76,9 @@ describe('AuthService', () => {
 
   describe('canAssign', () => {
     it('SUPER_ADMIN cannot assign to any user in any org', () => {
-      expect(() =>
-        service.canAssign(superAdmin, 'some-user', 'some-org'),
-      ).toThrow(ForbiddenException);
+      expect(() => service.canAssign(superAdmin, 'some-user', 'some-org')).toThrow(
+        ForbiddenException,
+      );
     });
 
     it('SUPER_ADMIN cannot assign without target', () => {
@@ -87,67 +87,176 @@ describe('AuthService', () => {
 
     it('ORG_ADMIN cannot assign to a user within their own org if unassigned/raised by them', () => {
       expect(() =>
-        service.canAssign(orgAdmin, 'user-in-bank', 'org-bank', 'org-bank', 'USER', false, null, 'org-bank'),
+        service.canAssign(
+          orgAdmin,
+          'user-in-bank',
+          'org-bank',
+          'org-bank',
+          'USER',
+          false,
+          null,
+          'org-bank',
+        ),
       ).toThrow(ForbiddenException);
     });
 
     it('ORG_ADMIN can route to a user in a different org', () => {
       expect(() =>
-        service.canAssign(orgAdmin, 'user-in-si', 'org-si', 'org-si', 'USER', false, null, 'org-bank', 'SI', 'SI'),
+        service.canAssign(
+          orgAdmin,
+          'user-in-si',
+          'org-si',
+          'org-si',
+          'USER',
+          false,
+          null,
+          'org-bank',
+          'SI',
+          'SI',
+        ),
       ).not.toThrow();
     });
 
     it('ORG_ADMIN can assign org-level handoff (targetOrgId only) to different org', () => {
       expect(() =>
-        service.canAssign(orgAdmin, null, 'org-si', undefined, undefined, false, null, 'org-bank', undefined, 'SI'),
+        service.canAssign(
+          orgAdmin,
+          null,
+          'org-si',
+          undefined,
+          undefined,
+          false,
+          null,
+          'org-bank',
+          undefined,
+          'SI',
+        ),
       ).not.toThrow();
     });
 
     it('ORG_ADMIN can assign internally when issue is already in their org', () => {
       expect(() =>
-        service.canAssign(orgAdmin, 'user-in-bank', 'org-bank', 'org-bank', 'USER', false, 'org-bank', 'org-si'),
+        service.canAssign(
+          orgAdmin,
+          'user-in-bank',
+          'org-bank',
+          'org-bank',
+          'USER',
+          false,
+          'org-bank',
+          'org-si',
+        ),
       ).not.toThrow();
     });
 
     it('ORG_ADMIN cannot route externally when issue is in their org queue', () => {
       expect(() =>
-        service.canAssign(orgAdmin, null, 'org-si', undefined, undefined, false, 'org-bank', 'org-si', undefined, 'SI'),
+        service.canAssign(
+          orgAdmin,
+          null,
+          'org-si',
+          undefined,
+          undefined,
+          false,
+          'org-bank',
+          'org-si',
+          undefined,
+          'SI',
+        ),
       ).toThrow(ForbiddenException);
     });
 
     it('USER who is current assignee can reroute to ORG_ADMIN in own org', () => {
       expect(() =>
-        service.canAssign(regularUser, 'admin-1', 'org-bank', 'org-bank', 'ORG_ADMIN', true, 'org-bank', 'org-si'),
+        service.canAssign(
+          regularUser,
+          'admin-1',
+          'org-bank',
+          'org-bank',
+          'ORG_ADMIN',
+          true,
+          'org-bank',
+          'org-si',
+        ),
       ).not.toThrow();
     });
 
     it('USER who is current assignee cannot reroute to non-admin', () => {
       expect(() =>
-        service.canAssign(regularUser, 'other-user', 'org-bank', 'org-bank', 'USER', true, 'org-bank', 'org-si'),
+        service.canAssign(
+          regularUser,
+          'other-user',
+          'org-bank',
+          'org-bank',
+          'USER',
+          true,
+          'org-bank',
+          'org-si',
+        ),
       ).toThrow(ForbiddenException);
     });
 
     it('USER who is current assignee cannot reroute to different org', () => {
       expect(() =>
-        service.canAssign(regularUser, 'si-user', 'org-si', 'org-si', 'ORG_ADMIN', true, 'org-bank', 'org-si'),
+        service.canAssign(
+          regularUser,
+          'si-user',
+          'org-si',
+          'org-si',
+          'ORG_ADMIN',
+          true,
+          'org-bank',
+          'org-si',
+        ),
       ).toThrow(ForbiddenException);
     });
 
     it('USER from raiser org can reroute to a different org', () => {
       expect(() =>
-        service.canAssign(regularUser, null, 'org-si', undefined, undefined, false, null, 'org-bank', undefined, 'SI'),
+        service.canAssign(
+          regularUser,
+          null,
+          'org-si',
+          undefined,
+          undefined,
+          false,
+          null,
+          'org-bank',
+          undefined,
+          'SI',
+        ),
       ).not.toThrow();
     });
 
     it('USER not from raiser org and not assignee cannot reroute', () => {
       expect(() =>
-        service.canAssign(regularUser, null, 'org-si', undefined, undefined, false, null, 'org-oem', undefined, 'SI'),
+        service.canAssign(
+          regularUser,
+          null,
+          'org-si',
+          undefined,
+          undefined,
+          false,
+          null,
+          'org-oem',
+          undefined,
+          'SI',
+        ),
       ).toThrow(ForbiddenException);
     });
 
     it('cannot assign to a SUPER_ADMIN user', () => {
       expect(() =>
-        service.canAssign(orgAdmin, 'sa-user', 'org-super', 'org-super', 'SUPER_ADMIN', false, null, 'org-bank'),
+        service.canAssign(
+          orgAdmin,
+          'sa-user',
+          'org-super',
+          'org-super',
+          'SUPER_ADMIN',
+          false,
+          null,
+          'org-bank',
+        ),
       ).toThrow(ForbiddenException);
     });
   });
@@ -231,7 +340,12 @@ describe('AuthService', () => {
     });
 
     it('USER from assigned org can act on issue assigned to their org', () => {
-      const userInSiOrg: JwtPayload = { ...regularUser, userId: 'si-user-1', organizationId: 'org-si', organizationType: 'SI' };
+      const userInSiOrg: JwtPayload = {
+        ...regularUser,
+        userId: 'si-user-1',
+        organizationId: 'org-si',
+        organizationType: 'SI',
+      };
       expect(service.canActOnIssue(userInSiOrg, userAssignedIssue)).toBe(true);
     });
   });
