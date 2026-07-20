@@ -525,10 +525,28 @@ export class ProjectsService {
       throw new ConflictException('Department is already in this project');
     }
 
-    return this.prisma.projectDepartment.create({
+    const result = await this.prisma.projectDepartment.create({
       data: { projectId, departmentId },
       include: { department: { select: { id: true, name: true, organizationId: true } } },
     });
+
+    const deptUsers = await this.prisma.user.findMany({
+      where: { departmentId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    if (deptUsers.length > 0) {
+      await this.prisma.projectUser.createMany({
+        data: deptUsers.map((u) => ({
+          projectId,
+          userId: u.id,
+          addedById: actor.userId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return result;
   }
 
   async removeDepartment(projectId: string, departmentId: string, actor: JwtPayload) {
