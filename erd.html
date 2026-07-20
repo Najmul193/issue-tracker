@@ -3,284 +3,353 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bug Tracker — Database ERD</title>
+  <title>Bug Tracker — Interactive ERD</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --surface-0: #0f172a;
+      --surface-1: #1e293b;
+      --surface-2: #273348;
+      --border: rgba(148,163,184,.15);
+      --border-strong: rgba(148,163,184,.3);
+      --border-accent: #378ADD;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --bg-accent: rgba(55,138,221,.15);
+      --text-accent: #60a5fa;
+      --bg-warning: rgba(245,158,11,.15);
+      --text-warning: #fbbf24;
+      --bg-success: rgba(16,185,129,.15);
+      --text-success: #34d399;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
+      font-family: var(--font-sans);
+      background: var(--surface-0);
+      color: var(--text-primary);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem;
+      padding: 24px;
     }
     h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-      color: #f8fafc;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
     }
     .subtitle {
-      color: #94a3b8;
-      font-size: 0.875rem;
-      margin-bottom: 2rem;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
     }
-    .legend {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-bottom: 2rem;
-      font-size: 0.8rem;
-    }
-    .legend-item {
+    #toolbar {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
     }
-    .legend-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 3px;
+    .filter-btn {
+      font-size: 11px;
+      padding: 5px 12px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: 20px;
+      background: var(--surface-1);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: var(--font-sans);
     }
-    .erd-container {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 2rem;
-      overflow-x: auto;
+    .filter-btn.active { background: var(--bg-accent); color: var(--text-accent); border-color: var(--border-accent); }
+    .filter-btn:hover:not(.active) { background: var(--surface-2); color: var(--text-primary); }
+    #hint { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+    #canvas-wrap {
       width: 100%;
-      max-width: 1400px;
+      overflow: auto;
+      border: 0.5px solid var(--border-strong);
+      border-radius: 12px;
+      background: var(--surface-0);
     }
-    .mermaid {
+    #canvas { position: relative; }
+    svg#lines { position: absolute; top: 0; left: 0; pointer-events: none; }
+    .table-card {
+      position: absolute;
+      background: var(--surface-1);
+      border: 0.5px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      overflow: hidden;
+      user-select: none;
+    }
+    .table-card:hover { border-color: var(--border-strong); z-index: 10; }
+    .table-card.active { border-color: var(--border-accent) !important; box-shadow: 0 0 0 2px var(--border-accent); z-index: 20; }
+    .table-card.dimmed { opacity: .2; transition: opacity .2s; }
+    .card-header {
+      padding: 8px 10px;
       display: flex;
-      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      border-bottom: 0.5px solid var(--border);
     }
-    .mermaid svg {
-      max-width: none;
+    .card-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .card-count { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+    .card-body { padding: 0; }
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      border-bottom: 0.5px solid var(--border);
+      transition: background .1s;
+    }
+    .field-row:last-child { border-bottom: none; }
+    .field-row:hover { background: var(--surface-2); }
+    .field-name { flex: 1; color: var(--text-primary); font-size: 11px; }
+    .field-type { color: var(--text-muted); font-size: 10px; }
+    .badge {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--bg-accent);
+      color: var(--text-accent);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .badge.fk { background: var(--bg-warning); color: var(--text-warning); }
+    .badge.uk { background: var(--bg-success); color: var(--text-success); }
+    .collapsed .card-body { display: none; }
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+    .badge-legend {
+      font-size: 9px; padding: 1px 5px; border-radius: 3px;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
-  <h1>Bug Tracker — Database ERD</h1>
-  <p class="subtitle">PostgreSQL · Prisma ORM · 14 models</p>
 
-  <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Core Entity</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div> Junction / Join Table</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Supporting Entity</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Enum</div>
+<h1>Bug Tracker — Database ERD</h1>
+<p class="subtitle">PostgreSQL · Prisma ORM · 14 models · Interactive</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#378ADD"></div> Core entity</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div> Junction table</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Supporting entity</div>
+  <div class="legend-item"><span class="badge-legend" style="background:rgba(55,138,221,.15);color:#60a5fa">PK</span> Primary key</div>
+  <div class="legend-item"><span class="badge-legend" style="background:rgba(245,158,11,.15);color:#fbbf24">FK</span> Foreign key</div>
+  <div class="legend-item"><span class="badge-legend" style="background:rgba(16,185,129,.15);color:#34d399">UK</span> Unique key</div>
+</div>
+
+<div id="toolbar">
+  <button class="filter-btn active" data-cat="all">All tables</button>
+  <button class="filter-btn" data-cat="core">Core</button>
+  <button class="filter-btn" data-cat="junction">Junction</button>
+  <button class="filter-btn" data-cat="supporting">Supporting</button>
+  <span id="hint">Hover to see connections · Click to expand fields</span>
+</div>
+
+<div id="canvas-wrap">
+  <div id="canvas">
+    <svg id="lines"></svg>
   </div>
+</div>
 
-  <div class="erd-container">
-    <pre class="mermaid">
-erDiagram
-    Department ||--o{ User : "has users"
-    Department ||--o{ DepartmentManager : "has managers"
-    Department ||--o{ Issue : "assigned to"
-    Organization ||--o{ Department : "has departments"
-    User ||--o{ DepartmentManager : "is manager"
-    Project ||--o{ ProjectDepartment : "has departments"
+<script>
+const CAT_COLOR = { core: '#378ADD', junction: '#8b5cf6', supporting: '#f59e0b' };
 
-    Organization ||--o{ User : "has users"
-    Organization ||--o{ Issue : "raises issues"
-    Organization ||--o{ Issue : "assigned to"
-    Organization ||--o{ ProjectOrganization : "belongs to projects"
+const TABLES = [
+  { id:'Organization', cat:'core', x:20, y:20, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'name',t:'string'},{n:'type',t:'OrganizationType'},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'User', cat:'core', x:240, y:10, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'name',t:'string'},{n:'email',t:'string',uk:true},{n:'passwordHash',t:'string'},
+    {n:'phone',t:'string'},{n:'organizationId',t:'uuid',fk:true},{n:'departmentId',t:'uuid',fk:true},
+    {n:'role',t:'UserRole'},{n:'status',t:'UserStatus'},{n:'createdAt',t:'datetime'},{n:'updatedAt',t:'datetime'}
+  ]},
+  { id:'Department', cat:'core', x:460, y:20, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'name',t:'string'},{n:'organizationId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'Project', cat:'core', x:660, y:20, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'name',t:'string',uk:true},{n:'description',t:'string'},{n:'createdAt',t:'datetime'},{n:'updatedAt',t:'datetime'}
+  ]},
+  { id:'Issue', cat:'core', x:240, y:300, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'title',t:'string'},{n:'description',t:'string'},{n:'type',t:'IssueType'},
+    {n:'priority',t:'IssuePriority'},{n:'status',t:'IssueStatus'},{n:'module',t:'string'},{n:'deadline',t:'datetime'},
+    {n:'raisedById',t:'uuid',fk:true},{n:'raisedByOrgId',t:'uuid',fk:true},{n:'assignedToUserId',t:'uuid',fk:true},
+    {n:'assignedToOrgId',t:'uuid',fk:true},{n:'assignedToDeptId',t:'uuid',fk:true},
+    {n:'assignedById',t:'uuid',fk:true},{n:'projectId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'},
+    {n:'updatedAt',t:'datetime'},{n:'closedAt',t:'datetime'},{n:'resolvedById',t:'uuid',fk:true},{n:'resolvedAt',t:'datetime'}
+  ]},
+  { id:'Comment', cat:'supporting', x:20, y:510, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'issueId',t:'uuid',fk:true},{n:'userId',t:'uuid',fk:true},
+    {n:'text',t:'string'},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'Attachment', cat:'supporting', x:200, y:570, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'issueId',t:'uuid',fk:true},{n:'commentId',t:'uuid',fk:true},
+    {n:'uploadedById',t:'uuid',fk:true},{n:'fileName',t:'string'},{n:'fileType',t:'string'},
+    {n:'fileSize',t:'int'},{n:'storagePath',t:'string'},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'ActivityLog', cat:'supporting', x:400, y:550, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'issueId',t:'uuid',fk:true},{n:'userId',t:'uuid',fk:true},
+    {n:'action',t:'string'},{n:'oldValue',t:'string'},{n:'newValue',t:'string'},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'Notification', cat:'supporting', x:580, y:510, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'userId',t:'uuid',fk:true},{n:'issueId',t:'uuid',fk:true},
+    {n:'message',t:'string'},{n:'type',t:'NotificationType'},{n:'isRead',t:'boolean'},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'PasswordResetToken', cat:'supporting', x:20, y:210, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'userId',t:'uuid',fk:true},{n:'token',t:'string',uk:true},
+    {n:'expiresAt',t:'datetime'},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'DepartmentManager', cat:'junction', x:460, y:210, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'departmentId',t:'uuid',fk:true},{n:'userId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'ProjectDepartment', cat:'junction', x:660, y:210, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'projectId',t:'uuid',fk:true},{n:'departmentId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'ProjectOrganization', cat:'junction', x:660, y:380, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'projectId',t:'uuid',fk:true},{n:'organizationId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'ProjectUser', cat:'junction', x:660, y:530, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'projectId',t:'uuid',fk:true},{n:'userId',t:'uuid',fk:true},
+    {n:'addedById',t:'uuid',fk:true},{n:'createdAt',t:'datetime'}
+  ]},
+  { id:'IssueAssignee', cat:'junction', x:20, y:390, fields:[
+    {n:'id',t:'uuid',pk:true},{n:'issueId',t:'uuid',fk:true},{n:'userId',t:'uuid',fk:true},
+    {n:'assignedById',t:'uuid',fk:true},{n:'assignedAt',t:'datetime'}
+  ]}
+];
 
-    User ||--o{ Issue : "raises"
-    User ||--o{ Issue : "assigned to"
-    User ||--o{ Issue : "assigns"
-    User ||--o{ Issue : "resolves"
-    User ||--o{ Comment : "writes"
-    User ||--o{ Attachment : "uploads"
-    User ||--o{ ActivityLog : "creates"
-    User ||--o{ Notification : "receives"
-    User ||--o{ PasswordResetToken : "resets password"
-    User ||--o{ ProjectUser : "member of projects"
-    User ||--o{ IssueAssignee : "assigned to issues"
+const RELS = [
+  ['Organization','User'],['Organization','Department'],['Organization','Issue'],['Organization','ProjectOrganization'],
+  ['User','Issue'],['User','Comment'],['User','Attachment'],['User','ActivityLog'],
+  ['User','Notification'],['User','PasswordResetToken'],['User','ProjectUser'],['User','IssueAssignee'],['User','DepartmentManager'],
+  ['Department','DepartmentManager'],['Department','Issue'],['Department','ProjectDepartment'],
+  ['Project','ProjectOrganization'],['Project','ProjectUser'],['Project','Issue'],['Project','ProjectDepartment'],
+  ['Issue','Comment'],['Issue','Attachment'],['Issue','ActivityLog'],['Issue','Notification'],['Issue','IssueAssignee'],
+  ['Comment','Attachment']
+];
 
-    Project ||--o{ ProjectOrganization : "has organizations"
-    Project ||--o{ ProjectUser : "has users"
-    Project ||--o{ Issue : "contains issues"
+const CARD_W = 168;
+const canvas = document.getElementById('canvas');
+const svg = document.getElementById('lines');
+const cardEls = {};
 
-    Issue ||--o{ Comment : "has comments"
-    Issue ||--o{ Attachment : "has attachments"
-    Issue ||--o{ ActivityLog : "has activity"
-    Issue ||--o{ Notification : "generates"
-    Issue ||--o{ IssueAssignee : "has assignees"
+function buildCards() {
+  TABLES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'table-card collapsed';
+    el.dataset.id = t.id;
+    el.dataset.cat = t.cat;
+    el.style.left = t.x + 'px';
+    el.style.top = t.y + 'px';
+    el.style.width = CARD_W + 'px';
 
-    Comment ||--o{ Attachment : "has attachments"
+    const dot = `<span class="card-dot" style="background:${CAT_COLOR[t.cat]}"></span>`;
+    const count = `<span class="card-count">${t.fields.length} fields</span>`;
+    el.innerHTML = `<div class="card-header">${dot}${t.id}${count}</div><div class="card-body">${
+      t.fields.map(f => {
+        const badges = (f.pk ? '<span class="badge">PK</span>' : '')
+                     + (f.fk ? '<span class="badge fk">FK</span>' : '')
+                     + (f.uk ? '<span class="badge uk">UK</span>' : '');
+        return `<div class="field-row"><span class="field-name">${f.n}</span><span class="field-type">${f.t}</span>${badges}</div>`;
+      }).join('')
+    }</div>`;
 
-    Organization {
-        uuid id PK
-        string name
-        OrganizationType type
-        datetime createdAt
-    }
+    el.addEventListener('click', () => toggleCard(el));
+    el.addEventListener('mouseenter', () => highlightRels(t.id));
+    el.addEventListener('mouseleave', () => resetRels());
+    canvas.appendChild(el);
+    cardEls[t.id] = el;
+  });
+}
 
-    User {
-        uuid id PK
-        string name
-        string email UK
-        string passwordHash
-        string phone
-        uuid organizationId FK
-        uuid departmentId FK
-        UserRole role
-        UserStatus status
-        datetime createdAt
-        datetime updatedAt
-    }
+function sizeCanvas() {
+  let maxX = 0, maxY = 0;
+  TABLES.forEach(t => {
+    const el = cardEls[t.id];
+    maxX = Math.max(maxX, t.x + CARD_W + 16);
+    maxY = Math.max(maxY, t.y + (el.offsetHeight || 200) + 16);
+  });
+  canvas.style.width = maxX + 'px';
+  canvas.style.height = Math.max(maxY, 720) + 'px';
+  svg.setAttribute('width', maxX);
+  svg.setAttribute('height', Math.max(maxY, 720));
+}
 
-    PasswordResetToken {
-        uuid id PK
-        uuid userId FK
-        string token UK
-        datetime expiresAt
-        datetime createdAt
-    }
+function drawLines(highlight) {
+  svg.innerHTML = '';
+  RELS.forEach(([a, b]) => {
+    const ca = cardEls[a], cb = cardEls[b];
+    if (!ca || !cb) return;
+    if (ca.style.display === 'none' || cb.style.display === 'none') return;
 
-    Project {
-        uuid id PK
-        string name UK
-        string description
-        datetime createdAt
-        datetime updatedAt
-    }
+    const ta = TABLES.find(x => x.id === a);
+    const tb = TABLES.find(x => x.id === b);
+    const ha = ca.offsetHeight || 32, hb = cb.offsetHeight || 32;
+    const x1 = ta.x + CARD_W / 2, y1 = ta.y + ha / 2;
+    const x2 = tb.x + CARD_W / 2, y2 = tb.y + hb / 2;
+    const active = highlight && (a === highlight || b === highlight);
 
-    Department {
-        uuid id PK
-        string name
-        uuid organizationId FK
-        datetime createdAt
-    }
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', active ? CAT_COLOR[ta.cat] : 'rgba(148,163,184,0.25)');
+    line.setAttribute('stroke-width', active ? '1.8' : '0.8');
+    line.setAttribute('opacity', active ? '1' : '0.6');
+    if (!active) line.setAttribute('stroke-dasharray', '4 5');
+    svg.appendChild(line);
+  });
+}
 
-    DepartmentManager {
-        uuid id PK
-        uuid departmentId FK
-        uuid userId FK
-        datetime createdAt
-    }
+function toggleCard(el) {
+  el.classList.toggle('collapsed');
+  el.classList.toggle('active', !el.classList.contains('collapsed'));
+  setTimeout(() => { sizeCanvas(); drawLines(); }, 10);
+}
 
-    ProjectDepartment {
-        uuid id PK
-        uuid projectId FK
-        uuid departmentId FK
-        datetime createdAt
-    }
+function highlightRels(id) {
+  const linked = new Set([id]);
+  RELS.forEach(([a, b]) => { if (a === id || b === id) { linked.add(a); linked.add(b); } });
+  Object.entries(cardEls).forEach(([k, el]) => el.classList.toggle('dimmed', !linked.has(k)));
+  drawLines(id);
+}
 
-    ProjectOrganization {
-        uuid id PK
-        uuid projectId FK
-        uuid organizationId FK
-        datetime createdAt
-    }
+function resetRels() {
+  Object.values(cardEls).forEach(el => el.classList.remove('dimmed'));
+  drawLines();
+}
 
-    ProjectUser {
-        uuid id PK
-        uuid projectId FK
-        uuid userId FK
-        uuid addedById FK
-        datetime createdAt
-    }
-
-    Issue {
-        uuid id PK
-        string title
-        string description
-        IssueType type
-        IssuePriority priority
-        IssueStatus status
-        string module
-        datetime deadline
-        uuid raisedById FK
-        uuid raisedByOrgId FK
-        uuid assignedToUserId FK
-        uuid assignedToOrgId FK
-        uuid assignedToDepartmentId FK
-        uuid assignedById FK
-        uuid projectId FK
-        datetime createdAt
-        datetime updatedAt
-        datetime closedAt
-        NotifiedStage lastNotifiedStage
-        string resolutionNote
-        uuid resolvedById FK
-        datetime resolvedAt
-    }
-
-    IssueAssignee {
-        uuid id PK
-        uuid issueId FK
-        uuid userId FK
-        uuid assignedById FK
-        datetime assignedAt
-    }
-
-    Comment {
-        uuid id PK
-        uuid issueId FK
-        uuid userId FK
-        string text
-        datetime createdAt
-    }
-
-    Attachment {
-        uuid id PK
-        uuid issueId FK
-        uuid commentId FK
-        uuid uploadedById FK
-        string fileName
-        string fileType
-        int fileSize
-        string storagePath
-        datetime createdAt
-    }
-
-    ActivityLog {
-        uuid id PK
-        uuid issueId FK
-        uuid userId FK
-        string action
-        string oldValue
-        string newValue
-        datetime createdAt
-    }
-
-    Notification {
-        uuid id PK
-        uuid userId FK
-        uuid issueId FK
-        string message
-        NotificationType type
-        boolean isRead
-        datetime createdAt
-    }
-    </pre>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'dark',
-      er: {
-        useMaxWidth: false,
-        layoutDirection: 'TB',
-        entityPadding: 15,
-        minEntityWidth: 100,
-      },
-      themeVariables: {
-        primaryColor: '#3b82f6',
-        primaryTextColor: '#f8fafc',
-        primaryBorderColor: '#60a5fa',
-        lineColor: '#64748b',
-        secondaryColor: '#8b5cf6',
-        tertiaryColor: '#1e293b',
-      },
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const cat = btn.dataset.cat;
+    Object.entries(cardEls).forEach(([id, el]) => {
+      const t = TABLES.find(x => x.id === id);
+      el.style.display = (cat === 'all' || t.cat === cat) ? '' : 'none';
     });
-  </script>
+    setTimeout(() => { sizeCanvas(); drawLines(); }, 10);
+  });
+});
+
+buildCards();
+setTimeout(() => { sizeCanvas(); drawLines(); }, 60);
+window.addEventListener('resize', () => { sizeCanvas(); drawLines(); });
+</script>
 </body>
 </html>
