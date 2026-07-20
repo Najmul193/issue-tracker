@@ -8,4 +8,8 @@ export class AssignIssueDto {
   @IsString()
   @IsOptional()
   targetOrgId?: string;
+
+  @IsString()
+  @IsOptional()
+  targetDepartmentId?: string;
 }

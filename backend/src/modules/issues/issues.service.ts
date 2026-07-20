@@ -178,6 +178,7 @@ export class IssuesService {
           assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
           raisedByOrg: { select: { id: true, name: true } },
           assignedToOrg: { select: { id: true, name: true } },
+          assignedToDepartment: { select: { id: true, name: true } },
           project: { select: { id: true, name: true } },
         },
       }),
@@ -195,6 +196,7 @@ export class IssuesService {
         raisedByOrg: { select: { id: true, name: true } },
         assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
         assignedToOrg: { select: { id: true, name: true } },
+        assignedToDepartment: { select: { id: true, name: true } },
         assignedBy: { select: { id: true, name: true, email: true } },
         resolvedBy: {
           select: {
@@ -227,8 +229,12 @@ export class IssuesService {
   }
 
   async assign(id: string, dto: AssignIssueDto, actor: JwtPayload) {
-    if (!dto.targetUserId && !dto.targetOrgId) {
-      throw new BadRequestException('At least one of targetUserId or targetOrgId must be provided');
+    if (!dto.targetUserId && !dto.targetOrgId && !dto.targetDepartmentId) {
+      throw new BadRequestException('At least one of targetUserId, targetOrgId, or targetDepartmentId must be provided');
+    }
+
+    if (dto.targetUserId && dto.targetDepartmentId) {
+      throw new BadRequestException('Cannot assign to both a user and a department simultaneously');
     }
 
     const issue = await this.findOne(id, actor);
@@ -257,6 +263,32 @@ export class IssuesService {
         })
       : null;
 
+    let newTargetDepartment: { id: string; name: string; organizationId: string } | null = null;
+    if (dto.targetDepartmentId) {
+      newTargetDepartment = await this.prisma.department.findUnique({
+        where: { id: dto.targetDepartmentId },
+        select: { id: true, name: true, organizationId: true },
+      });
+      if (!newTargetDepartment) {
+        throw new NotFoundException('Department not found');
+      }
+      if (!dto.targetOrgId) {
+        dto.targetOrgId = newTargetDepartment.organizationId;
+      }
+      const deptOrg = await this.prisma.organization.findUnique({
+        where: { id: newTargetDepartment.organizationId },
+        select: { id: true, name: true, type: true },
+      });
+      if (deptOrg && !newTargetOrg) {
+        Object.assign(newTargetOrg || {}, deptOrg);
+      }
+      if (!newTargetOrg && deptOrg) {
+        (dto as any)._resolvedOrg = deptOrg;
+      }
+    }
+
+    const resolvedTargetOrg = newTargetOrg || (dto as any)._resolvedOrg;
+
     if (issue.projectId) {
       if (dto.targetUserId && newTargetUser) {
         const targetInProject = await this.prisma.projectUser.findUnique({
@@ -274,7 +306,7 @@ export class IssuesService {
           throw new ForbiddenException("Target user is not a member of this issue's project");
         }
       }
-      if (dto.targetOrgId && newTargetOrg) {
+      if (dto.targetOrgId && resolvedTargetOrg) {
         const targetOrgInProject = await this.prisma.projectOrganization.findUnique({
           where: {
             projectId_organizationId: {
@@ -286,6 +318,21 @@ export class IssuesService {
         if (!targetOrgInProject) {
           throw new ForbiddenException(
             "Target organization is not a member of this issue's project",
+          );
+        }
+      }
+      if (dto.targetDepartmentId && newTargetDepartment) {
+        const deptInProject = await this.prisma.projectDepartment.findUnique({
+          where: {
+            projectId_departmentId: {
+              projectId: issue.projectId,
+              departmentId: dto.targetDepartmentId,
+            },
+          },
+        });
+        if (!deptInProject) {
+          throw new ForbiddenException(
+            "Target department is not a member of this issue's project",
           );
         }
       }
@@ -309,6 +356,12 @@ export class IssuesService {
             'After reopening, you can only route to other organizations',
           );
         }
+      } else if (dto.targetDepartmentId) {
+        if (newTargetDepartment?.organizationId === actor.organizationId) {
+          throw new ForbiddenException(
+            'After reopening, you can only route to other organizations',
+          );
+        }
       } else {
         throw new ForbiddenException('Invalid assignment request');
       }
@@ -325,7 +378,7 @@ export class IssuesService {
         currentAssignedOrgId,
         issue.raisedByOrgId,
         newTargetUser?.organization?.type,
-        newTargetOrg?.type,
+        resolvedTargetOrg?.type,
       );
     }
 
@@ -341,12 +394,19 @@ export class IssuesService {
           select: { id: true, name: true },
         })
       : null;
+    const oldTargetDept = issue.assignedToDepartmentId
+      ? await this.prisma.department.findUnique({
+          where: { id: issue.assignedToDepartmentId },
+          select: { id: true, name: true },
+        })
+      : null;
 
     const updated = await this.prisma.issue.update({
       where: { id },
       data: {
         assignedToUserId: dto.targetUserId ?? null,
         assignedToOrgId: dto.targetOrgId ?? newTargetUser?.organizationId ?? null,
+        assignedToDepartmentId: dto.targetDepartmentId ?? null,
         assignedById: actor.userId,
         status:
           issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED' || issue.status === 'REOPENED'
@@ -368,12 +428,16 @@ export class IssuesService {
           assignedToUserName: oldTargetUser?.name ?? null,
           assignedToOrgId: oldTargetOrg?.id ?? null,
           assignedToOrgName: oldTargetOrg?.name ?? null,
+          assignedToDepartmentId: oldTargetDept?.id ?? null,
+          assignedToDepartmentName: oldTargetDept?.name ?? null,
         }),
         newValue: JSON.stringify({
           assignedToUserId: newTargetUser?.id ?? null,
           assignedToUserName: newTargetUser?.name ?? null,
-          assignedToOrgId: newTargetOrg?.id ?? null,
-          assignedToOrgName: newTargetOrg?.name ?? null,
+          assignedToOrgId: resolvedTargetOrg?.id ?? dto.targetOrgId ?? null,
+          assignedToOrgName: resolvedTargetOrg?.name ?? null,
+          assignedToDepartmentId: newTargetDepartment?.id ?? null,
+          assignedToDepartmentName: newTargetDepartment?.name ?? null,
         }),
       },
     });
@@ -395,6 +459,31 @@ export class IssuesService {
         this.emailService
           .sendAssignmentEmail(targetUser.email, issue.title, id)
           .catch((err) => this.logger.error('Assignment email failed', err));
+      }
+    } else if (dto.targetDepartmentId && newTargetDepartment) {
+      const deptUsers = await this.prisma.user.findMany({
+        where: { departmentId: dto.targetDepartmentId, status: 'ACTIVE' },
+      });
+      if (deptUsers.length > 0) {
+        await this.notificationsService.createNotificationsBulk(
+          deptUsers.map((u) => ({
+            userId: u.id,
+            issueId: id,
+            message: `Issue "${issue.title}" has been assigned to the ${newTargetDepartment!.name} department`,
+            type: 'ASSIGNMENT',
+          })),
+        );
+      }
+      const managers = await this.prisma.departmentManager.findMany({
+        where: { departmentId: dto.targetDepartmentId },
+        include: { user: { select: { email: true, status: true } } },
+      });
+      for (const m of managers) {
+        if (m.user.status === 'ACTIVE') {
+          this.emailService
+            .sendAssignmentEmail(m.user.email, issue.title, id)
+            .catch((err) => this.logger.error('Assignment email failed', err));
+        }
       }
     } else if (dto.targetOrgId) {
       const orgUsers = await this.prisma.user.findMany({
