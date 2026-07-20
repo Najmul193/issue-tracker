@@ -264,6 +264,19 @@ export default function Projects() {
                     {po.organization.name}
                   </span>
                 ))}
+                {project.departments && project.departments.length > 0 && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    {project.departments.map((pd) => (
+                      <span
+                        key={pd.id}
+                        className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"
+                      >
+                        {pd.department.name}
+                      </span>
+                    ))}
+                  </>
+                )}
               </div>
             </Link>
           ))}

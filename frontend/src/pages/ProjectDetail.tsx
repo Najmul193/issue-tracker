@@ -5,14 +5,19 @@ import {
   fetchProject,
   fetchProjectUsers,
   fetchProjectOrganizations,
+  fetchProjectDepartments,
   addOrganizationToProject,
   removeOrganizationFromProject,
+  addDepartmentToProject,
+  removeDepartmentFromProject,
   addUserToProject,
   removeUserFromProject,
   deleteProject,
 } from '../api/projects';
 import { fetchOrganizations, fetchUsers } from '../api/users';
+import { fetchDepartments } from '../api/departments';
 import type { UserOrg, UserListItem } from '../api/users';
+import type { DepartmentWithOrg } from '../api/departments';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
@@ -34,9 +39,10 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'orgs' | 'users'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'users' | 'depts'>('orgs');
   const [showAddOrg, setShowAddOrg] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [showAddDept, setShowAddDept] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
@@ -60,10 +66,22 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
+  const { data: projectDepts } = useQuery({
+    queryKey: ['project-depts', id],
+    queryFn: () => fetchProjectDepartments(id!),
+    enabled: !!id,
+  });
+
   const { data: allOrgs = [] as UserOrg[] } = useQuery({
     queryKey: ['organizations'],
     queryFn: fetchOrganizations,
     enabled: showAddOrg && isSuperAdmin,
+  });
+
+  const { data: allDepts = [] as DepartmentWithOrg[] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+    enabled: showAddDept && (isSuperAdmin || isOrgAdmin),
   });
 
   const { data: allUsers = [] as UserListItem[] } = useQuery({
@@ -90,6 +108,30 @@ export default function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['project', id] });
       queryClient.invalidateQueries({ queryKey: ['project-orgs', id] });
       queryClient.invalidateQueries({ queryKey: ['project-users', id] });
+      queryClient.invalidateQueries({ queryKey: ['project-depts', id] });
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) setError(err.message);
+    },
+  });
+
+  const addDeptMutation = useMutation({
+    mutationFn: (deptId: string) => addDepartmentToProject(id!, deptId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      queryClient.invalidateQueries({ queryKey: ['project-depts', id] });
+      setShowAddDept(false);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) setError(err.message);
+    },
+  });
+
+  const removeDeptMutation = useMutation({
+    mutationFn: (deptId: string) => removeDepartmentFromProject(id!, deptId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      queryClient.invalidateQueries({ queryKey: ['project-depts', id] });
     },
     onError: (err) => {
       if (err instanceof ApiError) setError(err.message);
@@ -153,6 +195,14 @@ export default function ProjectDetail() {
       (isSuperAdmin || (isOrgAdmin && u.organizationId === currentUser?.organizationId)),
   );
 
+  const projectDeptIds = new Set((projectDepts || []).map((pd) => pd.departmentId));
+  const availableDepts = (allDepts || []).filter(
+    (d) =>
+      !projectDeptIds.has(d.id) &&
+      memberOrgIds.has(d.organizationId) &&
+      (isSuperAdmin || (isOrgAdmin && d.organizationId === currentUser?.organizationId)),
+  );
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -207,6 +257,16 @@ export default function ProjectDetail() {
           }`}
         >
           Users ({projectUsers?.length || 0})
+        </button>
+        <button
+          onClick={() => setActiveTab('depts')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'depts'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Departments ({projectDepts?.length || 0})
         </button>
       </div>
 
@@ -335,6 +395,7 @@ export default function ProjectDetail() {
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Name</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Email</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Organization</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Department</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Role</th>
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500">Actions</th>
                   </tr>
@@ -345,6 +406,7 @@ export default function ProjectDetail() {
                       <td className="px-4 py-2 text-sm font-medium text-gray-900">{pu.user.name}</td>
                       <td className="px-4 py-2 text-sm text-gray-500">{pu.user.email}</td>
                       <td className="px-4 py-2 text-sm text-gray-500">{pu.user.organization.name}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500">{pu.user.department?.name || '—'}</td>
                       <td className="px-4 py-2 text-sm text-gray-500">{roleLabels[pu.user.role] || pu.user.role}</td>
                       {(isSuperAdmin || (isOrgAdmin && pu.user.organization.id === currentUser?.organizationId)) && (
                         <td className="px-4 py-2 text-right">
@@ -352,6 +414,85 @@ export default function ProjectDetail() {
                             onClick={() => {
                               if (confirm(`Remove ${pu.user.name} from project?`)) {
                                 removeUserMutation.mutate(pu.userId);
+                              }
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Departments Tab */}
+      {activeTab === 'depts' && (
+        <div>
+          {(isSuperAdmin || isOrgAdmin) && (
+            <div className="mb-3 flex items-center gap-2">
+              <button
+                onClick={() => { setShowAddDept(!showAddDept); setError(null); }}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+              >
+                {showAddDept ? 'Cancel' : 'Add Department'}
+              </button>
+            </div>
+          )}
+
+          {showAddDept && (
+            <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+              <p className="text-xs font-medium text-gray-500 mb-2">Select a department to add:</p>
+              <div className="flex flex-wrap gap-2">
+                {availableDepts.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => addDeptMutation.mutate(d.id)}
+                    disabled={addDeptMutation.isPending}
+                    className="rounded-full px-3 py-1 text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:border-blue-400 disabled:opacity-50"
+                  >
+                    {d.name} ({(allDepts || []).find((ad) => ad.id === d.id)?.organization?.name || 'Org'})
+                  </button>
+                ))}
+                {availableDepts.length === 0 && (
+                  <p className="text-xs text-gray-400">All available departments are already in this project.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg border border-gray-200 bg-white">
+            {(projectDepts || []).length === 0 ? (
+              <p className="p-4 text-sm text-gray-400 text-center">No departments in this project.</p>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Department</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500">Organization</th>
+                    {(isSuperAdmin || isOrgAdmin) && (
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {projectDepts?.map((pd) => (
+                    <tr key={pd.id}>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{pd.department.name}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500">
+                        {(allDepts || []).find((d) => d.id === pd.departmentId)?.organization?.name || '—'}
+                      </td>
+                      {(isSuperAdmin || isOrgAdmin) && (
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            onClick={() => {
+                              if (confirm(`Remove ${pd.department.name} from project? Issues assigned to it will be reassigned to org queue.`)) {
+                                removeDeptMutation.mutate(pd.departmentId);
                               }
                             }}
                             className="text-xs text-red-600 hover:text-red-800"
