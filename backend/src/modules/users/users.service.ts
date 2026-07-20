@@ -15,14 +15,14 @@ export class UsersService {
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      include: { organization: true },
+      include: { organization: true, department: true },
     });
   }
 
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { organization: true },
+      include: { organization: true, department: true },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -38,6 +38,7 @@ export class UsersService {
       organizationId?: string;
       newOrganizationName?: string;
       newOrganizationType?: string;
+      departmentId?: string;
     },
     actor: JwtPayload,
   ) {
@@ -84,6 +85,7 @@ export class UsersService {
         phone: dto.phone ?? null,
         role: dto.role as any,
         organizationId: orgId,
+        departmentId: dto.departmentId ?? null,
         status: 'ACTIVE',
       },
       select: {
@@ -92,8 +94,12 @@ export class UsersService {
         email: true,
         role: true,
         organizationId: true,
+        departmentId: true,
         status: true,
+        phone: true,
         createdAt: true,
+        organization: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
       },
     });
 
@@ -169,7 +175,7 @@ export class UsersService {
               organization: { type: { not: actorOrgType } },
               ...(projectOrgFilter || {}),
             },
-            select: { id: true, name: true, email: true, organizationId: true, role: true },
+            select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
             orderBy: { name: 'asc' },
           });
         }
@@ -181,7 +187,7 @@ export class UsersService {
               status: 'ACTIVE',
               role: { not: 'SUPER_ADMIN' },
             },
-            select: { id: true, name: true, email: true, organizationId: true, role: true },
+            select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
             orderBy: { name: 'asc' },
           });
         }
@@ -195,7 +201,7 @@ export class UsersService {
           status: 'ACTIVE',
           role: { not: 'SUPER_ADMIN' },
         },
-        select: { id: true, name: true, email: true, organizationId: true, role: true },
+        select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
         orderBy: { name: 'asc' },
       });
     }
@@ -208,7 +214,7 @@ export class UsersService {
       if (issue && issue.assignedToUserId === actor.userId) {
         return this.prisma.user.findMany({
           where: { organizationId: actor.organizationId, role: 'ORG_ADMIN', status: 'ACTIVE' },
-          select: { id: true, name: true, email: true, organizationId: true, role: true },
+          select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
           orderBy: { name: 'asc' },
         });
       }
@@ -225,14 +231,14 @@ export class UsersService {
 
     return this.prisma.user.findMany({
       where: baseWhere,
-      select: { id: true, name: true, email: true, organizationId: true, role: true },
+      select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
       orderBy: { name: 'asc' },
     });
   }
 
   async update(
     id: string,
-    dto: { name?: string; phone?: string; status?: string },
+    dto: { name?: string; phone?: string; status?: string; departmentId?: string },
     actor: JwtPayload,
   ) {
     if (actor.role === 'USER') {
@@ -260,6 +266,7 @@ export class UsersService {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.status !== undefined ? { status: dto.status as any } : {}),
+        ...(dto.departmentId !== undefined ? { departmentId: dto.departmentId ?? null } : {}),
       },
       select: {
         id: true,
@@ -267,10 +274,12 @@ export class UsersService {
         email: true,
         role: true,
         organizationId: true,
+        departmentId: true,
         status: true,
         phone: true,
         createdAt: true,
         organization: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
       },
     });
 
@@ -287,10 +296,12 @@ export class UsersService {
         email: true,
         role: true,
         organizationId: true,
+        departmentId: true,
         status: true,
         phone: true,
         createdAt: true,
         organization: { select: { id: true, name: true, type: true } },
+        department: { select: { id: true, name: true } },
       },
     });
   }
