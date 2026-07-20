@@ -12,3 +12,5 @@ backend/.env.test
 frontend/.env
 *.kilo
 *.mimocode
+.kilo/
+.mimocode/
