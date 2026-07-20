@@ -65,7 +65,7 @@
 </head>
 <body>
   <h1>Bug Tracker — Database ERD</h1>
-  <p class="subtitle">PostgreSQL · Prisma ORM · 12 models</p>
+  <p class="subtitle">PostgreSQL · Prisma ORM · 14 models</p>
 
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Core Entity</div>
@@ -77,6 +77,13 @@
   <div class="erd-container">
     <pre class="mermaid">
 erDiagram
+    Department ||--o{ User : "has users"
+    Department ||--o{ DepartmentManager : "has managers"
+    Department ||--o{ Issue : "assigned to"
+    Organization ||--o{ Department : "has departments"
+    User ||--o{ DepartmentManager : "is manager"
+    Project ||--o{ ProjectDepartment : "has departments"
+
     Organization ||--o{ User : "has users"
     Organization ||--o{ Issue : "raises issues"
     Organization ||--o{ Issue : "assigned to"
@@ -120,6 +127,7 @@ erDiagram
         string passwordHash
         string phone
         uuid organizationId FK
+        uuid departmentId FK
         UserRole role
         UserStatus status
         datetime createdAt
@@ -140,6 +148,27 @@ erDiagram
         string description
         datetime createdAt
         datetime updatedAt
+    }
+
+    Department {
+        uuid id PK
+        string name
+        uuid organizationId FK
+        datetime createdAt
+    }
+
+    DepartmentManager {
+        uuid id PK
+        uuid departmentId FK
+        uuid userId FK
+        datetime createdAt
+    }
+
+    ProjectDepartment {
+        uuid id PK
+        uuid projectId FK
+        uuid departmentId FK
+        datetime createdAt
     }
 
     ProjectOrganization {
@@ -170,6 +199,7 @@ erDiagram
         uuid raisedByOrgId FK
         uuid assignedToUserId FK
         uuid assignedToOrgId FK
+        uuid assignedToDepartmentId FK
         uuid assignedById FK
         uuid projectId FK
         datetime createdAt

@@ -101,6 +101,10 @@ The system defines **three user roles** and **four organization types** that col
 
 *All seed passwords:* `password123`
 
+#### Departments
+
+Departments subdivide organizations (e.g., IT Department). Each organization starts with an IT department (seed data creates `name: 'IT'`). ORG_ADMINs are automatically managers of their organization's IT department. Department managers can be added or removed by administrators; multiple managers per department are supported. Users belong to departments via the `departmentId` field on the User model. ORG_ADMIN has no department (shows "Admin" in the UI) — they are organization-wide. Department assignment is displayed as "Org Name (Dept Name)", e.g. "Brac Bank (IT)".
+
 ---
 
 ### 2.2 Issue Lifecycle
@@ -216,6 +220,16 @@ Issues traverse a defined state machine with enforced transition rules:
 - Permanent delete with cascade (removes user/org and all related issues, comments, attachments, notifications, activity logs)
 - Organization-scoped user listing
 
+#### Department Management
+- Create/delete departments within organizations
+- Manage department managers (add/remove, multiple managers per department)
+- Manager badge shown in department list
+- Issue routing to departments (third assignment target alongside user and org)
+- Departments scoped to projects — a department must be added to a project before its issues can be routed there
+- Auto-add all ACTIVE users from a department as project users when the department is added to a project
+- Removing a department from a project unassigns department-assigned issues (reassigns to org queue)
+- Issues cannot be routed to a department in the same org as the issue raiser (cross-org routing only)
+
 #### Dashboard & Reporting
 - Summary cards: total open, overdue, critical, and resolved this month counts
 - Breakdown by status, priority, and type with drill-down links
@@ -308,7 +322,7 @@ External Services:
 
 ### 3.3 Database Schema
 
-Eleven database tables (models) defined in Prisma schema:
+Fourteen database tables (models) defined in Prisma schema:
 
 ```
 ┌──────────────┐       ┌──────────────────┐       ┌──────────────────┐
@@ -384,9 +398,26 @@ Eleven database tables (models) defined in Prisma schema:
 │ expiresAt                │
 │ createdAt                │
 └──────────────────────────┘
+
+┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│   Department     │   │DepartmentManager │   │ProjectDepartment │
+├──────────────────┤   ├──────────────────┤   ├──────────────────┤
+│ id (PK)          │   │ id (PK)          │   │ id (PK)          │
+│ name             │   │ departmentId(FK) │   │ projectId (FK)   │
+│ organizationId   │   │ userId (FK)      │   │ departmentId(FK) │
+│ createdAt        │   │ createdAt        │   │ createdAt        │
+└──────────────────┘   └──────────────────┘   └──────────────────┘
 ```
 
 **Enums:** `OrganizationType` · `UserRole` · `UserStatus` · `IssueType` · `IssuePriority` · `IssueStatus` · `NotificationType` · `NotifiedStage`
+
+**Relationships:**
+- Organization 1:N Department
+- Department 1:N DepartmentManager
+- User 1:N DepartmentManager
+- Department 1:N User (departmentId on User)
+- Department 1:N Issue (assignedToDepartmentId on Issue)
+- Project M:N Department via ProjectDepartment
 
 ---
 
@@ -426,6 +457,17 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | GET | `/api/organizations/deleted` | SUPER_ADMIN | List soft-deleted organizations |
 | DELETE | `/api/organizations/:id` | SUPER_ADMIN | Soft-delete organization |
 | DELETE | `/api/organizations/:id/permanent` | SUPER_ADMIN | Permanently delete organization and all related data |
+
+#### Departments
+| Method | Path | Access | Description |
+|--------|------|--------|-------------|
+| GET | `/api/departments` | Admin | List departments (scoped by org) |
+| GET | `/api/departments/:id` | Admin | Get department detail |
+| POST | `/api/departments` | Admin | Create department |
+| DELETE | `/api/departments/:id` | Admin | Delete department |
+| GET | `/api/departments/:id/managers` | Admin | List department managers |
+| POST | `/api/departments/:id/managers` | Admin | Add department manager |
+| DELETE | `/api/departments/:id/managers/:userId` | Admin | Remove department manager |
 
 #### Issues
 | Method | Path | Access | Description |
@@ -473,6 +515,9 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | GET | `/api/projects/:id/users` | Project member | List project users |
 | POST | `/api/projects/:id/users` | SUPER_ADMIN / ORG_ADMIN | Add user to project |
 | DELETE | `/api/projects/:id/users/:userId` | SUPER_ADMIN / ORG_ADMIN | Remove user from project |
+| GET | `/api/projects/:id/departments` | Project member | List project departments |
+| POST | `/api/projects/:id/departments` | Admin | Add department to project |
+| DELETE | `/api/projects/:id/departments/:deptId` | Admin | Remove department from project |
 
 ---
 
@@ -500,6 +545,7 @@ backend/src/
     │   ├── projects.service.ts  # CRUD + membership + visibility filter logic
     │   ├── projects.controller.ts
     │   └── dto/                 # Request validation DTOs
+    ├── departments/             # Department management (managers, project-scoped routing)
     ├── issues/                  # Core issue management
     │   ├── state-machine.ts     # Transition rules and validations
     │   └── dto/                 # Request validation DTOs
@@ -537,6 +583,7 @@ frontend/src/
 │   ├── users.ts                 # User CRUD + organization listing
 │   ├── issues.ts                # Issues CRUD + comments + attachments
 │   ├── projects.ts              # Projects CRUD + org/user membership
+│   ├── departments.ts           # Department CRUD + managers
 │   ├── dashboard.ts             # Dashboard summary + metrics
 │   └── notifications.ts         # Notifications + unread count
 │
@@ -562,6 +609,7 @@ frontend/src/
     ├── CreateIssue.tsx          # Issue creation form with file upload
     ├── Projects.tsx             # Project listing and management
     ├── ProjectDetail.tsx        # Project detail with org/user membership
+    ├── Departments.tsx          # Department listing and management
     ├── Notifications.tsx        # Notification center with filter/pagination
     └── Users.tsx                # Admin user management with modals
 ```

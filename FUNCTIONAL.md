@@ -26,26 +26,26 @@ https://flexcube-tracker-frontend.onrender.com/login
 
 #### SUPER_ADMIN
 
-| Name | Email | Organization |
-|------|-------|-------------|
-| Super Admin | superadmin@issuetracker.dev | Super Admin |
+| Name | Email | Organization | Department |
+|------|-------|-------------|------------|
+| Super Admin | superadmin@issuetracker.dev | Super Admin | — |
 
 #### ORG_ADMIN
 
-| Name | Email | Organization |
-|------|-------|-------------|
-| Bank Admin | bankadmin@issuetracker.dev | Bank |
-| Data Edge Admin | siadmin@issuetracker.dev | Data Edge |
-| Oracle Admin | oracleadmin@issuetracker.dev | Oracle |
+| Name | Email | Organization | Department |
+|------|-------|-------------|------------|
+| Bank Admin | bankadmin@issuetracker.dev | Bank | Admin |
+| Data Edge Admin | siadmin@issuetracker.dev | Data Edge | Admin |
+| Oracle Admin | oracleadmin@issuetracker.dev | Oracle | Admin |
 
 #### USER
 
-| Name | Email | Organization |
-|------|-------|-------------|
-| Super Viewer | superviewer@issuetracker.dev | Super Admin |
-| Bank User | bankuser@issuetracker.dev | Bank |
-| Data Edge User | siuser@issuetracker.dev | Data Edge |
-| Oracle User | oracleuser@issuetracker.dev | Oracle |
+| Name | Email | Organization | Department |
+|------|-------|-------------|------------|
+| Super Viewer | superviewer@issuetracker.dev | Super Admin | — |
+| Bank User | bankuser@issuetracker.dev | Bank | IT |
+| Data Edge User | siuser@issuetracker.dev | Data Edge | IT |
+| Oracle User | oracleuser@issuetracker.dev | Oracle | IT |
 
 ---
 
@@ -184,6 +184,7 @@ The assignment UI is available to all users on the Issue Detail page. Assignment
 
 - **To user** — pick a user from the dropdown
 - **To org** — route to an organization's queue (org admin reassigns internally)
+- **To dept** — route to a department in another organization (cross-org only; cannot route to own org's department)
 - Note: Reopened issues are auto-set to **ASSIGNED** on assignment
 
 #### Who Can Assign to Whom
@@ -229,6 +230,15 @@ Closed issues cannot be assigned. The status must be changed to **REOPENED** fir
 1. Click **Assign** — a confirmation dialog appears.
 2. Review the assignment details and click **Confirm**.
 3. The assignee receives a notification and email.
+
+#### Department Routing
+
+Issues can be routed to departments within organizations (third assignment option):
+- Departments must be added to the project before they appear in the "Route to dept" dropdown
+- Only departments in OTHER organizations (not the raiser's org) are shown in the dropdown
+- When routed to a department, all ACTIVE members of that department receive in-app notifications
+- Department managers receive email notifications for department-routed issues
+- Assignment display: "Org Name (Dept Name)" e.g. "Oracle (IT)"
 
 ---
 
@@ -338,6 +348,10 @@ The issue creator, an ORG_ADMIN of the creator's organization, or a SUPER_ADMIN 
 
 - The **Users** menu item is not visible. Navigating to `/users` shows "Access Denied".
 
+#### Department Column
+
+The Users table shows each user's department. ORG_ADMIN users show "Admin" instead of a department name since they are org-wide. Regular users show their assigned department name.
+
 ---
 
 ### 2.14 Activity Log
@@ -428,6 +442,16 @@ All endpoints are under the `/api` prefix.
 | GET | /projects/:id/users | List project users |
 | POST | /projects/:id/users | Add user to project (SUPER_ADMIN / ORG_ADMIN for own org) |
 | DELETE | /projects/:id/users/:userId | Remove user from project (SUPER_ADMIN / ORG_ADMIN for own org) |
+| GET | /departments | List departments (admin only) |
+| GET | /departments/:id | Get department detail (admin only) |
+| POST | /departments | Create department (admin only) |
+| DELETE | /departments/:id | Delete department (admin only) |
+| GET | /departments/:id/managers | List department managers (admin only) |
+| POST | /departments/:id/managers | Add department manager (admin only) |
+| DELETE | /departments/:id/managers/:userId | Remove department manager (admin only) |
+| GET | /projects/:id/departments | List project departments |
+| POST | /projects/:id/departments | Add department to project (admin only) |
+| DELETE | /projects/:id/departments/:deptId | Remove department from project (admin only) |
 | GET | /notifications | List notifications (supports `projectIds` filter) |
 | GET | /notifications/unread-count | Unread count (supports `projectIds` filter) |
 | PATCH | /notifications/:id/read | Mark notification read |
