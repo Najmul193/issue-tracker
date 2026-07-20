@@ -232,4 +232,26 @@ export class DepartmentsService {
 
     return this.findOne(id, actor);
   }
+
+  async getManagers(id: string, actor: JwtPayload) {
+    const dept = await this.prisma.department.findUnique({ where: { id } });
+    if (!dept) {
+      throw new NotFoundException('Department not found');
+    }
+
+    if (actor.role !== 'SUPER_ADMIN' && dept.organizationId !== actor.organizationId) {
+      throw new ForbiddenException('Cannot access departments in other organizations');
+    }
+
+    return this.prisma.departmentManager.findMany({
+      where: { departmentId: id },
+      select: {
+        id: true,
+        departmentId: true,
+        userId: true,
+        user: { select: { id: true, name: true, email: true } },
+        createdAt: true,
+      },
+    });
+  }
 }

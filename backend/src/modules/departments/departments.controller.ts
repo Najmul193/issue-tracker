@@ -31,6 +31,11 @@ export class DepartmentsController {
     return this.departmentsService.remove(id, actor);
   }
 
+  @Get(':id/managers')
+  getManagers(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
+    return this.departmentsService.getManagers(id, actor);
+  }
+
   @Post(':id/managers')
   addManager(
     @Param('id') id: string,
