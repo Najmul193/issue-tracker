@@ -122,6 +122,7 @@ export default function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['project-depts', id] });
       queryClient.invalidateQueries({ queryKey: ['project-users', id] });
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
       setShowAddDept(false);
     },
     onError: (err) => {
@@ -134,6 +135,9 @@ export default function ProjectDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', id] });
       queryClient.invalidateQueries({ queryKey: ['project-depts', id] });
+      queryClient.invalidateQueries({ queryKey: ['project-users', id] });
+      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
     },
     onError: (err) => {
       if (err instanceof ApiError) setError(err.message);
