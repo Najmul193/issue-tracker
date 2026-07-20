@@ -120,6 +120,7 @@ export default function ProjectDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', id] });
       queryClient.invalidateQueries({ queryKey: ['project-depts', id] });
+      queryClient.invalidateQueries({ queryKey: ['project-users', id] });
       queryClient.invalidateQueries({ queryKey: ['users-list'] });
       setShowAddDept(false);
     },
