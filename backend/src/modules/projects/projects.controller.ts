@@ -14,6 +14,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddOrgDto } from './dto/add-org.dto';
 import { AddUserDto } from './dto/add-user.dto';
+import { AddDepartmentDto } from './dto/add-department.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 
@@ -88,5 +89,28 @@ export class ProjectsController {
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.projectsService.removeUser(id, userId, actor);
+  }
+
+  @Get(':id/departments')
+  getDepartments(@Param('id') id: string, @CurrentUser() actor: JwtPayload) {
+    return this.projectsService.getDepartments(id, actor);
+  }
+
+  @Post(':id/departments')
+  addDepartment(
+    @Param('id') id: string,
+    @Body() dto: AddDepartmentDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.projectsService.addDepartment(id, dto.departmentId, actor);
+  }
+
+  @Delete(':id/departments/:departmentId')
+  removeDepartment(
+    @Param('id') id: string,
+    @Param('departmentId') departmentId: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.projectsService.removeDepartment(id, departmentId, actor);
   }
 }
