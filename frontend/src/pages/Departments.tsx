@@ -299,19 +299,27 @@ export default function Departments() {
               Managers — {managingDept.name}
             </h3>
 
-            <div className="mb-4">
+            <div className="mb-4 max-h-60 overflow-y-auto">
               {managers.length === 0 ? (
                 <p className="text-sm text-gray-400">No managers assigned.</p>
               ) : (
                 <ul className="divide-y divide-gray-100">
                   {managers.map((m) => (
-                    <li key={m.userId} className="flex items-center justify-between py-2">
-                      <span className="text-sm text-gray-700">
-                        {m.user.name} ({m.user.email})
-                      </span>
+                    <li key={m.userId} className="flex items-center justify-between py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 shrink-0">
+                          Manager
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 truncate">{m.user.name}</span>
+                        <span className="text-xs text-gray-400 truncate">{m.user.email}</span>
+                      </div>
                       <button
-                        onClick={() => removeManagerMutation.mutate(m.userId)}
-                        className="text-xs text-red-600 hover:underline"
+                        onClick={() => {
+                          if (confirm(`Remove ${m.user.name} as manager?`)) {
+                            removeManagerMutation.mutate(m.userId);
+                          }
+                        }}
+                        className="ml-2 shrink-0 rounded border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                       >
                         Remove
                       </button>
@@ -321,31 +329,40 @@ export default function Departments() {
               )}
             </div>
 
-            {availableUsers && availableUsers.length > 0 && (
-              <div className="flex gap-2">
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="">Select user</option>
-                  {availableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.email})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => {
-                    if (selectedUserId) addManagerMutation.mutate();
-                  }}
-                  disabled={!selectedUserId || addManagerMutation.isPending}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
-            )}
+            <div className="border-t border-gray-200 pt-3">
+              <p className="mb-2 text-xs font-medium text-gray-500">Add Manager</p>
+              {availableUsers && availableUsers.length > 0 ? (
+                <div className="flex gap-2">
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">Select user...</option>
+                    {availableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (selectedUserId) addManagerMutation.mutate();
+                    }}
+                    disabled={!selectedUserId || addManagerMutation.isPending}
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {addManagerMutation.isPending ? 'Adding...' : 'Add'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  {managers.length > 0
+                    ? 'All department users are already managers.'
+                    : 'No active users in this department yet.'}
+                </p>
+              )}
+            </div>
 
             <div className="flex justify-end pt-4">
               <button
