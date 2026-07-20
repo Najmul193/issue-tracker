@@ -16,6 +16,7 @@ import Notifications from './pages/Notifications';
 import Users from './pages/Users';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import Departments from './pages/Departments';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="/issues/:id" element={<IssueDetail />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/departments" element={<Departments />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
       </Route>

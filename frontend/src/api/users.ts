@@ -6,6 +6,11 @@ export interface UserOrg {
   type: string;
 }
 
+export interface UserDepartment {
+  id: string;
+  name: string;
+}
+
 export interface UserListItem {
   id: string;
   name: string;
@@ -13,6 +18,8 @@ export interface UserListItem {
   role: string;
   organizationId: string;
   organization: UserOrg;
+  departmentId: string | null;
+  department: UserDepartment | null;
   phone: string | null;
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: string;
@@ -27,12 +34,14 @@ export interface CreateUserData {
   organizationId?: string;
   newOrganizationName?: string;
   newOrganizationType?: string;
+  departmentId?: string;
 }
 
 export interface UpdateUserData {
   name?: string;
   phone?: string;
   status?: string;
+  departmentId?: string;
 }
 
 export async function fetchUsers(): Promise<UserListItem[]> {

@@ -6,6 +6,12 @@ export interface ProjectOrg {
   organization: { id: string; name: string; type: string };
 }
 
+export interface ProjectDept {
+  id: string;
+  departmentId: string;
+  department: { id: string; name: string; organizationId: string };
+}
+
 export interface ProjectUser {
   id: string;
   userId: string;
@@ -16,6 +22,7 @@ export interface ProjectUser {
     role: string;
     status: string;
     organization: { id: string; name: string; type: string };
+    department: { id: string; name: string } | null;
   };
 }
 
@@ -26,6 +33,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   organizations: ProjectOrg[];
+  departments?: ProjectDept[];
   users?: ProjectUser[];
   _count: { users: number; issues: number };
 }
@@ -78,4 +86,16 @@ export async function addUserToProject(projectId: string, userId: string): Promi
 
 export async function removeUserFromProject(projectId: string, userId: string): Promise<void> {
   await apiDelete<void>(`/projects/${projectId}/users/${userId}`);
+}
+
+export async function fetchProjectDepartments(projectId: string): Promise<ProjectDept[]> {
+  return apiGet<ProjectDept[]>(`/projects/${projectId}/departments`);
+}
+
+export async function addDepartmentToProject(projectId: string, departmentId: string): Promise<ProjectDept> {
+  return apiPost<ProjectDept>(`/projects/${projectId}/departments`, { departmentId });
+}
+
+export async function removeDepartmentFromProject(projectId: string, departmentId: string): Promise<void> {
+  await apiDelete<void>(`/projects/${projectId}/departments/${departmentId}`);
 }

@@ -30,6 +30,11 @@ export interface IssueOrg {
   name: string;
 }
 
+export interface IssueDepartment {
+  id: string;
+  name: string;
+}
+
 export interface Issue {
   id: string;
   title: string;
@@ -47,6 +52,8 @@ export interface Issue {
   assignedToUser: IssueUser | null;
   assignedToOrgId: string | null;
   assignedToOrg: IssueOrg | null;
+  assignedToDepartmentId: string | null;
+  assignedToDepartment: IssueDepartment | null;
   assignedById: string | null;
   assignedBy: IssueUser | null;
   projectId: string | null;
@@ -121,6 +128,7 @@ export interface CreateIssueData {
 export interface AssignIssueData {
   targetUserId?: string;
   targetOrgId?: string;
+  targetDepartmentId?: string;
 }
 
 export interface UpdateStatusData {

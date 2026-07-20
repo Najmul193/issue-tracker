@@ -13,6 +13,7 @@ const navItems = [
 
 const superAdminNavItem = { label: 'Projects', path: '/projects' };
 const adminNavItem = { label: 'Users', path: '/users' };
+const departmentsNavItem = { label: 'Departments', path: '/departments' };
 
 export default function AppShell() {
   const { user, logout, isLoading } = useAuth();
@@ -77,6 +78,19 @@ export default function AppShell() {
               }`}
             >
               {superAdminNavItem.label}
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              key={departmentsNavItem.path}
+              to={departmentsNavItem.path}
+              className={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                isActive(departmentsNavItem.path)
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              {departmentsNavItem.label}
             </Link>
           )}
         </nav>
