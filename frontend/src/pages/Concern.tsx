@@ -306,9 +306,11 @@ export default function Concern() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {issue.assignedToUser?.name ||
-                        (issue.assignedToOrg
-                          ? `${issue.assignedToOrg.name} Queue`
-                          : '—')}
+                        (issue.assignedToDepartment
+                          ? `${issue.assignedToDepartment.name} (${issue.assignedToOrg?.name || 'Org'})`
+                          : issue.assignedToOrg
+                            ? `${issue.assignedToOrg.name} Queue`
+                            : '—')}
                     </td>
                     <td
                       className={`px-4 py-3 text-sm ${deadlineInfo.className}`}
