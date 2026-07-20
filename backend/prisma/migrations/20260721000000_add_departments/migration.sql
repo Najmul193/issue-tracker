@@ -1,13 +1,13 @@
 -- ============================================================
 -- Migration: Add Department System
 -- ============================================================
--- SAFETY: All changes are additive (new tables, nullable columns).
--- No existing data is modified or deleted.
--- Data migration is idempotent (safe to re-run).
+-- IDEMPOTENT: Safe to re-run. All DDL uses IF NOT EXISTS.
+-- The migration record in _prisma_migrations must be deleted
+-- before re-applying if it previously failed.
 -- ============================================================
 
--- CreateTable
-CREATE TABLE "departments" (
+-- CreateTable (idempotent)
+CREATE TABLE IF NOT EXISTS "departments" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "organization_id" TEXT NOT NULL,
@@ -16,8 +16,7 @@ CREATE TABLE "departments" (
     CONSTRAINT "departments_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "department_managers" (
+CREATE TABLE IF NOT EXISTS "department_managers" (
     "id" TEXT NOT NULL,
     "department_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
@@ -26,8 +25,7 @@ CREATE TABLE "department_managers" (
     CONSTRAINT "department_managers_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "project_departments" (
+CREATE TABLE IF NOT EXISTS "project_departments" (
     "id" TEXT NOT NULL,
     "project_id" TEXT NOT NULL,
     "department_id" TEXT NOT NULL,
@@ -36,43 +34,68 @@ CREATE TABLE "project_departments" (
     CONSTRAINT "project_departments_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "departments_organization_id_name_key" ON "departments"("organization_id", "name");
-CREATE INDEX "departments_organization_id_idx" ON "departments"("organization_id");
+-- AlterTable: Add nullable columns (idempotent with DO blocks)
+DO $$ BEGIN
+  ALTER TABLE "users" ADD COLUMN "department_id" TEXT;
+EXCEPTION
+  WHEN duplicate_column THEN NULL;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "department_managers_department_id_user_id_key" ON "department_managers"("department_id", "user_id");
+DO $$ BEGIN
+  ALTER TABLE "issues" ADD COLUMN "assigned_to_department_id" TEXT;
+EXCEPTION
+  WHEN duplicate_column THEN NULL;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "project_departments_project_id_department_id_key" ON "project_departments"("project_id", "department_id");
+-- CreateIndex (idempotent)
+CREATE UNIQUE INDEX IF NOT EXISTS "departments_organization_id_name_key" ON "departments"("organization_id", "name");
+CREATE INDEX IF NOT EXISTS "departments_organization_id_idx" ON "departments"("organization_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "department_managers_department_id_user_id_key" ON "department_managers"("department_id", "user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "project_departments_project_id_department_id_key" ON "project_departments"("project_id", "department_id");
+CREATE INDEX IF NOT EXISTS "issues_assigned_to_department_id_idx" ON "issues"("assigned_to_department_id");
 
--- AlterTable: Add department_id to users and assigned_to_department_id to issues
-ALTER TABLE "users" ADD COLUMN "department_id" TEXT;
-ALTER TABLE "issues" ADD COLUMN "assigned_to_department_id" TEXT;
+-- AddForeignKey (idempotent with DO blocks)
+DO $$ BEGIN
+  ALTER TABLE "departments" ADD CONSTRAINT "departments_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- CreateIndex
-CREATE INDEX "issues_assigned_to_department_id_idx" ON "issues"("assigned_to_department_id");
+DO $$ BEGIN
+  ALTER TABLE "department_managers" ADD CONSTRAINT "department_managers_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "departments" ADD CONSTRAINT "departments_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "department_managers" ADD CONSTRAINT "department_managers_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "department_managers" ADD CONSTRAINT "department_managers_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "project_departments" ADD CONSTRAINT "project_departments_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "department_managers" ADD CONSTRAINT "department_managers_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "project_departments" ADD CONSTRAINT "project_departments_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "project_departments" ADD CONSTRAINT "project_departments_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "users" ADD CONSTRAINT "users_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "project_departments" ADD CONSTRAINT "project_departments_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "issues" ADD CONSTRAINT "issues_assigned_to_department_id_fkey" FOREIGN KEY ("assigned_to_department_id") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "issues" ADD CONSTRAINT "issues_assigned_to_department_id_fkey" FOREIGN KEY ("assigned_to_department_id") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- DATA MIGRATION (idempotent)
