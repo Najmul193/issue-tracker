@@ -74,6 +74,7 @@ model Organization {
   raisedIssues   Issue[]                  @relation("RaisedOrgIssues")
   assignedIssues Issue[]                  @relation("AssignedOrgIssues")
   projects       ProjectOrganization[]
+  departments    Department[]
 
   @@map("organizations")
 }
@@ -88,6 +89,8 @@ model User {
   organization  Organization @relation("OrgUsers", fields: [organizationId], references: [id])
   role          UserRole
   status        UserStatus @default(ACTIVE)
+  departmentId  String?    @map("department_id")
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -103,6 +106,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   projectMemberships ProjectUser[]    @relation("ProjectUserMembership")
   addedProjects      ProjectUser[]    @relation("ProjectUserAddedBy")
+  managedDepartments DepartmentManager[]
 
   @@map("users")
 }
@@ -118,6 +122,35 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model Department {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  users         User[]
+  managers      DepartmentManager[]
+  issues        Issue[]      @relation("AssignedDeptIssues")
+  projectDepts  ProjectDepartment[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model DepartmentManager {
+  id           String     @id @default(uuid())
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId       String     @map("user_id")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([departmentId, userId])
+  @@map("department_managers")
+}
+
 model Project {
   id          String    @id @default(uuid())
   name        String    @unique
@@ -128,6 +161,7 @@ model Project {
   organizations ProjectOrganization[]
   users         ProjectUser[]
   issues        Issue[]
+  projectDepts  ProjectDepartment[]
 
   @@map("projects")
 }
@@ -142,6 +176,18 @@ model ProjectOrganization {
 
   @@unique([projectId, organizationId])
   @@map("project_organizations")
+}
+
+model ProjectDepartment {
+  id           String     @id @default(uuid())
+  projectId    String     @map("project_id")
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([projectId, departmentId])
+  @@map("project_departments")
 }
 
 model ProjectUser {
@@ -175,6 +221,8 @@ model Issue {
   assignedToUser    User?        @relation("AssignedUserIssues", fields: [assignedToUserId], references: [id])
   assignedToOrgId   String?      @map("assigned_to_org_id")
   assignedToOrg     Organization? @relation("AssignedOrgIssues", fields: [assignedToOrgId], references: [id])
+  assignedToDepartmentId String?  @map("assigned_to_department_id")
+  assignedToDepartment   Department? @relation("AssignedDeptIssues", fields: [assignedToDepartmentId], references: [id], onDelete: SetNull)
   assignedById      String?      @map("assigned_by_id")
   assignedBy        User?        @relation("AssignedByIssues", fields: [assignedById], references: [id])
   projectId       String?    @map("project_id")
@@ -197,6 +245,7 @@ model Issue {
   @@index([status])
   @@index([priority])
   @@index([assignedToOrgId])
+  @@index([assignedToDepartmentId])
   @@index([deadline])
   @@index([projectId])
   @@map("issues")
