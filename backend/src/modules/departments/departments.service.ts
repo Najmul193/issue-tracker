@@ -33,7 +33,7 @@ export class DepartmentsService {
           select: {
             id: true,
             userId: true,
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, role: true } },
           },
         },
         _count: {
@@ -249,7 +249,7 @@ export class DepartmentsService {
         id: true,
         departmentId: true,
         userId: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, role: true } },
         createdAt: true,
       },
     });

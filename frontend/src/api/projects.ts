@@ -9,7 +9,7 @@ export interface ProjectOrg {
 export interface ProjectDept {
   id: string;
   departmentId: string;
-  department: { id: string; name: string; organizationId: string };
+  department: { id: string; name: string; organizationId: string; organization?: { id: string; name: string } };
 }
 
 export interface ProjectUser {

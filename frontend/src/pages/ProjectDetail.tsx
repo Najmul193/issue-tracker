@@ -457,7 +457,7 @@ export default function ProjectDetail() {
                     disabled={addDeptMutation.isPending}
                     className="rounded-full px-3 py-1 text-xs font-medium border border-gray-300 bg-white text-gray-700 hover:border-blue-400 disabled:opacity-50"
                   >
-                    {d.name} ({(allDepts || []).find((ad) => ad.id === d.id)?.organization?.name || 'Org'})
+                    {d.name} ({d.organization?.name || 'Org'})
                   </button>
                 ))}
                 {availableDepts.length === 0 && (
@@ -485,9 +485,7 @@ export default function ProjectDetail() {
                   {projectDepts?.map((pd) => (
                     <tr key={pd.id}>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900">{pd.department.name}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500">
-                        {(allDepts || []).find((d) => d.id === pd.departmentId)?.organization?.name || '—'}
-                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-500">{pd.department.organization?.name || '—'}</td>
                       {(isSuperAdmin || isOrgAdmin) && (
                         <td className="px-4 py-2 text-right">
                           <button

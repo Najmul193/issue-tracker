@@ -379,7 +379,7 @@ export default function Users() {
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.email}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">{u.role.replace('_', ' ')}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.organization?.name || '—'}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.department?.name || '—'}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.department?.name || (u.role === 'ORG_ADMIN' ? 'Admin Department' : '—')}</td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       u.status === 'ACTIVE'

@@ -491,7 +491,12 @@ export class ProjectsService {
 
     return this.prisma.projectDepartment.findMany({
       where: { projectId },
-      include: { department: { select: { id: true, name: true, organizationId: true } } },
+      include: {
+        department: {
+          select: { id: true, name: true, organizationId: true },
+          include: { organization: { select: { id: true, name: true } } },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
   }
