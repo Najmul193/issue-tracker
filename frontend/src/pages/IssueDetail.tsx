@@ -356,14 +356,14 @@ export default function IssueDetail() {
               <p className="mt-0.5 text-sm font-medium text-gray-900">{issue.assignedToUser.name}</p>
               <p className="text-xs text-gray-500">
                 {issue.assignedToDepartment
-                  ? `${issue.assignedToDepartment.name} (${issue.assignedToOrg?.name || 'Org'})`
+                  ? `${issue.assignedToOrg?.name || 'Org'} (${issue.assignedToDepartment.name})`
                   : issue.assignedToOrg?.name}
               </p>
             </>
           ) : (
             <p className="mt-0.5 text-sm text-gray-500">
               {issue.assignedToDepartment
-                ? `${issue.assignedToDepartment.name} (${issue.assignedToOrg?.name || 'Org'})`
+                ? `${issue.assignedToOrg?.name || 'Org'} (${issue.assignedToDepartment.name})`
                 : issue.assignedToOrg
                   ? `${issue.assignedToOrg.name} Queue`
                   : 'Unassigned'}
@@ -613,10 +613,10 @@ export default function IssueDetail() {
                   return true;
                 })
                 .map((pd: ProjectDept) => (
-                <option key={pd.department.id} value={pd.department.id}>
-                  {pd.department.name}
-                </option>
-              ))}
+                  <option key={pd.department.id} value={pd.department.id}>
+                    {pd.department.organization?.name || 'Org'} ({pd.department.name})
+                  </option>
+                ))}
             </select>
           )}
 
