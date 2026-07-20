@@ -93,18 +93,18 @@ export default function Departments() {
 
   const addManagerMutation = useMutation({
     mutationFn: () => addDepartmentManager(managingDept!.id, selectedUserId),
-    onSuccess: async () => {
-      const data = await fetchDepartmentManagers(managingDept!.id);
-      setManagers(data);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      setManagingDept(null);
       setSelectedUserId('');
     },
   });
 
   const removeManagerMutation = useMutation({
     mutationFn: (userId: string) => removeDepartmentManager(managingDept!.id, userId),
-    onSuccess: async () => {
-      const data = await fetchDepartmentManagers(managingDept!.id);
-      setManagers(data);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      fetchDepartmentManagers(managingDept!.id).then(setManagers);
     },
   });
 
