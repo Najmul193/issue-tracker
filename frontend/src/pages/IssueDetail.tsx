@@ -3,8 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchIssue, assignIssue, updateIssueStatus, addComment, deleteIssue } from '../api/issues';
 import { fetchAssignableUsers } from '../api/users';
-import { fetchProjectOrganizations } from '../api/projects';
-import type { ProjectOrg } from '../api/projects';
+import { fetchProjectOrganizations, fetchProjectDepartments } from '../api/projects';
+import type { ProjectOrg, ProjectDept } from '../api/projects';
 import type { IssueStatus } from '../api/issues';
 import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
@@ -81,9 +81,10 @@ export default function IssueDetail() {
 
   const [statusError, setStatusError] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
-  const [assignTarget, setAssignTarget] = useState<'user' | 'org'>('user');
+  const [assignTarget, setAssignTarget] = useState<'user' | 'org' | 'dept'>('user');
   const [assignUserId, setAssignUserId] = useState('');
   const [assignOrgId, setAssignOrgId] = useState('');
+  const [assignDeptId, setAssignDeptId] = useState('');
   const [showAssignConfirm, setShowAssignConfirm] = useState(false);
   const [showStatusConfirm, setShowStatusConfirm] = useState<IssueStatus | null>(null);
   const [statusComment, setStatusComment] = useState('');
@@ -106,6 +107,12 @@ export default function IssueDetail() {
   const { data: projectOrgs } = useQuery({
     queryKey: ['project-orgs', issue?.projectId],
     queryFn: () => fetchProjectOrganizations(issue!.projectId!),
+    enabled: !!issue?.projectId,
+  });
+
+  const { data: projectDepts } = useQuery({
+    queryKey: ['project-depts', issue?.projectId],
+    queryFn: () => fetchProjectDepartments(issue!.projectId!),
     enabled: !!issue?.projectId,
   });
 
@@ -134,6 +141,9 @@ export default function IssueDetail() {
       }
       if (assignTarget === 'org' && assignOrgId) {
         return assignIssue(id, { targetOrgId: assignOrgId });
+      }
+      if (assignTarget === 'dept' && assignDeptId) {
+        return assignIssue(id, { targetDepartmentId: assignDeptId });
       }
       return;
     },
@@ -344,11 +354,19 @@ export default function IssueDetail() {
           {issue.assignedToUser ? (
             <>
               <p className="mt-0.5 text-sm font-medium text-gray-900">{issue.assignedToUser.name}</p>
-              <p className="text-xs text-gray-500">{issue.assignedToOrg?.name}</p>
+              <p className="text-xs text-gray-500">
+                {issue.assignedToDepartment
+                  ? `${issue.assignedToDepartment.name} (${issue.assignedToOrg?.name || 'Org'})`
+                  : issue.assignedToOrg?.name}
+              </p>
             </>
           ) : (
             <p className="mt-0.5 text-sm text-gray-500">
-              {issue.assignedToOrg ? `${issue.assignedToOrg.name} Queue` : 'Unassigned'}
+              {issue.assignedToDepartment
+                ? `${issue.assignedToDepartment.name} (${issue.assignedToOrg?.name || 'Org'})`
+                : issue.assignedToOrg
+                  ? `${issue.assignedToOrg.name} Queue`
+                  : 'Unassigned'}
             </p>
           )}
         </div>
@@ -511,15 +529,28 @@ export default function IssueDetail() {
           {issue && currentUser && (
             (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organization.id) ? null :
             (isCurrentAssignee && currentUser.role === 'USER') ? null :
-            <label className="flex items-center gap-1.5 text-sm">
-              <input
-                type="radio"
-                name="assignTarget"
-                checked={assignTarget === 'org'}
-                onChange={() => setAssignTarget('org')}
-              />
-              Route to org
-            </label>
+            <>
+              <label className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="radio"
+                  name="assignTarget"
+                  checked={assignTarget === 'org'}
+                  onChange={() => setAssignTarget('org')}
+                />
+                Route to org
+              </label>
+              {issue.projectId && projectDepts && projectDepts.length > 0 && (
+                <label className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="radio"
+                    name="assignTarget"
+                    checked={assignTarget === 'dept'}
+                    onChange={() => setAssignTarget('dept')}
+                  />
+                  Route to dept
+                </label>
+              )}
+            </>
           )}
 
           {assignTarget === 'user' && (
@@ -566,13 +597,37 @@ export default function IssueDetail() {
             </select>
           )}
 
+          {assignTarget === 'dept' && (
+            <select
+              value={assignDeptId}
+              onChange={(e) => setAssignDeptId(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Select department...</option>
+              {(projectDepts || [])
+                .filter((pd: ProjectDept) => {
+                  if (!currentUser || !issue) return true;
+                  if (currentUser.role === 'ORG_ADMIN') {
+                    return pd.department.organizationId === currentUser.organizationId;
+                  }
+                  return true;
+                })
+                .map((pd: ProjectDept) => (
+                <option key={pd.department.id} value={pd.department.id}>
+                  {pd.department.name}
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={() => {
               if (assignTarget === 'user' && !assignUserId) return;
               if (assignTarget === 'org' && !assignOrgId) return;
+              if (assignTarget === 'dept' && !assignDeptId) return;
               setShowAssignConfirm(true);
             }}
-            disabled={(assignTarget === 'user' && !assignUserId) || (assignTarget === 'org' && !assignOrgId)}
+            disabled={(assignTarget === 'user' && !assignUserId) || (assignTarget === 'org' && !assignOrgId) || (assignTarget === 'dept' && !assignDeptId)}
             className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             Assign
@@ -589,6 +644,9 @@ export default function IssueDetail() {
               )}
               {assignTarget === 'org' && assignOrgId && (
                 <> Route to organization queue: {(projectOrgs || []).find((po) => po.organization.id === assignOrgId)?.organization.name}</>
+              )}
+              {assignTarget === 'dept' && assignDeptId && (
+                <> Route to department: {(projectDepts || []).find((pd) => pd.department.id === assignDeptId)?.department.name}</>
               )}
             </p>
             <div className="mt-2 flex gap-2">
