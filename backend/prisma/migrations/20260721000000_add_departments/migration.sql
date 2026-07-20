@@ -46,6 +46,10 @@ CREATE UNIQUE INDEX "department_managers_department_id_user_id_key" ON "departme
 -- CreateIndex
 CREATE UNIQUE INDEX "project_departments_project_id_department_id_key" ON "project_departments"("project_id", "department_id");
 
+-- AlterTable: Add department_id to users and assigned_to_department_id to issues
+ALTER TABLE "users" ADD COLUMN "department_id" TEXT;
+ALTER TABLE "issues" ADD COLUMN "assigned_to_department_id" TEXT;
+
 -- CreateIndex
 CREATE INDEX "issues_assigned_to_department_id_idx" ON "issues"("assigned_to_department_id");
 

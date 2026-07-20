@@ -63,6 +63,17 @@ describe('ProjectsService', () => {
     issue: {
       updateMany: jest.fn(),
     },
+    department: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    projectDepartment: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn(),
+      createMany: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -197,7 +208,7 @@ describe('ProjectsService', () => {
       expect(mockPrisma.issue.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { projectId: 'p1' },
-          data: { projectId: null, assignedToUserId: null, assignedToOrgId: null },
+          data: { projectId: null, assignedToUserId: null, assignedToOrgId: null, assignedToDepartmentId: null },
         }),
       );
     });
