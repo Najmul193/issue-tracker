@@ -493,7 +493,6 @@ export class ProjectsService {
       where: { projectId },
       include: {
         department: {
-          select: { id: true, name: true, organizationId: true },
           include: { organization: { select: { id: true, name: true } } },
         },
       },
