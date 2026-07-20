@@ -11,6 +11,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { DepartmentsModule } from './modules/departments/departments.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
     AttachmentsModule,
     NotificationsModule,
     ProjectsModule,
+    DepartmentsModule,
   ],
   providers: [
     {
