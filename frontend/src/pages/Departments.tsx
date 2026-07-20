@@ -169,6 +169,9 @@ export default function Departments() {
                   Organization
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Managers
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Actions
                 </th>
               </tr>
@@ -181,6 +184,22 @@ export default function Departments() {
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                     {dept.organization?.name || '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                    {dept.managers && dept.managers.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {dept.managers.map((m) => (
+                          <span
+                            key={m.userId}
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700"
+                          >
+                            {m.user.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm">
                     <div className="flex gap-2">

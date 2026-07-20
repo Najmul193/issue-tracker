@@ -10,6 +10,7 @@ export interface Department {
 
 export interface DepartmentWithOrg extends Department {
   organization?: { id: string; name: string; type: string };
+  managers?: { id: string; userId: string; user: { id: string; name: string; email: string } }[];
 }
 
 export interface DepartmentManager {
