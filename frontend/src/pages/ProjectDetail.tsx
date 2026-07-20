@@ -412,7 +412,7 @@ export default function ProjectDetail() {
                       <td className="px-4 py-2 text-sm font-medium text-gray-900">{pu.user.name}</td>
                       <td className="px-4 py-2 text-sm text-gray-500">{pu.user.email}</td>
                       <td className="px-4 py-2 text-sm text-gray-500">{pu.user.organization.name}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500">{pu.user.department?.name || (pu.user.role === 'ORG_ADMIN' ? 'Admin Department' : '—')}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500">{pu.user.role === 'ORG_ADMIN' ? 'Admin Department' : (pu.user.department?.name || '—')}</td>
                       <td className="px-4 py-2 text-sm text-gray-500">{roleLabels[pu.user.role] || pu.user.role}</td>
                       {(isSuperAdmin || (isOrgAdmin && pu.user.organization.id === currentUser?.organizationId)) && (
                         <td className="px-4 py-2 text-right">
