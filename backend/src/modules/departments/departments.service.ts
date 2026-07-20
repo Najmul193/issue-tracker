@@ -179,6 +179,10 @@ export class DepartmentsService {
       throw new ForbiddenException('User must belong to the same organization as the department');
     }
 
+    if (user.departmentId !== id) {
+      throw new BadRequestException('User must belong to this department to be a manager');
+    }
+
     if (user.status !== 'ACTIVE') {
       throw new BadRequestException('Cannot add inactive user as manager');
     }

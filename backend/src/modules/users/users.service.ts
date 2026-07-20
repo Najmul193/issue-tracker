@@ -124,10 +124,12 @@ export class UsersService {
         email: true,
         role: true,
         organizationId: true,
+        departmentId: true,
         status: true,
         phone: true,
         createdAt: true,
         organization: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
       },
     });
   }

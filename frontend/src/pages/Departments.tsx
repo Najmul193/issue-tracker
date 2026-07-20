@@ -109,7 +109,7 @@ export default function Departments() {
   });
 
   const orgUsers = users?.filter(
-    (u) => u.organizationId === managingDept?.organizationId && u.status === 'ACTIVE',
+    (u) => u.departmentId === managingDept?.id && u.status === 'ACTIVE',
   );
   const availableUsers = orgUsers?.filter(
     (u) => !managers.some((m) => m.userId === u.id),
