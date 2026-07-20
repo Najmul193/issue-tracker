@@ -366,6 +366,14 @@ export class IssuesService {
         throw new ForbiddenException('Invalid assignment request');
       }
     } else {
+      if (dto.targetDepartmentId && newTargetDepartment) {
+        if (newTargetDepartment.organizationId === issue.raisedByOrgId) {
+          throw new ForbiddenException(
+            'Cannot route to a department in the same organization as the issue raiser',
+          );
+        }
+      }
+
       const currentAssignedOrgId =
         issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
       this.authService.canAssign(

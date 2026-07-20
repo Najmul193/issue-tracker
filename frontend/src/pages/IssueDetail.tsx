@@ -607,10 +607,7 @@ export default function IssueDetail() {
               {(projectDepts || [])
                 .filter((pd: ProjectDept) => {
                   if (!currentUser || !issue) return true;
-                  if (currentUser.role === 'ORG_ADMIN') {
-                    return pd.department.organizationId === currentUser.organizationId;
-                  }
-                  return true;
+                  return pd.department.organizationId !== issue.raisedByOrg?.id;
                 })
                 .map((pd: ProjectDept) => (
                   <option key={pd.department.id} value={pd.department.id}>
