@@ -5,6 +5,8 @@ import {
   fetchDeletedUsers, fetchDeletedOrganizations, permanentDeleteUser, permanentDeleteOrganization,
 } from '../api/users';
 import type { UserListItem, CreateUserData, UpdateUserData, UserOrg, DeletedUser, DeletedOrg } from '../api/users';
+import { fetchDepartments } from '../api/departments';
+import type { DepartmentWithOrg } from '../api/departments';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
@@ -37,12 +39,14 @@ export default function Users() {
   const [formOrgId, setFormOrgId] = useState('');
   const [formNewOrgName, setFormNewOrgName] = useState('');
   const [formNewOrgType, setFormNewOrgType] = useState('CLIENT');
+  const [formDepartmentId, setFormDepartmentId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editStatus, setEditStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+  const [editDepartmentId, setEditDepartmentId] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
 
   // Delete confirmation state
@@ -71,6 +75,12 @@ export default function Users() {
   const { data: orgs } = useQuery({
     queryKey: ['orgs-list'],
     queryFn: fetchOrganizations,
+  });
+
+  const { data: departments } = useQuery<DepartmentWithOrg[]>({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+    enabled: isAdmin,
   });
 
   const { data: deletedUsers } = useQuery({
@@ -172,6 +182,7 @@ export default function Users() {
     setFormOrgId(currentUser?.organizationId || '');
     setFormNewOrgName('');
     setFormNewOrgType('CLIENT');
+    setFormDepartmentId('');
     setFormError(null);
     setShowCreateModal(true);
   }
@@ -199,6 +210,7 @@ export default function Users() {
         phone: formPhone.trim() || undefined,
         role: 'USER',
         organizationId: currentUser.organizationId,
+        departmentId: formDepartmentId || undefined,
       });
       return;
     }
@@ -226,6 +238,7 @@ export default function Users() {
       phone: formPhone.trim() || undefined,
       role: formRole,
       organizationId: formOrgId,
+      departmentId: formDepartmentId || undefined,
     });
   }
 
@@ -233,6 +246,7 @@ export default function Users() {
     setEditName(u.name);
     setEditPhone(u.phone || '');
     setEditStatus(u.status);
+    setEditDepartmentId(u.departmentId || '');
     setEditError(null);
     setEditingUser(u);
   }
@@ -254,6 +268,7 @@ export default function Users() {
       data: {
         name: editName.trim(),
         phone: editPhone.trim() || undefined,
+        departmentId: editDepartmentId || null as any,
         ...(currentUser?.role === 'SUPER_ADMIN' ? { status: editStatus } : {}),
       },
     });
@@ -344,6 +359,7 @@ export default function Users() {
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Role</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Department</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Created</th>
               <th className="px-4 py-3" />
@@ -352,7 +368,7 @@ export default function Users() {
           <tbody className="divide-y divide-gray-100">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                   No users found.
                 </td>
               </tr>
@@ -363,6 +379,7 @@ export default function Users() {
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.email}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">{u.role.replace('_', ' ')}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.organization?.name || '—'}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.department?.name || '—'}</td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       u.status === 'ACTIVE'
@@ -533,6 +550,24 @@ export default function Users() {
                 </div>
               )}
 
+              {((isSuperAdmin && formOrgId && formOrgId !== NEW_ORG_VALUE) || isOrgAdmin) && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
+                  <select
+                    value={formDepartmentId}
+                    onChange={(e) => setFormDepartmentId(e.target.value)}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">None</option>
+                    {(departments || [])
+                      .filter((d) => isSuperAdmin ? d.organizationId === formOrgId : d.organizationId === currentUser?.organizationId)
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -594,6 +629,24 @@ export default function Users() {
                   className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+
+              {(isSuperAdmin || isOrgAdmin) && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
+                  <select
+                    value={editDepartmentId}
+                    onChange={(e) => setEditDepartmentId(e.target.value)}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">None</option>
+                    {(departments || [])
+                      .filter((d) => d.organizationId === editingUser?.organizationId)
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               {isSuperAdmin && (
                 <div>
