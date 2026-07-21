@@ -11,7 +11,8 @@ import {
   DepartmentWithOrg,
   DepartmentManager,
 } from '../api/departments';
-import { fetchUsers, UserListItem } from '../api/users';
+import { fetchUsers, fetchOrganizations, UserListItem } from '../api/users';
+import type { UserOrg } from '../api/users';
 import { ApiError } from '../api/client';
 
 export default function Departments() {
@@ -31,6 +32,12 @@ export default function Departments() {
   const { data: users } = useQuery<UserListItem[]>({
     queryKey: ['users-list'],
     queryFn: fetchUsers,
+    enabled: isAdmin,
+  });
+
+  const { data: orgs } = useQuery<UserOrg[]>({
+    queryKey: ['orgs-list'],
+    queryFn: fetchOrganizations,
     enabled: isAdmin,
   });
 
@@ -255,7 +262,11 @@ export default function Departments() {
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   >
                     <option value="">Select organization</option>
-                    {/* We'd need orgs list here; use a simple approach */}
+                    {(orgs || [])
+                      .filter((o) => o.type !== 'SUPER_ADMIN')
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
                   </select>
                 </div>
               )}

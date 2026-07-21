@@ -5,7 +5,7 @@ import {
   fetchDeletedUsers, fetchDeletedOrganizations, permanentDeleteUser, permanentDeleteOrganization,
 } from '../api/users';
 import type { UserListItem, CreateUserData, UpdateUserData, UserOrg, DeletedUser, DeletedOrg } from '../api/users';
-import { fetchDepartments } from '../api/departments';
+import { fetchDepartments, createDepartment } from '../api/departments';
 import type { DepartmentWithOrg } from '../api/departments';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
@@ -48,6 +48,12 @@ export default function Users() {
   const [editStatus, setEditStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [editDepartmentId, setEditDepartmentId] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Inline department creation state
+  const [showNewDeptForm, setShowNewDeptForm] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptError, setNewDeptError] = useState('');
+  const [newDeptTarget, setNewDeptTarget] = useState<'create' | 'edit'>('create');
 
   // Delete confirmation state
   const [deletingUser, setDeletingUser] = useState<UserListItem | null>(null);
@@ -173,6 +179,24 @@ export default function Users() {
     },
   });
 
+  const createDeptMutation = useMutation({
+    mutationFn: (data: { name: string; organizationId: string }) => createDepartment(data),
+    onSuccess: (newDept) => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      if (newDeptTarget === 'create') {
+        setFormDepartmentId(newDept.id);
+      } else {
+        setEditDepartmentId(newDept.id);
+      }
+      setShowNewDeptForm(false);
+      setNewDeptName('');
+      setNewDeptError('');
+    },
+    onError: (err) => {
+      setNewDeptError(err instanceof ApiError ? err.message : 'Failed to create department');
+    },
+  });
+
   function openCreateModal() {
     setFormName('');
     setFormEmail('');
@@ -184,12 +208,18 @@ export default function Users() {
     setFormNewOrgType('CLIENT');
     setFormDepartmentId('');
     setFormError(null);
+    setShowNewDeptForm(false);
+    setNewDeptName('');
+    setNewDeptError('');
     setShowCreateModal(true);
   }
 
   function closeCreateModal() {
     setShowCreateModal(false);
     setFormError(null);
+    setShowNewDeptForm(false);
+    setNewDeptName('');
+    setNewDeptError('');
   }
 
   function handleCreateSubmit(e: React.FormEvent) {
@@ -249,11 +279,17 @@ export default function Users() {
     setEditDepartmentId(u.departmentId || '');
     setEditError(null);
     setEditingUser(u);
+    setShowNewDeptForm(false);
+    setNewDeptName('');
+    setNewDeptError('');
   }
 
   function closeEditModal() {
     setEditingUser(null);
     setEditError(null);
+    setShowNewDeptForm(false);
+    setNewDeptName('');
+    setNewDeptError('');
   }
 
   function handleEditSubmit(e: React.FormEvent) {
@@ -501,6 +537,10 @@ export default function Users() {
                     onChange={(e) => {
                       setFormOrgId(e.target.value);
                       if (e.target.value !== NEW_ORG_VALUE) setFormNewOrgName('');
+                      setFormDepartmentId('');
+                      setShowNewDeptForm(false);
+                      setNewDeptName('');
+                      setNewDeptError('');
                     }}
                     className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
@@ -553,18 +593,79 @@ export default function Users() {
               {((isSuperAdmin && formOrgId && formOrgId !== NEW_ORG_VALUE) || isOrgAdmin) && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
-                  <select
-                    value={formDepartmentId}
-                    onChange={(e) => setFormDepartmentId(e.target.value)}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">None</option>
-                    {(departments || [])
-                      .filter((d) => isSuperAdmin ? d.organizationId === formOrgId : d.organizationId === currentUser?.organizationId)
-                      .map((d) => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                  </select>
+                  {!showNewDeptForm || newDeptTarget !== 'create' ? (
+                    <>
+                      <select
+                        value={formDepartmentId}
+                        onChange={(e) => {
+                          if (e.target.value === '__new_dept__') {
+                            setShowNewDeptForm(true);
+                            setNewDeptTarget('create');
+                            setNewDeptName('');
+                            setNewDeptError('');
+                          } else {
+                            setFormDepartmentId(e.target.value);
+                          }
+                        }}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">None</option>
+                        {(departments || [])
+                          .filter((d) => isSuperAdmin ? d.organizationId === formOrgId : d.organizationId === currentUser?.organizationId)
+                          .map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        <option value="__new_dept__">+ New Department</option>
+                      </select>
+                    </>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newDeptName}
+                        onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(''); }}
+                        placeholder="Department name"
+                        className="block flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newDeptName.trim()) {
+                              const orgId = isSuperAdmin ? formOrgId : currentUser?.organizationId;
+                              if (orgId) createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: orgId });
+                            } else {
+                              setNewDeptError('Department name is required');
+                            }
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        disabled={createDeptMutation.isPending || !newDeptName.trim()}
+                        onClick={() => {
+                          if (newDeptName.trim()) {
+                            const orgId = isSuperAdmin ? formOrgId : currentUser?.organizationId;
+                            if (orgId) createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: orgId });
+                          } else {
+                            setNewDeptError('Department name is required');
+                          }
+                        }}
+                        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {createDeptMutation.isPending ? 'Creating...' : 'Create'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewDeptForm(false); setNewDeptName(''); setNewDeptError(''); }}
+                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {newDeptError && newDeptTarget === 'create' && (
+                    <p className="mt-1 text-xs text-red-600">{newDeptError}</p>
+                  )}
                 </div>
               )}
 
@@ -633,18 +734,77 @@ export default function Users() {
               {(isSuperAdmin || isOrgAdmin) && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
-                  <select
-                    value={editDepartmentId}
-                    onChange={(e) => setEditDepartmentId(e.target.value)}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">None</option>
-                    {(departments || [])
-                      .filter((d) => d.organizationId === editingUser?.organizationId)
-                      .map((d) => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                  </select>
+                  {!showNewDeptForm || newDeptTarget !== 'edit' ? (
+                    <>
+                      <select
+                        value={editDepartmentId}
+                        onChange={(e) => {
+                          if (e.target.value === '__new_dept__') {
+                            setShowNewDeptForm(true);
+                            setNewDeptTarget('edit');
+                            setNewDeptName('');
+                            setNewDeptError('');
+                          } else {
+                            setEditDepartmentId(e.target.value);
+                          }
+                        }}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">None</option>
+                        {(departments || [])
+                          .filter((d) => d.organizationId === editingUser?.organizationId)
+                          .map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        <option value="__new_dept__">+ New Department</option>
+                      </select>
+                    </>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newDeptName}
+                        onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(''); }}
+                        placeholder="Department name"
+                        className="block flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newDeptName.trim() && editingUser) {
+                              createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: editingUser.organizationId });
+                            } else {
+                              setNewDeptError('Department name is required');
+                            }
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        disabled={createDeptMutation.isPending || !newDeptName.trim()}
+                        onClick={() => {
+                          if (newDeptName.trim() && editingUser) {
+                            createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: editingUser.organizationId });
+                          } else {
+                            setNewDeptError('Department name is required');
+                          }
+                        }}
+                        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {createDeptMutation.isPending ? 'Creating...' : 'Create'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewDeptForm(false); setNewDeptName(''); setNewDeptError(''); }}
+                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {newDeptError && newDeptTarget === 'edit' && (
+                    <p className="mt-1 text-xs text-red-600">{newDeptError}</p>
+                  )}
                 </div>
               )}
 
