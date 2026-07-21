@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { fetchProjects, createProject } from '../api/projects';
 import type { CreateProjectData } from '../api/projects';
 import { fetchOrganizations } from '../api/users';
+import { fetchDepartments } from '../api/departments';
+import type { Department } from '../api/departments';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
@@ -37,6 +39,14 @@ export default function Projects() {
     enabled: showCreate,
   });
 
+  const { data: allDepts = [] } = useQuery<Department[]>({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+    enabled: showCreate,
+  });
+
+  const [selectedDeptIds, setSelectedDeptIds] = useState<Record<string, string[]>>({});
+
   const createMutation = useMutation({
     mutationFn: (data: CreateProjectData) => createProject(data),
     onSuccess: (project) => {
@@ -45,6 +55,7 @@ export default function Projects() {
       setName('');
       setDescription('');
       setSelectedOrgIds([]);
+      setSelectedDeptIds({});
       navigate(`/projects/${project.id}`);
     },
     onError: (err) => {
@@ -61,9 +72,30 @@ export default function Projects() {
   const oems = (allOrgs || []).filter((o) => o.type === 'OEM');
 
   function toggleOrg(orgId: string) {
-    setSelectedOrgIds((prev) =>
-      prev.includes(orgId) ? prev.filter((id) => id !== orgId) : [...prev, orgId],
-    );
+    setSelectedOrgIds((prev) => {
+      const next = prev.includes(orgId) ? prev.filter((id) => id !== orgId) : [...prev, orgId];
+      return next;
+    });
+    setSelectedDeptIds((prev) => {
+      const next = { ...prev };
+      if (selectedOrgIds.includes(orgId)) {
+        delete next[orgId];
+      } else {
+        const orgDepts = allDepts.filter((d) => d.organizationId === orgId);
+        next[orgId] = orgDepts.map((d) => d.id);
+      }
+      return next;
+    });
+  }
+
+  function toggleDept(orgId: string, deptId: string) {
+    setSelectedDeptIds((prev) => {
+      const current = prev[orgId] || [];
+      const next = current.includes(deptId)
+        ? current.filter((id) => id !== deptId)
+        : [...current, deptId];
+      return { ...prev, [orgId]: next };
+    });
   }
 
   function handleCreate() {
@@ -85,10 +117,13 @@ export default function Projects() {
       return;
     }
 
+    const allDeptIds = Object.values(selectedDeptIds).flat();
+
     createMutation.mutate({
       name: trimmedName,
       description: description.trim() || undefined,
       organizationIds: selectedOrgIds,
+      departmentIds: allDeptIds.length > 0 ? allDeptIds : undefined,
     });
   }
 
@@ -139,61 +174,127 @@ export default function Projects() {
                 Organizations * (at least one of each type: Client, SI, OEM)
               </label>
               {clients.length > 0 && (
-                <div className="mb-2">
+                <div className="mb-3">
                   <p className="text-xs font-medium text-gray-500 mb-1">Client</p>
                   <div className="flex flex-wrap gap-2">
                     {clients.map((org) => (
-                      <button
-                        key={org.id}
-                        onClick={() => toggleOrg(org.id)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                          selectedOrgIds.includes(org.id)
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                        }`}
-                      >
-                        {org.name}
-                      </button>
+                      <div key={org.id} className="flex flex-col gap-1">
+                        <button
+                          onClick={() => toggleOrg(org.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                            selectedOrgIds.includes(org.id)
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                          }`}
+                        >
+                          {org.name}
+                        </button>
+                        {selectedOrgIds.includes(org.id) && allDepts.filter((d) => d.organizationId === org.id).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pl-2">
+                            {allDepts.filter((d) => d.organizationId === org.id).map((dept) => {
+                              const isSelected = selectedDeptIds[org.id]?.includes(dept.id) ?? true;
+                              return (
+                                <button
+                                  key={dept.id}
+                                  type="button"
+                                  onClick={() => toggleDept(org.id, dept.id)}
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                                    isSelected
+                                      ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                      : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-blue-300'
+                                  }`}
+                                >
+                                  {dept.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
               {sis.length > 0 && (
-                <div className="mb-2">
+                <div className="mb-3">
                   <p className="text-xs font-medium text-gray-500 mb-1">SI</p>
                   <div className="flex flex-wrap gap-2">
                     {sis.map((org) => (
-                      <button
-                        key={org.id}
-                        onClick={() => toggleOrg(org.id)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                          selectedOrgIds.includes(org.id)
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
-                        }`}
-                      >
-                        {org.name}
-                      </button>
+                      <div key={org.id} className="flex flex-col gap-1">
+                        <button
+                          onClick={() => toggleOrg(org.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                            selectedOrgIds.includes(org.id)
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                          }`}
+                        >
+                          {org.name}
+                        </button>
+                        {selectedOrgIds.includes(org.id) && allDepts.filter((d) => d.organizationId === org.id).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pl-2">
+                            {allDepts.filter((d) => d.organizationId === org.id).map((dept) => {
+                              const isSelected = selectedDeptIds[org.id]?.includes(dept.id) ?? true;
+                              return (
+                                <button
+                                  key={dept.id}
+                                  type="button"
+                                  onClick={() => toggleDept(org.id, dept.id)}
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                                    isSelected
+                                      ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                      : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-purple-300'
+                                  }`}
+                                >
+                                  {dept.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
               {oems.length > 0 && (
-                <div className="mb-2">
+                <div className="mb-3">
                   <p className="text-xs font-medium text-gray-500 mb-1">OEM</p>
                   <div className="flex flex-wrap gap-2">
                     {oems.map((org) => (
-                      <button
-                        key={org.id}
-                        onClick={() => toggleOrg(org.id)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                          selectedOrgIds.includes(org.id)
-                            ? 'bg-amber-600 text-white border-amber-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-amber-400'
-                        }`}
-                      >
-                        {org.name}
-                      </button>
+                      <div key={org.id} className="flex flex-col gap-1">
+                        <button
+                          onClick={() => toggleOrg(org.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                            selectedOrgIds.includes(org.id)
+                              ? 'bg-amber-600 text-white border-amber-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-amber-400'
+                          }`}
+                        >
+                          {org.name}
+                        </button>
+                        {selectedOrgIds.includes(org.id) && allDepts.filter((d) => d.organizationId === org.id).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pl-2">
+                            {allDepts.filter((d) => d.organizationId === org.id).map((dept) => {
+                              const isSelected = selectedDeptIds[org.id]?.includes(dept.id) ?? true;
+                              return (
+                                <button
+                                  key={dept.id}
+                                  type="button"
+                                  onClick={() => toggleDept(org.id, dept.id)}
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                                    isSelected
+                                      ? 'bg-amber-100 text-amber-700 border-amber-300'
+                                      : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-300'
+                                  }`}
+                                >
+                                  {dept.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

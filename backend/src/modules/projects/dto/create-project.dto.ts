@@ -21,4 +21,9 @@ export class CreateProjectDto {
   @ArrayMinSize(3)
   @IsString({ each: true })
   organizationIds: string[];
+
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  departmentIds?: string[];
 }

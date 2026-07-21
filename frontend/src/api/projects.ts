@@ -42,6 +42,7 @@ export interface CreateProjectData {
   name: string;
   description?: string;
   organizationIds: string[];
+  departmentIds?: string[];
 }
 
 export async function fetchProjects(): Promise<Project[]> {

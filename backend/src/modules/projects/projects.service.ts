@@ -14,7 +14,7 @@ export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
-    dto: { name: string; description?: string; organizationIds: string[] },
+    dto: { name: string; description?: string; organizationIds: string[]; departmentIds?: string[] },
     actor: JwtPayload,
   ) {
     if (actor.role !== 'SUPER_ADMIN') {
@@ -86,11 +86,27 @@ export class ProjectsService {
 
     const allOrgDepts = await this.prisma.department.findMany({
       where: { organizationId: { in: dto.organizationIds } },
-      select: { id: true },
+      select: { id: true, organizationId: true },
     });
-    if (allOrgDepts.length > 0) {
+
+    let deptsToAdd: { id: string }[];
+
+    if (dto.departmentIds && dto.departmentIds.length > 0) {
+      const selectedOrgDeptIds = new Set(allOrgDepts.map((d) => d.id));
+      const invalidDeptIds = dto.departmentIds.filter((id) => !selectedOrgDeptIds.has(id));
+      if (invalidDeptIds.length > 0) {
+        throw new BadRequestException(
+          'One or more departments do not belong to the selected organizations',
+        );
+      }
+      deptsToAdd = dto.departmentIds.map((id) => ({ id }));
+    } else {
+      deptsToAdd = allOrgDepts;
+    }
+
+    if (deptsToAdd.length > 0) {
       await this.prisma.projectDepartment.createMany({
-        data: allOrgDepts.map((d) => ({
+        data: deptsToAdd.map((d) => ({
           projectId: project.id,
           departmentId: d.id,
         })),
