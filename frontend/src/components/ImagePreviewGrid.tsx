@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchAttachmentPreview } from '../api/issues';
 import type { Attachment } from '../api/issues';
 
@@ -21,11 +21,13 @@ function formatFileSize(bytes: number): string {
 export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps) {
   const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const blobUrlsRef = useRef<Map<string, string>>(new Map());
 
   const loadPreview = useCallback(async (att: Attachment) => {
     setPreviews((prev) => ({ ...prev, [att.id]: { url: null, loading: true, error: false } }));
     try {
       const url = await fetchAttachmentPreview(att.id);
+      blobUrlsRef.current.set(att.id, url);
       setPreviews((prev) => ({ ...prev, [att.id]: { url, loading: false, error: false } }));
     } catch {
       setPreviews((prev) => ({ ...prev, [att.id]: { url: null, loading: false, error: true } }));
@@ -34,7 +36,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
 
   useEffect(() => {
     for (const att of attachments) {
-      if (!previews[att.id]) {
+      if (!previews[att.id] && !blobUrlsRef.current.has(att.id)) {
         loadPreview(att);
       }
     }
@@ -42,11 +44,12 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
 
   useEffect(() => {
     return () => {
-      for (const state of Object.values(previews)) {
-        if (state.url) URL.revokeObjectURL(state.url);
+      for (const url of blobUrlsRef.current.values()) {
+        URL.revokeObjectURL(url);
       }
+      blobUrlsRef.current.clear();
     };
-  }, [previews]);
+  }, []);
 
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
