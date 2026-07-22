@@ -54,6 +54,15 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
 
   useEffect(() => {
     if (lightboxIndex === null) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [lightboxIndex]);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowLeft') setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : i));
@@ -105,12 +114,17 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
                     </span>
                   </div>
                 )}
-                {url && (
+                {url && !hasError && (
                   <img
                     src={url}
                     alt={att.fileName}
                     className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
                     draggable={false}
+                    onError={() => {
+                      setErrors((prev) => ({ ...prev, [att.id]: true }));
+                      URL.revokeObjectURL(url);
+                      blobUrlsRef.current.delete(att.id);
+                    }}
                   />
                 )}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -148,6 +162,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
             className="max-h-[90vh] max-w-[90vw] object-contain"
             onClick={(e) => e.stopPropagation()}
             draggable={false}
+            onError={closeLightbox}
           />
           {lightboxIndex < attachments.length - 1 && (
             <button
