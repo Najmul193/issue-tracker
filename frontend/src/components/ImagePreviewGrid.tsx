@@ -1,15 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchAttachmentPreview } from '../api/issues';
 import type { Attachment } from '../api/issues';
 
 interface ImagePreviewGridProps {
   attachments: Attachment[];
-}
-
-interface PreviewState {
-  url: string | null;
-  loading: boolean;
-  error: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -19,28 +13,32 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps) {
-  const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
+  const [previews, setPreviews] = useState<Record<string, string | null>>({});
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const initiatedRef = useRef<Set<string>>(new Set());
   const blobUrlsRef = useRef<Map<string, string>>(new Map());
-
-  const loadPreview = useCallback(async (att: Attachment) => {
-    setPreviews((prev) => ({ ...prev, [att.id]: { url: null, loading: true, error: false } }));
-    try {
-      const url = await fetchAttachmentPreview(att.id);
-      blobUrlsRef.current.set(att.id, url);
-      setPreviews((prev) => ({ ...prev, [att.id]: { url, loading: false, error: false } }));
-    } catch {
-      setPreviews((prev) => ({ ...prev, [att.id]: { url: null, loading: false, error: true } }));
-    }
-  }, []);
 
   useEffect(() => {
     for (const att of attachments) {
-      if (!previews[att.id] && !blobUrlsRef.current.has(att.id)) {
-        loadPreview(att);
-      }
+      if (initiatedRef.current.has(att.id)) continue;
+      initiatedRef.current.add(att.id);
+
+      setLoading((prev) => ({ ...prev, [att.id]: true }));
+
+      fetchAttachmentPreview(att.id)
+        .then((url) => {
+          blobUrlsRef.current.set(att.id, url);
+          setPreviews((prev) => ({ ...prev, [att.id]: url }));
+          setLoading((prev) => ({ ...prev, [att.id]: false }));
+        })
+        .catch(() => {
+          setErrors((prev) => ({ ...prev, [att.id]: true }));
+          setLoading((prev) => ({ ...prev, [att.id]: false }));
+        });
     }
-  }, [attachments, loadPreview, previews]);
+  }, [attachments]);
 
   useEffect(() => {
     return () => {
@@ -48,10 +46,11 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
         URL.revokeObjectURL(url);
       }
       blobUrlsRef.current.clear();
+      initiatedRef.current.clear();
     };
   }, []);
 
-  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
+  const closeLightbox = () => setLightboxIndex(null);
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -65,7 +64,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [lightboxIndex, attachments.length, closeLightbox]);
+  }, [lightboxIndex, attachments.length]);
 
   if (attachments.length === 0) return null;
 
@@ -83,19 +82,22 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
       <div className="max-h-[400px] overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
         <div className={`grid ${gridCols} gap-2`}>
           {attachments.map((att, idx) => {
-            const state = previews[att.id];
+            const url = previews[att.id] ?? null;
+            const isLoading = loading[att.id] ?? false;
+            const hasError = errors[att.id] ?? false;
+
             return (
               <div
                 key={att.id}
                 className="group relative flex aspect-video cursor-pointer items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-white"
-                onClick={() => setLightboxIndex(idx)}
+                onClick={() => url && setLightboxIndex(idx)}
               >
-                {state?.loading && (
+                {isLoading && (
                   <div className="flex h-full w-full items-center justify-center">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
                   </div>
                 )}
-                {state?.error && (
+                {hasError && (
                   <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
                     <span className="text-xs text-gray-400">Preview unavailable</span>
                     <span className="mt-1 max-w-full truncate text-xs font-medium text-gray-600">
@@ -103,9 +105,9 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
                     </span>
                   </div>
                 )}
-                {state?.url && (
+                {url && (
                   <img
-                    src={state.url}
+                    src={url}
                     alt={att.fileName}
                     className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
                     draggable={false}
@@ -121,7 +123,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
         </div>
       </div>
 
-      {lightboxIndex !== null && previews[attachments[lightboxIndex].id]?.url && (
+      {lightboxIndex !== null && previews[attachments[lightboxIndex].id] && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
           onClick={closeLightbox}
@@ -140,7 +142,8 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
             </button>
           )}
           <img
-            src={previews[attachments[lightboxIndex].id]!.url!}
+            key={attachments[lightboxIndex].id}
+            src={previews[attachments[lightboxIndex].id]!}
             alt={attachments[lightboxIndex].fileName}
             className="max-h-[90vh] max-w-[90vw] object-contain"
             onClick={(e) => e.stopPropagation()}
