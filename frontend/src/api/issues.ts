@@ -249,3 +249,16 @@ export async function addComment(
 export async function deleteIssue(id: string): Promise<void> {
   await apiDelete<void>(`/issues/${id}`);
 }
+
+export async function fetchAttachmentPreview(attachmentId: string): Promise<string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const response = await fetch(
+    `${getBaseUrl()}/attachments/${attachmentId}/preview`,
+    { credentials: 'include', headers },
+  );
+  if (!response.ok) throw new Error('Preview failed');
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
