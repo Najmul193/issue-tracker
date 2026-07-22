@@ -10,6 +10,7 @@ import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
 import StatusBadge from '../components/StatusBadge';
+import ImagePreviewGrid from '../components/ImagePreviewGrid';
 import { ApiError, getBaseUrl, getAuthToken } from '../api/client';
 
 /*
@@ -672,26 +673,44 @@ export default function IssueDetail() {
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
             Attachments ({issue.attachments.length})
           </h3>
-          <ul className="space-y-2">
-            {issue.attachments.map((att, idx) => (
-              <li key={att.id} className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm text-gray-400">
-                    {att.fileType.startsWith('image/') ? '🖼' : '📎'}
-                  </span>
-                  <span className="truncate text-sm font-medium text-gray-700">{att.fileName}</span>
-                  <span className="shrink-0 text-xs text-gray-400">{formatFileSize(att.fileSize)}</span>
-                </div>
-                <button
-                  onClick={() => downloadMutation.mutate({ attachmentId: att.id, issueId: issue.id, index: idx + 1 })}
-                  disabled={downloadMutation.isPending}
-                  className="shrink-0 ml-2 text-xs font-medium text-blue-600 hover:text-blue-700"
-                >
-                  Download
-                </button>
-              </li>
-            ))}
-          </ul>
+
+          {(() => {
+            const imageAtts = issue.attachments.filter((a) => a.fileType === 'image/jpeg' || a.fileType === 'image/png');
+            const otherAtts = issue.attachments.filter((a) => a.fileType !== 'image/jpeg' && a.fileType !== 'image/png');
+
+            return (
+              <>
+                {imageAtts.length > 0 && (
+                  <div className="mb-3">
+                    <ImagePreviewGrid attachments={imageAtts} />
+                  </div>
+                )}
+                {otherAtts.length > 0 && (
+                  <ul className="space-y-2">
+                    {otherAtts.map((att) => (
+                      <li key={att.id} className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm text-gray-400">📎</span>
+                          <span className="truncate text-sm font-medium text-gray-700">{att.fileName}</span>
+                          <span className="shrink-0 text-xs text-gray-400">{formatFileSize(att.fileSize)}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const idx = issue.attachments.indexOf(att);
+                            downloadMutation.mutate({ attachmentId: att.id, issueId: issue.id, index: idx + 1 });
+                          }}
+                          disabled={downloadMutation.isPending}
+                          className="shrink-0 ml-2 text-xs font-medium text-blue-600 hover:text-blue-700"
+                        >
+                          Download
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
