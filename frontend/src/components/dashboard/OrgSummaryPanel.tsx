@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import type { OrgSummary } from '../../api/dashboard';
 
 interface Props {
