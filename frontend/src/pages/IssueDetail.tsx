@@ -604,12 +604,33 @@ export default function IssueDetail() {
         </div>
       )}
 
-      {/* Assign/Reassign Control — raiser's org, current assignee, or ORG_ADMIN of the assigned org (not SUPER_ADMIN) */}
-      {issue.status !== 'CLOSED' && currentUser && currentUser.role !== 'SUPER_ADMIN' && (
-        issue.raisedByOrg.id === currentUser.organizationId ||
-        issue.assignedToUserId === currentUser.id ||
-        (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organizationId)
-      ) && (
+      {/* Assign/Reassign Control */}
+      {(() => {
+        if (issue.status === 'CLOSED' || !currentUser) return null;
+        if (currentUser.role === 'SUPER_ADMIN') return null;
+        
+        const isAssigned = !!(issue.assignedToUserId || issue.assignedToOrgId || issue.assignedToDepartmentId);
+        const isRaiserOrg = issue.raisedByOrg.id === currentUser.organizationId;
+        const isRaiserAdmin = isRaiserOrg && currentUser.role === 'ORG_ADMIN';
+        const isRaiserNormal = isRaiserOrg && currentUser.role === 'USER';
+        
+        let canAssign = false;
+        
+        if (currentUser.organization.type === 'SI') {
+          canAssign = true;
+        } else if (isRaiserAdmin) {
+          canAssign = true;
+        } else if (isRaiserNormal && !isAssigned) {
+          canAssign = true;
+        } else if (issue.assignedToUserId === currentUser.id) {
+          canAssign = true;
+        } else if (currentUser.role === 'ORG_ADMIN' && (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId) === currentUser.organizationId) {
+          canAssign = true;
+        }
+
+        if (!canAssign) return null;
+
+        return (
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
           Assign / Reassign
@@ -766,8 +787,9 @@ export default function IssueDetail() {
             </div>
           </div>
         )}
-      </div>
-      )}
+        </div>
+        );
+      })()}
 
       {/* Attachments — always visible and downloadable */}
       {issue.attachments && issue.attachments.length > 0 && (

@@ -61,6 +61,7 @@ export class AuthService {
     raisedByOrgId?: string | null,
     targetUserOrgType?: string,
     targetOrgType?: string,
+    isAlreadyAssigned?: boolean,
   ): void {
     // SUPER_ADMIN cannot assign issues
     if (actor.role === 'SUPER_ADMIN') {
@@ -156,10 +157,17 @@ export class AuthService {
         return;
       }
 
-      // If not the assignee, only users in the raiser's org can reroute
+      // If not the assignee, only users in the raiser's org can route it INITIALLY
       if (raisedByOrgId !== actor.organizationId) {
         throw new ForbiddenException(
-          'Only the assignee or users from the raising organization can reroute this issue',
+          'Only the assignee or users from the raising organization can route this issue',
+        );
+      }
+      
+      // If it is already assigned, normal users cannot reassign it (unless they are the assignee, handled above)
+      if (isAlreadyAssigned) {
+        throw new ForbiddenException(
+          'Normal users cannot reassign an issue once it has been assigned. Please contact your org admin.',
         );
       }
 

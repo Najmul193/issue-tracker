@@ -361,6 +361,8 @@ export class IssuesService {
 
     const currentAssignedOrgId =
       issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+    const isAlreadyAssigned = !!(issue.assignedToUserId || issue.assignedToOrgId || issue.assignedToDepartmentId);
+
     this.authService.canAssign(
       actor,
       dto.targetUserId ?? null,
@@ -372,6 +374,7 @@ export class IssuesService {
       issue.raisedByOrgId,
       newTargetUser?.organization?.type,
       resolvedTargetOrg?.type,
+      isAlreadyAssigned,
     );
 
     const oldTargetUser = issue.assignedToUserId
