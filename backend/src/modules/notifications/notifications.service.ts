@@ -566,7 +566,7 @@ export class NotificationsService {
       where: {
         ...visibilityFilter,
         assignedToUserId: actor.userId,
-        status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+        status: { notIn: ['CLOSED'] as any },
       },
       orderBy: { deadline: 'asc' },
       take: 5,
