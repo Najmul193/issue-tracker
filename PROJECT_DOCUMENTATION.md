@@ -112,47 +112,48 @@ Departments subdivide organizations (e.g., IT Department). Each organization sta
 Issues traverse a defined state machine with enforced transition rules:
 
 ```
-                   ┌──────────────────────────────────────────────┐
-                   │                    NEW                       │
-                   └────┬──────────────┬──────────────────────────┘
-                        │              │
-                        ▼              ▼
-               ┌──────────────┐  ┌──────────┐
-               │ ACKNOWLEDGED │  │ ASSIGNED │
-               └──────┬───────┘  └────┬─────┘
-                      │               │
-                      └───────┬───────┘
-                              ▼
-                      ┌──────────────┐
-                      │  IN_PROGRESS │
-                      └──────┬───────┘
-                             │
-                             ▼
-                      ┌──────────────┐
-                      │   RESOLVED   │◄──── Resolution note required
-                      └──────┬───────┘
-                            / \
-                           /   \
-                          ▼     ▼
-                   ┌────────┐  ┌──────────┐
-                   │VERIFIED│  │ REOPENED │◄──── Comment required
-                   └───┬────┘  └────┬─────┘
-                       │            │
-                       ▼            │
-                 ┌────────┐         │
-                 │ CLOSED │         └──────────► IN_PROGRESS
-                 └───┬────┘            (re-entry)
-                     │
-                     └──────► REOPENED
-                  (raiser's org
-                   admin only)
+                               ┌──────┐
+                               │ NEW  │
+                               └──┬───┘
+                                  │
+                                  ▼
+                        ┌───────────────────┐
+      ┌────────────────►│   UNDER_REVIEW    │◄───────────────┐
+      │                 └─┬───────────────┬─┘                │
+      │                   │               │                  │
+      │                   ▼               ▼                  │
+┌─────┴──────────┐  ┌──────────┐    ┌────────────┐     ┌─────┴────────┐
+│CLARIFICATION_  │  │ ASSIGNED │    │ CLOSED     │     │ CLOSED       │
+│REQUESTED       │◄─┤          │    └────────────┘     └──────────────┘
+└─────┬──────────┘  └─────┬────┘          ▲                  ▲
+      │                   │               │                  │
+      │                   ▼               │                  │
+      │             ┌───────────┐         │                  │
+      └────────────►│IN_PROGRESS│         │                  │
+                    └─────┬─────┘         │                  │
+                          │               │                  │
+                          ▼               │                  │
+                    ┌───────────┐         │                  │
+                    │ SI_REVIEW │         │                  │
+                    └─────┬─────┘         │                  │
+                          │               │                  │
+                          ▼               │                  │
+             ┌─────────────────────────┐  │                  │
+             │ PENDING_CLIENT_APPROVAL ├──┘                  │
+             └─────────────────────────┘                     │
+                          │                                  │
+                          └──────────────────────────────────┘
 ```
 
 **Transition Rules:**
-- **CLOSED → REOPENED** — Only an `ORG_ADMIN` in the issue creator's organization or a `SUPER_ADMIN` can reopen a closed issue.
-- **Verify / Close** — Only the issue creator (raised-by user) or an `ORG_ADMIN` in the creator's organization can transition to `VERIFIED` or `CLOSED`. The resolver (assigned user/org) cannot.
-- **Reopened assignment** — When assigned, a `REOPENED` issue auto-transitions to `ASSIGNED`.
-- **Resolution note** required for `RESOLVED`. **Comment** required for `REOPENED`.
+- **NEW → UNDER_REVIEW** — Handled by SI Team to review the issue initially.
+- **UNDER_REVIEW → CLARIFICATION_REQUESTED** — SI Team can request more details from the client.
+- **IN_PROGRESS → CLARIFICATION_REQUESTED** — Assignee can request clarification from the client while working on the issue.
+- **CLARIFICATION_REQUESTED → UNDER_REVIEW / IN_PROGRESS** — The issue creator or client org admin provides clarification, and the issue returns to the stage it came from.
+- **SI_REVIEW** — Only the SI (Data Edge) team can perform a review on issues resolved by the OEM.
+- **PENDING_CLIENT_APPROVAL → CLOSED** — Only the issue creator, client ORG_ADMIN, or SUPER_ADMIN can approve and close the issue.
+- **CLOSED → UNDER_REVIEW** — Reopening a closed issue sends it back to the SI Team for triage.
+- **Resolution note** required for `RESOLVED`. **Comment** required for `CLARIFICATION_REQUESTED`.
 
 **Issue Types:** `BUG` | `NEW_REQUIREMENT` | `CHANGE_REQUEST` | `QUERY`  
 **Priority Levels:** `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`
@@ -176,9 +177,9 @@ Issues traverse a defined state machine with enforced transition rules:
   - Reopened issues can be redistributed to outside orgs by raiser's org admin
   - Cross-org type restriction: cannot assign to an org of the same type as the actor's org
 - Full state machine enforcement with role-based transition authorization
-  - CLOSED → REOPENED restricted to raiser's org admin or SUPER_ADMIN
-  - VERIFY/CLOSE restricted to issue creator or creator's org admin
-- Resolution notes (required for RESOLVED) and re-open comments (required for REOPENED)
+  - CLOSED → UNDER_REVIEW restricted to raiser's org admin or SUPER_ADMIN
+  - PENDING_CLIENT_APPROVAL → CLOSED restricted to issue creator or creator's org admin
+- Resolution notes (required for RESOLVED) and clarification comments (required for CLARIFICATION_REQUESTED)
 - **Delete issue** — restricted to the issue creator, ORG_ADMIN of the creator's org, or SUPER_ADMIN
 
 #### Project Management

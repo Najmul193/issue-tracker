@@ -158,21 +158,22 @@ All roles (SUPER_ADMIN, ORG_ADMIN, USER) can create issues.
 #### Allowed Status Transitions
 
 ```
-NEW → Acknowledged, Assigned
-ACKNOWLEDGED → Assigned
+NEW → Under Review
+UNDER_REVIEW → Clarification Requested, Assigned
+CLARIFICATION_REQUESTED → Under Review, In Progress
 ASSIGNED → In Progress
-IN_PROGRESS → Resolved
-RESOLVED → Verified, Reopened
-VERIFIED → Closed, Reopened
-CLOSED → Reopened         (raiser's org admin or SUPER_ADMIN only)
-REOPENED → In Progress
+IN_PROGRESS → Resolved, Clarification Requested
+SI_REVIEW → Pending Client Approval, Assigned
+PENDING_CLIENT_APPROVAL → Closed, Assigned
+CLOSED → Under Review         (raiser's org admin or SUPER_ADMIN only)
 ```
 
-**Who can change status?** Any user whose organization matches the issue's raised-by organization OR assigned-to organization, OR who is the assigned user. SUPER_ADMIN can change any issue.
+**Who can change status?** Any user whose organization matches the issue's raised-by organization OR assigned-to organization, OR who is the assigned user, OR the SI (Data Edge) team acting as a central router. SUPER_ADMIN can change any issue.
 
 **Special rules:**
-- **Verify / Close**: Only the issue creator (raised-by user) or an ORG_ADMIN in the creator's organization can transition to VERIFIED or CLOSED. The resolver side (assigned user, assigned org) cannot verify or close.
-- **Reopen a closed issue**: Only an ORG_ADMIN in the issue creator's organization or a SUPER_ADMIN can reopen a closed issue. Regular users and other org admins cannot.
+- **Approve / Close**: Only the issue creator (raised-by user) or an ORG_ADMIN in the creator's organization can transition to CLOSED from PENDING_CLIENT_APPROVAL. The resolver side (assigned user, assigned org) cannot close.
+- **Reopen a closed issue**: Only an ORG_ADMIN in the issue creator's organization or a SUPER_ADMIN can reopen a closed issue by sending it back to UNDER_REVIEW. Regular users and other org admins cannot.
+- **SI Review**: Only the SI team can move issues from SI_REVIEW to PENDING_CLIENT_APPROVAL.
 
 ---
 
@@ -185,19 +186,20 @@ The assignment UI is available to all users on the Issue Detail page. Assignment
 - **To user** — pick a user from the dropdown
 - **To org** — route to an organization's queue (org admin reassigns internally)
 - **To dept** — route to a department in another organization (cross-org only; cannot route to own org's department)
-- Note: Reopened issues are auto-set to **ASSIGNED** on assignment
+- Note: Issues moved back from Closed to Under Review by SI admin or org admin can be assigned again.
 
 #### Who Can Assign to Whom
 
 | Actor | Can assign to |
 |-------|---------------|
-| **SUPER_ADMIN** | Cannot assign issues (full access to create, edit, delete, and change status, but assignment is restricted to ORG_ADMIN and USER roles) |
+| **SUPER_ADMIN** | Cannot assign issues (full access to create, edit, delete, and change status, but assignment is restricted to ORG_ADMIN, USER, and SI team) |
+| **SI Team (ORG_ADMIN / USER)** | Act as the central routing hub; can route to any organization. |
 | **ORG_ADMIN** | Users within their own org only; can route to any org |
-| **USER** | Users in **other** organizations only (cross-org routing); can route to any org |
+| **USER** | Can route to other organizations initially, but once assigned, they cannot reassign. |
 
 #### Cross-Org Type Restriction
 
-When assigning to a different organization, the target organization cannot be of the same type as the actor's organization. For example, a user in a CLIENT org cannot assign to another CLIENT org — only to SI or OEM orgs.
+When assigning to a different organization, the target organization cannot be of the same type as the actor's organization (except for SI). For example, a user in a CLIENT org cannot assign to another CLIENT org — only to SI or OEM orgs.
 
 #### Issue Detail View — Assignment Dropdown
 
@@ -206,7 +208,7 @@ The assignable users dropdown is context-aware:
 - **ORG_ADMIN with issue in their org queue**: sees only users within their own org
 - **ORG_ADMIN who raised the issue but it's assigned elsewhere**: sees only users outside their own org
 - **USER who is the current assignee**: sees only ORG_ADMINs in their own org (reroute to admin)
-- **USER from raiser's org**: sees users from other organizations only (cross-org)
+- **USER from raiser's org**: sees users from other organizations only (initial assignment only)
 - When the issue belongs to a project, only users from project member organizations are shown
 
 #### Assignee Reassignment (USER as current assignee)
@@ -217,13 +219,9 @@ If a USER is the current assignee of an issue, they can only reassign it to an *
 
 If an issue is currently routed to an organization queue (`assignedToOrgId` is set), any reassignment during the active lifecycle must stay within that org. The target user must belong to the same org, or the target org must match.
 
-#### Reopened Issue Redistribution
-
-After a closed issue is reopened by the raiser's ORG_ADMIN, that admin can assign the issue to users or orgs outside their own organization only. They cannot reassign it back to their own org.
-
 #### Closed Issues
 
-Closed issues cannot be assigned. The status must be changed to **REOPENED** first (by the raiser's org admin), after which assignment is available.
+Closed issues cannot be assigned. The status must be changed to **UNDER_REVIEW** first (by the raiser's org admin), after which assignment is available.
 
 #### Confirmation & Notifications
 
