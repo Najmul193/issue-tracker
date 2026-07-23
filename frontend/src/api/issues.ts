@@ -2,13 +2,18 @@ import { apiGet, apiPost, apiPatch, apiDelete, getAuthToken, getBaseUrl } from '
 
 export type IssueStatus =
   | 'NEW'
-  | 'ACKNOWLEDGED'
+  | 'UNDER_REVIEW'
+  | 'CLARIFICATION_REQUESTED'
   | 'ASSIGNED'
   | 'IN_PROGRESS'
-  | 'RESOLVED'
-  | 'VERIFIED'
-  | 'CLOSED'
-  | 'REOPENED';
+  | 'IN_QA'
+  | 'SI_REVIEW'
+  | 'PENDING_CLIENT_APPROVAL'
+  | 'CLOSED';
+
+// RESOLVED is a virtual action sent to the backend (never stored). It is not in IssueStatus
+// but is accepted by the updateIssueStatus API function via the separate type below.
+export type IssueStatusOrResolve = IssueStatus | 'RESOLVED';
 
 export type IssuePriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
@@ -132,9 +137,11 @@ export interface AssignIssueData {
 }
 
 export interface UpdateStatusData {
-  status: IssueStatus;
+  status: IssueStatusOrResolve;
   comment?: string;
   resolutionNote?: string;
+  /** Only used when status=RESOLVED and assigned org is SI. true -> IN_QA, false -> PENDING_CLIENT_APPROVAL */
+  requiresQA?: boolean;
 }
 
 export async function fetchIssues(

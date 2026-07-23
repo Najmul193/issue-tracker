@@ -177,7 +177,14 @@ export class UsersService {
               organization: { type: { not: actorOrgType } },
               ...(projectOrgFilter || {}),
             },
-            select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              organizationId: true,
+              role: true,
+              departmentId: true,
+            },
             orderBy: { name: 'asc' },
           });
         }
@@ -189,7 +196,14 @@ export class UsersService {
               status: 'ACTIVE',
               role: { not: 'SUPER_ADMIN' },
             },
-            select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              organizationId: true,
+              role: true,
+              departmentId: true,
+            },
             orderBy: { name: 'asc' },
           });
         }
@@ -203,7 +217,14 @@ export class UsersService {
           status: 'ACTIVE',
           role: { not: 'SUPER_ADMIN' },
         },
-        select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          organizationId: true,
+          role: true,
+          departmentId: true,
+        },
         orderBy: { name: 'asc' },
       });
     }
@@ -216,7 +237,14 @@ export class UsersService {
       if (issue && issue.assignedToUserId === actor.userId) {
         return this.prisma.user.findMany({
           where: { organizationId: actor.organizationId, role: 'ORG_ADMIN', status: 'ACTIVE' },
-          select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            organizationId: true,
+            role: true,
+            departmentId: true,
+          },
           orderBy: { name: 'asc' },
         });
       }
@@ -233,7 +261,14 @@ export class UsersService {
 
     return this.prisma.user.findMany({
       where: baseWhere,
-      select: { id: true, name: true, email: true, organizationId: true, role: true, departmentId: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        organizationId: true,
+        role: true,
+        departmentId: true,
+      },
       orderBy: { name: 'asc' },
     });
   }

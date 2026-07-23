@@ -75,6 +75,59 @@ export class NotificationsService {
     );
   }
 
+  /**
+   * When an OEM-resolved issue enters SI_REVIEW, notify:
+   *   - All SI org admins in any SI org that belongs to the project
+   *   - All department managers of SI org departments in the project
+   */
+  async notifySiTeamForReview(
+    issueId: string,
+    issueTitle: string,
+    projectId: string,
+  ): Promise<void> {
+    const message = `Issue "${issueTitle}" is awaiting your review (OEM work resolved — SI review required)`;
+
+    // Find all SI organizations in the project
+    const projectSiOrgs = await this.prisma.projectOrganization.findMany({
+      where: { projectId, organization: { type: 'SI' } },
+      select: { organizationId: true },
+    });
+    const siOrgIds = projectSiOrgs.map((po) => po.organizationId);
+
+    if (siOrgIds.length === 0) return;
+
+    // Collect unique user IDs to notify: SI org admins + SI dept managers
+    const recipientIds = new Set<string>();
+
+    // SI org admins
+    const siAdmins = await this.prisma.user.findMany({
+      where: { organizationId: { in: siOrgIds }, role: 'ORG_ADMIN', status: 'ACTIVE' },
+      select: { id: true },
+    });
+    siAdmins.forEach((u) => recipientIds.add(u.id));
+
+    // SI department managers (for depts in this project)
+    const siDeptManagers = await this.prisma.departmentManager.findMany({
+      where: {
+        department: { organizationId: { in: siOrgIds }, projectDepts: { some: { projectId } } },
+        user: { status: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
+    siDeptManagers.forEach((dm) => recipientIds.add(dm.userId));
+
+    if (recipientIds.size === 0) return;
+
+    await this.createNotificationsBulk(
+      [...recipientIds].map((uid) => ({
+        userId: uid,
+        issueId,
+        message,
+        type: 'STATUS_CHANGE' as const,
+      })),
+    );
+  }
+
   // ------- Endpoints -------
 
   async findAllForUser(
@@ -173,7 +226,7 @@ export class NotificationsService {
 
   async checkDeadlines(): Promise<number> {
     const now = new Date();
-    const TERMINAL_STATUSES: string[] = ['RESOLVED', 'VERIFIED', 'CLOSED'];
+    const TERMINAL_STATUSES: string[] = ['SI_REVIEW', 'IN_QA', 'PENDING_CLIENT_APPROVAL', 'CLOSED'];
     let totalNotifications = 0;
 
     // Find issues with deadlines that are not in terminal statuses
@@ -403,7 +456,7 @@ export class NotificationsService {
       where: {
         ...visibilityFilter,
         deadline: { lt: new Date() },
-        status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+        status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] as any },
       },
     });
 

@@ -1,0 +1,14 @@
+src/modules/organizations/__tests__/organizations.integration.spec.ts
+src/modules/organizations/__tests__/organizations.service.spec.ts
+src/modules/auth/__tests__/roles.guard.spec.ts
+src/modules/auth/__tests__/auth.login.spec.ts
+src/modules/auth/__tests__/auth.service.spec.ts
+src/modules/auth/__tests__/auth.logout.integration.spec.ts
+src/modules/projects/__tests__/projects.integration.spec.ts
+src/modules/projects/__tests__/projects.service.spec.ts
+src/modules/health/__tests__/health.integration.spec.ts
+src/modules/users/__tests__/users.integration.spec.ts
+src/modules/attachments/__tests__/attachments.integration.spec.ts
+src/modules/issues/__tests__/issues.integration.spec.ts
+src/modules/issues/__tests__/state-machine.spec.ts
+src/modules/notifications/__tests__/notifications.integration.spec.ts

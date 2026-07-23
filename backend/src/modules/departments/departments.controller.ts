@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  Query,
+  ForbiddenException,
+} from '@nestjs/common';
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { AddManagerDto } from './dto/add-manager.dto';
@@ -9,10 +18,7 @@ export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Get()
-  findAll(
-    @CurrentUser() actor: JwtPayload,
-    @Query('organizationId') organizationId?: string,
-  ) {
+  findAll(@CurrentUser() actor: JwtPayload, @Query('organizationId') organizationId?: string) {
     return this.departmentsService.findAll(actor, organizationId);
   }
 

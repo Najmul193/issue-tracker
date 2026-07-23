@@ -108,6 +108,7 @@ describe('Users Management (all scenarios)', () => {
       await prisma.comment.deleteMany({ where: { id: { in: createdCommentIds } } });
     }
     if (createdUserIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.projectUser.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }

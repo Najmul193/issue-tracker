@@ -208,7 +208,12 @@ describe('ProjectsService', () => {
       expect(mockPrisma.issue.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { projectId: 'p1' },
-          data: { projectId: null, assignedToUserId: null, assignedToOrgId: null, assignedToDepartmentId: null },
+          data: {
+            projectId: null,
+            assignedToUserId: null,
+            assignedToOrgId: null,
+            assignedToDepartmentId: null,
+          },
         }),
       );
     });

@@ -1,120 +1,97 @@
 import { StateMachine } from '../state-machine';
 
-describe('StateMachine', () => {
-  let stateMachine: StateMachine;
+describe('StateMachine — new branched workflow', () => {
+  let sm: StateMachine;
 
   beforeEach(() => {
-    stateMachine = new StateMachine();
+    sm = new StateMachine();
   });
 
+  // ─── getAllowedTransitions ───────────────────────────────────────────────────
   describe('getAllowedTransitions', () => {
-    it('NEW allows ACKNOWLEDGED and ASSIGNED', () => {
-      expect(stateMachine.getAllowedTransitions('NEW')).toEqual(['ACKNOWLEDGED', 'ASSIGNED']);
+    it('NEW allows UNDER_REVIEW', () => {
+      expect(sm.getAllowedTransitions('NEW')).toEqual(['UNDER_REVIEW']);
     });
-
-    it('ACKNOWLEDGED allows ASSIGNED', () => {
-      expect(stateMachine.getAllowedTransitions('ACKNOWLEDGED')).toEqual(['ASSIGNED']);
+    it('UNDER_REVIEW allows CLARIFICATION_REQUESTED and ASSIGNED', () => {
+      expect(sm.getAllowedTransitions('UNDER_REVIEW')).toEqual(['CLARIFICATION_REQUESTED', 'ASSIGNED']);
     });
-
+    it('CLARIFICATION_REQUESTED allows UNDER_REVIEW and IN_PROGRESS', () => {
+      expect(sm.getAllowedTransitions('CLARIFICATION_REQUESTED')).toEqual(['UNDER_REVIEW', 'IN_PROGRESS']);
+    });
     it('ASSIGNED allows IN_PROGRESS', () => {
-      expect(stateMachine.getAllowedTransitions('ASSIGNED')).toEqual(['IN_PROGRESS']);
+      expect(sm.getAllowedTransitions('ASSIGNED')).toEqual(['IN_PROGRESS']);
     });
-
-    it('IN_PROGRESS allows RESOLVED', () => {
-      expect(stateMachine.getAllowedTransitions('IN_PROGRESS')).toEqual(['RESOLVED']);
+    it('IN_PROGRESS allows CLARIFICATION_REQUESTED', () => {
+      expect(sm.getAllowedTransitions('IN_PROGRESS')).toEqual(['CLARIFICATION_REQUESTED']);
     });
-
-    it('RESOLVED allows VERIFIED and REOPENED', () => {
-      expect(stateMachine.getAllowedTransitions('RESOLVED')).toEqual(['VERIFIED', 'REOPENED']);
+    it('IN_QA allows PENDING_CLIENT_APPROVAL and IN_PROGRESS', () => {
+      expect(sm.getAllowedTransitions('IN_QA')).toEqual(['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS']);
     });
-
-    it('VERIFIED allows CLOSED and REOPENED', () => {
-      expect(stateMachine.getAllowedTransitions('VERIFIED')).toEqual(['CLOSED', 'REOPENED']);
+    it('SI_REVIEW allows PENDING_CLIENT_APPROVAL and ASSIGNED', () => {
+      expect(sm.getAllowedTransitions('SI_REVIEW')).toEqual(['PENDING_CLIENT_APPROVAL', 'ASSIGNED']);
     });
-
-    it('CLOSED allows REOPENED', () => {
-      expect(stateMachine.getAllowedTransitions('CLOSED')).toEqual(['REOPENED']);
+    it('PENDING_CLIENT_APPROVAL allows CLOSED and ASSIGNED', () => {
+      expect(sm.getAllowedTransitions('PENDING_CLIENT_APPROVAL')).toEqual(['CLOSED', 'ASSIGNED']);
     });
-
-    it('REOPENED allows IN_PROGRESS', () => {
-      expect(stateMachine.getAllowedTransitions('REOPENED')).toEqual(['IN_PROGRESS']);
+    it('CLOSED allows UNDER_REVIEW', () => {
+      expect(sm.getAllowedTransitions('CLOSED')).toEqual(['UNDER_REVIEW']);
     });
   });
 
-  describe('canTransition', () => {
-    it('valid transition NEW -> ACKNOWLEDGED', () => {
-      expect(stateMachine.canTransition('NEW', 'ACKNOWLEDGED')).toEqual({ valid: true });
-    });
+  // ─── canTransition — valid paths ────────────────────────────────────────────
+  describe('canTransition — valid', () => {
+    // Flow A: Client -> SI
+    it('NEW -> UNDER_REVIEW', () => expect(sm.canTransition('NEW', 'UNDER_REVIEW')).toEqual({ valid: true }));
+    it('UNDER_REVIEW -> CLARIFICATION_REQUESTED', () => expect(sm.canTransition('UNDER_REVIEW', 'CLARIFICATION_REQUESTED')).toEqual({ valid: true }));
+    it('UNDER_REVIEW -> ASSIGNED', () => expect(sm.canTransition('UNDER_REVIEW', 'ASSIGNED')).toEqual({ valid: true }));
+    it('CLARIFICATION_REQUESTED -> UNDER_REVIEW', () => expect(sm.canTransition('CLARIFICATION_REQUESTED', 'UNDER_REVIEW')).toEqual({ valid: true }));
+    it('CLARIFICATION_REQUESTED -> IN_PROGRESS', () => expect(sm.canTransition('CLARIFICATION_REQUESTED', 'IN_PROGRESS')).toEqual({ valid: true }));
+    it('ASSIGNED -> IN_PROGRESS', () => expect(sm.canTransition('ASSIGNED', 'IN_PROGRESS')).toEqual({ valid: true }));
+    it('IN_PROGRESS -> CLARIFICATION_REQUESTED', () => expect(sm.canTransition('IN_PROGRESS', 'CLARIFICATION_REQUESTED')).toEqual({ valid: true }));
+    it('IN_PROGRESS -> RESOLVED (virtual)', () => expect(sm.canTransition('IN_PROGRESS', 'RESOLVED')).toEqual({ valid: true }));
+    
+    // Virtual RESOLVED transitions handled by service, we only test the raw state machine transitions allowed
+    it('IN_QA -> PENDING_CLIENT_APPROVAL', () => expect(sm.canTransition('IN_QA', 'PENDING_CLIENT_APPROVAL')).toEqual({ valid: true }));
+    it('IN_QA -> IN_PROGRESS (reject)', () => expect(sm.canTransition('IN_QA', 'IN_PROGRESS')).toEqual({ valid: true }));
 
-    it('valid transition NEW -> ASSIGNED', () => {
-      expect(stateMachine.canTransition('NEW', 'ASSIGNED')).toEqual({ valid: true });
-    });
+    it('SI_REVIEW -> PENDING_CLIENT_APPROVAL (approve)', () => expect(sm.canTransition('SI_REVIEW', 'PENDING_CLIENT_APPROVAL')).toEqual({ valid: true }));
+    it('SI_REVIEW -> ASSIGNED (reject)', () => expect(sm.canTransition('SI_REVIEW', 'ASSIGNED')).toEqual({ valid: true }));
 
-    it('valid transition ASSIGNED -> IN_PROGRESS', () => {
-      expect(stateMachine.canTransition('ASSIGNED', 'IN_PROGRESS')).toEqual({ valid: true });
-    });
+    it('PENDING_CLIENT_APPROVAL -> CLOSED (approve)', () => expect(sm.canTransition('PENDING_CLIENT_APPROVAL', 'CLOSED')).toEqual({ valid: true }));
+    it('PENDING_CLIENT_APPROVAL -> ASSIGNED (reject)', () => expect(sm.canTransition('PENDING_CLIENT_APPROVAL', 'ASSIGNED')).toEqual({ valid: true }));
 
-    it('valid transition IN_PROGRESS -> RESOLVED', () => {
-      expect(stateMachine.canTransition('IN_PROGRESS', 'RESOLVED')).toEqual({ valid: true });
-    });
+    it('CLOSED -> UNDER_REVIEW (reopen)', () => expect(sm.canTransition('CLOSED', 'UNDER_REVIEW')).toEqual({ valid: true }));
+  });
 
-    it('valid transition RESOLVED -> VERIFIED', () => {
-      expect(stateMachine.canTransition('RESOLVED', 'VERIFIED')).toEqual({ valid: true });
+  // ─── canTransition — invalid paths ──────────────────────────────────────────
+  describe('canTransition — invalid', () => {
+    it('NEW -> CLOSED is invalid', () => {
+      const r = sm.canTransition('NEW', 'CLOSED');
+      expect(r.valid).toBe(false);
+      expect(r.error).toContain('Cannot transition from NEW to CLOSED');
+      expect(r.allowedTransitions).toEqual(['UNDER_REVIEW']);
     });
-
-    it('valid transition VERIFIED -> CLOSED', () => {
-      expect(stateMachine.canTransition('VERIFIED', 'CLOSED')).toEqual({ valid: true });
+    it('NEW -> IN_PROGRESS is invalid', () => {
+      expect(sm.canTransition('NEW', 'IN_PROGRESS').valid).toBe(false);
     });
-
-    it('valid transition CLOSED -> REOPENED', () => {
-      expect(stateMachine.canTransition('CLOSED', 'REOPENED')).toEqual({ valid: true });
+    it('ASSIGNED -> CLOSED is invalid', () => {
+      const r = sm.canTransition('ASSIGNED', 'CLOSED');
+      expect(r.valid).toBe(false);
+      expect(r.allowedTransitions).toEqual(['IN_PROGRESS']);
     });
-
-    it('valid transition REOPENED -> IN_PROGRESS', () => {
-      expect(stateMachine.canTransition('REOPENED', 'IN_PROGRESS')).toEqual({ valid: true });
+    it('CLOSED -> ASSIGNED is invalid', () => {
+      const r = sm.canTransition('CLOSED', 'ASSIGNED');
+      expect(r.valid).toBe(false);
+      expect(r.allowedTransitions).toEqual(['UNDER_REVIEW']);
     });
-
-    it('valid transition RESOLVED -> REOPENED', () => {
-      expect(stateMachine.canTransition('RESOLVED', 'REOPENED')).toEqual({ valid: true });
+    it('IN_PROGRESS -> CLOSED is invalid (skipping steps)', () => {
+      expect(sm.canTransition('IN_PROGRESS', 'CLOSED').valid).toBe(false);
     });
-
-    it('valid transition VERIFIED -> REOPENED', () => {
-      expect(stateMachine.canTransition('VERIFIED', 'REOPENED')).toEqual({ valid: true });
+    it('same-state transition is invalid', () => {
+      expect(sm.canTransition('NEW', 'NEW').valid).toBe(false);
     });
-
-    it('invalid transition NEW -> CLOSED', () => {
-      const result = stateMachine.canTransition('NEW', 'CLOSED');
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain('Cannot transition from NEW to CLOSED');
-      expect(result.allowedTransitions).toEqual(['ACKNOWLEDGED', 'ASSIGNED']);
-    });
-
-    it('invalid transition NEW -> IN_PROGRESS', () => {
-      const result = stateMachine.canTransition('NEW', 'IN_PROGRESS');
-      expect(result.valid).toBe(false);
-      expect(result.allowedTransitions).toEqual(['ACKNOWLEDGED', 'ASSIGNED']);
-    });
-
-    it('invalid transition NEW -> RESOLVED', () => {
-      const result = stateMachine.canTransition('NEW', 'RESOLVED');
-      expect(result.valid).toBe(false);
-    });
-
-    it('invalid transition ASSIGNED -> RESOLVED', () => {
-      const result = stateMachine.canTransition('ASSIGNED', 'RESOLVED');
-      expect(result.valid).toBe(false);
-      expect(result.allowedTransitions).toEqual(['IN_PROGRESS']);
-    });
-
-    it('invalid transition CLOSED -> ASSIGNED', () => {
-      const result = stateMachine.canTransition('CLOSED', 'ASSIGNED');
-      expect(result.valid).toBe(false);
-      expect(result.allowedTransitions).toEqual(['REOPENED']);
-    });
-
-    it('invalid transition to same state', () => {
-      const result = stateMachine.canTransition('NEW', 'NEW');
-      expect(result.valid).toBe(false);
+    it('RESOLVED -> anything is invalid (RESOLVED is virtual and never stored)', () => {
+      expect(sm.canTransition('PENDING_CLIENT_APPROVAL' as any, 'RESOLVED' as any).valid).toBe(false);
     });
   });
 });

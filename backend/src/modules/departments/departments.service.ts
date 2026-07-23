@@ -1,4 +1,10 @@
-import { Injectable, ForbiddenException, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -83,7 +89,9 @@ export class DepartmentsService {
     const targetOrgId = actor.role === 'SUPER_ADMIN' ? dto.organizationId : actor.organizationId;
 
     if (actor.role === 'ORG_ADMIN' && dto.organizationId !== actor.organizationId) {
-      throw new ForbiddenException('ORG_ADMIN can only create departments in their own organization');
+      throw new ForbiddenException(
+        'ORG_ADMIN can only create departments in their own organization',
+      );
     }
 
     const org = await this.prisma.organization.findUnique({ where: { id: targetOrgId } });
@@ -111,7 +119,9 @@ export class DepartmentsService {
       });
     } catch (e: any) {
       if (e.code === 'P2002') {
-        throw new ConflictException(`Department "${dto.name.trim()}" already exists in this organization`);
+        throw new ConflictException(
+          `Department "${dto.name.trim()}" already exists in this organization`,
+        );
       }
       throw e;
     }
@@ -134,13 +144,15 @@ export class DepartmentsService {
     }
 
     if (actor.role === 'ORG_ADMIN' && dept.organizationId !== actor.organizationId) {
-      throw new ForbiddenException('ORG_ADMIN can only delete departments in their own organization');
+      throw new ForbiddenException(
+        'ORG_ADMIN can only delete departments in their own organization',
+      );
     }
 
     const activeIssueCount = await this.prisma.issue.count({
       where: {
         assignedToDepartmentId: id,
-        status: { notIn: ['CLOSED', 'VERIFIED'] },
+        status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] },
       },
     });
 
@@ -153,7 +165,9 @@ export class DepartmentsService {
 
     await this.prisma.department.delete({ where: { id } });
 
-    return { message: `Department "${dept.name}" deleted. ${activeIssueCount} active issues reassigned to org queue.` };
+    return {
+      message: `Department "${dept.name}" deleted. ${activeIssueCount} active issues reassigned to org queue.`,
+    };
   }
 
   async addManager(id: string, dto: AddManagerDto, actor: JwtPayload) {
@@ -167,7 +181,9 @@ export class DepartmentsService {
     }
 
     if (actor.role === 'ORG_ADMIN' && dept.organizationId !== actor.organizationId) {
-      throw new ForbiddenException('ORG_ADMIN can only manage departments in their own organization');
+      throw new ForbiddenException(
+        'ORG_ADMIN can only manage departments in their own organization',
+      );
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
@@ -215,7 +231,9 @@ export class DepartmentsService {
     }
 
     if (actor.role === 'ORG_ADMIN' && dept.organizationId !== actor.organizationId) {
-      throw new ForbiddenException('ORG_ADMIN can only manage departments in their own organization');
+      throw new ForbiddenException(
+        'ORG_ADMIN can only manage departments in their own organization',
+      );
     }
 
     const manager = await this.prisma.departmentManager.findUnique({

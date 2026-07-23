@@ -14,7 +14,12 @@ export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
-    dto: { name: string; description?: string; organizationIds: string[]; departmentIds?: string[] },
+    dto: {
+      name: string;
+      description?: string;
+      organizationIds: string[];
+      departmentIds?: string[];
+    },
     actor: JwtPayload,
   ) {
     if (actor.role !== 'SUPER_ADMIN') {
@@ -122,22 +127,41 @@ export class ProjectsService {
       return this.prisma.project.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
-        organizations: {
-          include: { organization: { select: { id: true, name: true, type: true } } },
+          organizations: {
+            include: { organization: { select: { id: true, name: true, type: true } } },
+          },
+          projectDepts: {
+            include: { department: { select: { id: true, name: true, organizationId: true } } },
+          },
+          _count: { select: { users: true, issues: true } },
         },
-        projectDepts: {
-          include: { department: { select: { id: true, name: true, organizationId: true } } },
-        },
-        _count: { select: { users: true, issues: true } },
-      },
-    });
-  }
+      });
+    }
 
-  if (actor.role === 'ORG_ADMIN') {
+    if (actor.role === 'ORG_ADMIN') {
+      return this.prisma.project.findMany({
+        where: {
+          organizations: {
+            some: { organizationId: actor.organizationId },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizations: {
+            include: { organization: { select: { id: true, name: true, type: true } } },
+          },
+          projectDepts: {
+            include: { department: { select: { id: true, name: true, organizationId: true } } },
+          },
+          _count: { select: { users: true, issues: true } },
+        },
+      });
+    }
+
     return this.prisma.project.findMany({
       where: {
-        organizations: {
-          some: { organizationId: actor.organizationId },
+        users: {
+          some: { userId: actor.userId },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -149,25 +173,6 @@ export class ProjectsService {
           include: { department: { select: { id: true, name: true, organizationId: true } } },
         },
         _count: { select: { users: true, issues: true } },
-      },
-    });
-  }
-
-  return this.prisma.project.findMany({
-    where: {
-      users: {
-        some: { userId: actor.userId },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      organizations: {
-        include: { organization: { select: { id: true, name: true, type: true } } },
-      },
-      projectDepts: {
-        include: { department: { select: { id: true, name: true, organizationId: true } } },
-      },
-      _count: { select: { users: true, issues: true } },
       },
     });
   }
@@ -528,7 +533,9 @@ export class ProjectsService {
     if (!dept) throw new NotFoundException('Department not found');
 
     if (actor.role === 'ORG_ADMIN' && dept.organizationId !== actor.organizationId) {
-      throw new ForbiddenException('ORG_ADMIN can only add projectDepts from their own organization');
+      throw new ForbiddenException(
+        'ORG_ADMIN can only add projectDepts from their own organization',
+      );
     }
 
     const orgInProject = await this.prisma.projectOrganization.findUnique({
@@ -586,7 +593,9 @@ export class ProjectsService {
 
     const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
     if (actor.role === 'ORG_ADMIN' && dept && dept.organizationId !== actor.organizationId) {
-      throw new ForbiddenException('ORG_ADMIN can only remove projectDepts from their own organization');
+      throw new ForbiddenException(
+        'ORG_ADMIN can only remove projectDepts from their own organization',
+      );
     }
 
     await this.prisma.projectDepartment.delete({

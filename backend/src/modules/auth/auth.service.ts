@@ -73,9 +73,11 @@ export class AuthService {
     }
 
     // Cross-org assignments cannot target orgs with the same type (only when target is a different org)
+    // SI (Data Edge) is exempt — they are the central routing team and can assign to any org type
     const targetType = targetUserOrgType || targetOrgType;
     const targetOrganizationId = targetOrgId || targetUserOrgId;
     if (
+      actor.organizationType !== 'SI' &&
       targetType &&
       targetType === actor.organizationType &&
       targetOrganizationId &&
@@ -84,6 +86,12 @@ export class AuthService {
       throw new ForbiddenException(
         `Cannot assign to a ${targetType.toLowerCase()} organization from another ${targetType.toLowerCase()} organization`,
       );
+    }
+
+    // SI (Data Edge) org admins are the central routing team — they can assign to any org/user
+    if (actor.organizationType === 'SI' && actor.role === 'ORG_ADMIN') {
+      // Only guard: cannot assign to a SUPER_ADMIN (already checked above)
+      return;
     }
 
     if (actor.role === 'ORG_ADMIN') {
@@ -200,6 +208,9 @@ export class AuthService {
     },
   ): boolean {
     if (actor.role === 'SUPER_ADMIN') return true;
+
+    // SI (Data Edge) is the central team — always involved in both workflows
+    if (actor.organizationType === 'SI') return true;
 
     if (actor.organizationId === issue.raisedByOrgId) return true;
     if (issue.assignedToOrgId && actor.organizationId === issue.assignedToOrgId) return true;

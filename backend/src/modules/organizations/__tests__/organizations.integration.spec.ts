@@ -83,6 +83,7 @@ describe('Organizations Integration', () => {
       await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
     }
     if (createdUserIds.length > 0) {
+      await prisma.notification.deleteMany({ where: { userId: { in: createdUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     if (createdOrgIds.length > 0) {

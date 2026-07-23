@@ -5,7 +5,7 @@ import { fetchIssue, assignIssue, updateIssueStatus, addComment, deleteIssue } f
 import { fetchAssignableUsers } from '../api/users';
 import { fetchProjectOrganizations, fetchProjectDepartments } from '../api/projects';
 import type { ProjectOrg, ProjectDept } from '../api/projects';
-import type { IssueStatus } from '../api/issues';
+import type { IssueStatus, IssueStatusOrResolve } from '../api/issues';
 import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
@@ -16,16 +16,24 @@ import { ApiError, getBaseUrl, getAuthToken } from '../api/client';
 /*
  * Transition map — must stay in sync with backend/src/modules/issues/state-machine.ts
  * The backend is the source of truth; this is for UI convenience only.
+ *
+ * Two flows:
+ *   Flow A (Client→SI):      NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→[IN_QA→]PENDING_CLIENT_APPROVAL→CLOSED
+ *   Flow B (Client→SI→OEM): NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→SI_REVIEW→PENDING_CLIENT_APPROVAL→CLOSED
+ *
+ * RESOLVED is a virtual action: the UI shows a "Resolve" button from IN_PROGRESS.
+ * The backend auto-routes it to SI_REVIEW / IN_QA / PENDING_CLIENT_APPROVAL.
  */
-const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
-  NEW: ['ACKNOWLEDGED', 'ASSIGNED'],
-  ACKNOWLEDGED: ['ASSIGNED'],
-  ASSIGNED: ['IN_PROGRESS'],
-  IN_PROGRESS: ['RESOLVED'],
-  RESOLVED: ['VERIFIED', 'REOPENED'],
-  VERIFIED: ['CLOSED', 'REOPENED'],
-  CLOSED: ['REOPENED'],
-  REOPENED: ['IN_PROGRESS'],
+const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatusOrResolve[]> = {
+  NEW:                      ['UNDER_REVIEW'],
+  UNDER_REVIEW:             ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
+  CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'IN_PROGRESS'],
+  ASSIGNED:                 ['IN_PROGRESS'],
+  IN_PROGRESS:              ['RESOLVED', 'CLARIFICATION_REQUESTED'],
+  IN_QA:                    ['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS'], // Kept for legacy issues
+  SI_REVIEW:                ['PENDING_CLIENT_APPROVAL', 'ASSIGNED'],
+  PENDING_CLIENT_APPROVAL:  ['CLOSED', 'ASSIGNED'],
+  CLOSED:                   ['UNDER_REVIEW'],
 };
 
 const ALLOWED_FILE_TYPES = [
@@ -87,9 +95,10 @@ export default function IssueDetail() {
   const [assignOrgId, setAssignOrgId] = useState('');
   const [assignDeptId, setAssignDeptId] = useState('');
   const [showAssignConfirm, setShowAssignConfirm] = useState(false);
-  const [showStatusConfirm, setShowStatusConfirm] = useState<IssueStatus | null>(null);
+  const [showStatusConfirm, setShowStatusConfirm] = useState<IssueStatusOrResolve | null>(null);
   const [statusComment, setStatusComment] = useState('');
   const [resolutionNoteInput, setResolutionNoteInput] = useState('');
+  const [requiresQA, setRequiresQA] = useState(false);
 
   const { data: issue, isLoading, error } = useQuery({
     queryKey: ['issue', id],
@@ -118,15 +127,18 @@ export default function IssueDetail() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: async ({ status, comment, resolutionNote }: { status: IssueStatus; comment?: string; resolutionNote?: string }) => {
+    mutationFn: async ({
+      status, comment, resolutionNote, requiresQA,
+    }: { status: IssueStatusOrResolve; comment?: string; resolutionNote?: string; requiresQA?: boolean }) => {
       if (!id) return;
-      return updateIssueStatus(id, { status, comment, resolutionNote });
+      return updateIssueStatus(id, { status, comment, resolutionNote, requiresQA });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issue', id] });
       setShowStatusConfirm(null);
       setStatusComment('');
       setResolutionNoteInput('');
+      setRequiresQA(false);
       setStatusError(null);
     },
     onError: (err) => {
@@ -222,11 +234,18 @@ export default function IssueDetail() {
     },
   });
 
-  function handleStatusSubmit(target: IssueStatus) {
-    if (target === 'REOPENED' && !statusComment.trim()) {
-      setStatusError('A comment is required when reopening an issue.');
+  function handleStatusSubmit(target: IssueStatusOrResolve) {
+    // Clarification needs a comment
+    if (target === 'CLARIFICATION_REQUESTED' && !statusComment.trim()) {
+      setStatusError('A comment is required when requesting clarification.');
       return;
     }
+    // Responding to clarification needs a comment
+    if (target === 'UNDER_REVIEW' && issue?.status === 'CLARIFICATION_REQUESTED' && !statusComment.trim()) {
+      setStatusError('A comment is required when providing clarification.');
+      return;
+    }
+    // Resolve requires a resolution note
     if (target === 'RESOLVED' && !resolutionNoteInput.trim()) {
       setStatusError('A resolution note is required when resolving an issue.');
       return;
@@ -235,6 +254,7 @@ export default function IssueDetail() {
       status: target,
       comment: statusComment.trim() || undefined,
       resolutionNote: target === 'RESOLVED' ? resolutionNoteInput.trim() : undefined,
+      requiresQA: target === 'RESOLVED' ? requiresQA : undefined,
     });
   }
 
@@ -262,17 +282,71 @@ export default function IssueDetail() {
     setCommentFiles((prev) => [...prev, ...newFiles].slice(0, MAX_FILES));
   }
 
-  // Determine if the current user is authorized to change status
-  // Mirrors backend's canActOnIssue: SUPER_ADMIN always, or org matches raisedByOrg/assignedToOrg, or is the assigned user
+  // Mirrors backend canActOnIssue: SUPER_ADMIN always, SI org always (central team), raisedByOrg, assignedToOrg, assigned user
   const canChangeStatus = (() => {
     if (!currentUser || !issue) return false;
     if (currentUser.role === 'SUPER_ADMIN') return true;
+    // SI (Data Edge) is always involved
+    if (currentUser.organization.type === 'SI') return true;
     const effectiveAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
     if (currentUser.organizationId === issue.raisedByOrg.id) return true;
-    if (currentUser.role === 'ORG_ADMIN' && effectiveAssignedOrgId === currentUser.organizationId) return true;
+    if (effectiveAssignedOrgId && currentUser.organizationId === effectiveAssignedOrgId) return true;
     if (issue.assignedToUserId && currentUser.id === issue.assignedToUserId) return true;
     return false;
   })();
+
+  // Only SI org members can move to UNDER_REVIEW from NEW
+  const canMoveToUnderReview = currentUser?.organization.type === 'SI' || currentUser?.role === 'SUPER_ADMIN';
+
+  // Only SI org members can act on SI_REVIEW and IN_QA states
+  const canActOnSiReview = currentUser?.organization.type === 'SI' || currentUser?.role === 'SUPER_ADMIN';
+
+  // Only CLIENT org admin / issue creator / SUPER_ADMIN can close
+  const canClose = (() => {
+    if (!currentUser || !issue) return false;
+    if (currentUser.role === 'SUPER_ADMIN') return true;
+    if (currentUser.id === issue.raisedById) return true;
+    if (currentUser.organizationId === issue.raisedByOrg.id && currentUser.role === 'ORG_ADMIN') return true;
+    return false;
+  })();
+
+  // Filter the visible transitions for the current user
+  function getVisibleTransitions(status: IssueStatus): IssueStatusOrResolve[] {
+    const all = ALLOWED_TRANSITIONS[status] ?? [];
+    return all.filter((t) => {
+      if (t === 'UNDER_REVIEW' && status === 'NEW') return canMoveToUnderReview;
+      if (t === 'UNDER_REVIEW' && status === 'CLOSED') return canActOnSiReview;
+      if (t === 'CLOSED') return canClose;
+      if (status === 'UNDER_REVIEW') return canActOnSiReview;
+      if (status === 'SI_REVIEW') return canActOnSiReview;
+      // 3. Issue Creator actions (providing clarification)
+      if (status === 'CLARIFICATION_REQUESTED') {
+        const isCreator = currentUser?.id === issue?.raisedById;
+        const isClientOrgAdmin = currentUser?.organizationId === issue?.raisedByOrg.id && currentUser?.role === 'ORG_ADMIN';
+        const canProvideClarification = isCreator || isClientOrgAdmin || currentUser?.role === 'SUPER_ADMIN';
+        
+        const lastStatusChange = issue?.activityLogs?.find(l => l.action === 'STATUS_CHANGED' && l.newValue === 'CLARIFICATION_REQUESTED');
+        const cameFromUnderReview = lastStatusChange?.oldValue === 'UNDER_REVIEW';
+
+        if (canProvideClarification) {
+          if (cameFromUnderReview && t === 'UNDER_REVIEW') return true;
+          if (!cameFromUnderReview && t === 'IN_PROGRESS') return true;
+        }
+        return false;
+      }
+
+      // 4. Assignee actions (working on the issue)
+      if (status === 'ASSIGNED' || status === 'IN_PROGRESS') {
+        const isAssignee = currentUser?.id === issue?.assignedToUserId;
+        const isAssigneeOrg = currentUser?.organizationId === (issue?.assignedToOrgId ?? issue?.assignedToUser?.organizationId);
+        const canWorkOnIssue = isAssignee || isAssigneeOrg || currentUser?.role === 'SUPER_ADMIN';
+        if (t === 'RESOLVED' || t === 'CLARIFICATION_REQUESTED' || t === 'IN_PROGRESS') return canWorkOnIssue;
+        return false;
+      }
+
+      return true;
+    });
+  }
 
   if (isLoading) {
     return (
@@ -301,7 +375,7 @@ export default function IssueDetail() {
     );
   }
 
-  const allowedNext = ALLOWED_TRANSITIONS[issue.status] || [];
+  const allowedNext = getVisibleTransitions(issue.status);
 
   return (
     <div className="space-y-6">
@@ -430,7 +504,7 @@ export default function IssueDetail() {
                 disabled={statusMutation.isPending}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                {s === 'REOPENED' ? 'Reopen' : `Mark ${s.replace('_', ' ')}`}
+                {s === 'UNDER_REVIEW' && issue.status === 'NEW' ? 'Acknowledge (Under Review)' : s === 'UNDER_REVIEW' ? 'Provide Clarification (Under Review)' : s === 'IN_PROGRESS' && issue.status === 'CLARIFICATION_REQUESTED' ? 'Provide Clarification (In Progress)' : s === 'CLARIFICATION_REQUESTED' && issue.status === 'UNDER_REVIEW' ? 'Clarification Needed' : s === 'CLARIFICATION_REQUESTED' ? 'Request Clarification' : s === 'ASSIGNED' && issue.status === 'UNDER_REVIEW' ? 'Valid' : s === 'PENDING_CLIENT_APPROVAL' && issue.status === 'SI_REVIEW' ? 'Approved' : s === 'ASSIGNED' && issue.status === 'SI_REVIEW' ? 'Not Approved' : s === 'CLOSED' && issue.status === 'PENDING_CLIENT_APPROVAL' ? 'Approve' : s === 'ASSIGNED' && issue.status === 'PENDING_CLIENT_APPROVAL' ? 'Not Approved' : `Mark ${s.replace(/_/g, ' ')}`}
               </button>
             ))}
           </div>
@@ -440,10 +514,36 @@ export default function IssueDetail() {
               <p className="text-sm text-gray-700">
                 Change status to <strong>{showStatusConfirm.replace('_', ' ')}</strong>?
               </p>
-              {showStatusConfirm === 'REOPENED' && (
+              {showStatusConfirm === 'CLARIFICATION_REQUESTED' && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Comment (required for reopening)
+                    Comment (required for requesting clarification)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={statusComment}
+                    onChange={(e) => setStatusComment(e.target.value)}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+              {showStatusConfirm === 'UNDER_REVIEW' && issue.status === 'CLARIFICATION_REQUESTED' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Comment (required to provide clarification)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={statusComment}
+                    onChange={(e) => setStatusComment(e.target.value)}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+              {showStatusConfirm === 'IN_PROGRESS' && issue.status === 'CLARIFICATION_REQUESTED' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Comment (required to provide clarification)
                   </label>
                   <textarea
                     rows={2}
@@ -454,22 +554,24 @@ export default function IssueDetail() {
                 </div>
               )}
               {showStatusConfirm === 'RESOLVED' && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Resolution Note (required)
-                  </label>
-                  {issue.resolutionNote && (
-                    <p className="mb-1 text-xs text-amber-600">
-                      This will replace the previous resolution note.
-                    </p>
-                  )}
-                  <textarea
-                    rows={3}
-                    value={resolutionNoteInput}
-                    onChange={(e) => setResolutionNoteInput(e.target.value)}
-                    placeholder="Explain how the issue was resolved..."
-                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Resolution Note (required)
+                    </label>
+                    {issue.resolutionNote && (
+                      <p className="mb-1 text-xs text-amber-600">
+                        This will replace the previous resolution note.
+                      </p>
+                    )}
+                    <textarea
+                      rows={3}
+                      value={resolutionNoteInput}
+                      onChange={(e) => setResolutionNoteInput(e.target.value)}
+                      placeholder="Explain how the issue was resolved..."
+                      className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               )}
               <div className="flex gap-2">

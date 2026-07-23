@@ -125,7 +125,7 @@ export class IssuesService {
     if (query.overdue === 'true') {
       andClauses.push({
         deadline: { lt: new Date() },
-        status: { notIn: ['CLOSED', 'VERIFIED'] as IssueStatus[] },
+        status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] as IssueStatus[] },
       });
     }
 
@@ -230,7 +230,9 @@ export class IssuesService {
 
   async assign(id: string, dto: AssignIssueDto, actor: JwtPayload) {
     if (!dto.targetUserId && !dto.targetOrgId && !dto.targetDepartmentId) {
-      throw new BadRequestException('At least one of targetUserId, targetOrgId, or targetDepartmentId must be provided');
+      throw new BadRequestException(
+        'At least one of targetUserId, targetOrgId, or targetDepartmentId must be provided',
+      );
     }
 
     if (dto.targetUserId && dto.targetDepartmentId) {
@@ -241,6 +243,19 @@ export class IssuesService {
 
     if (issue.status === 'CLOSED') {
       throw new ForbiddenException('Cannot assign a closed issue. Reopen it first.');
+    }
+
+    // In the new workflow, assignment is only allowed during triage / review / clarification
+    // or when SI rejects OEM work (SI_REVIEW -> ASSIGNED) or from IN_PROGRESS for re-routing.
+    const assignableStatuses: string[] = [
+      'NEW', 'UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'ASSIGNED', 'IN_PROGRESS',
+      'REOPENED', // kept for backward-compat with any residual data
+      'SI_REVIEW', // SI rejects OEM -> reassign to OEM lead
+    ];
+    if (!assignableStatuses.includes(issue.status as string)) {
+      throw new ForbiddenException(
+        `Cannot reassign an issue in status ${issue.status}`,
+      );
     }
 
     const newTargetUser = dto.targetUserId
@@ -331,64 +346,33 @@ export class IssuesService {
           },
         });
         if (!deptInProject) {
-          throw new ForbiddenException(
-            "Target department is not a member of this issue's project",
-          );
+          throw new ForbiddenException("Target department is not a member of this issue's project");
         }
       }
     }
 
-    const isReopenByRaiserOrgAdmin =
-      issue.status === 'REOPENED' &&
-      actor.role === 'ORG_ADMIN' &&
-      actor.organizationId === issue.raisedByOrgId;
-
-    if (isReopenByRaiserOrgAdmin) {
-      if (dto.targetUserId) {
-        if (!newTargetUser || newTargetUser.organizationId === actor.organizationId) {
-          throw new ForbiddenException(
-            'After reopening, you can only assign to users outside your organization',
-          );
-        }
-      } else if (dto.targetOrgId) {
-        if (dto.targetOrgId === actor.organizationId) {
-          throw new ForbiddenException(
-            'After reopening, you can only route to other organizations',
-          );
-        }
-      } else if (dto.targetDepartmentId) {
-        if (newTargetDepartment?.organizationId === actor.organizationId) {
-          throw new ForbiddenException(
-            'After reopening, you can only route to other organizations',
-          );
-        }
-      } else {
-        throw new ForbiddenException('Invalid assignment request');
+    if (dto.targetDepartmentId && newTargetDepartment) {
+      if (newTargetDepartment.organizationId === issue.raisedByOrgId) {
+        throw new ForbiddenException(
+          'Cannot route to a department in the same organization as the issue raiser',
+        );
       }
-    } else {
-      if (dto.targetDepartmentId && newTargetDepartment) {
-        if (newTargetDepartment.organizationId === issue.raisedByOrgId) {
-          throw new ForbiddenException(
-            'Cannot route to a department in the same organization as the issue raiser',
-          );
-        }
-      }
-
-      const currentAssignedOrgId =
-        issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
-      this.authService.canAssign(
-        actor,
-        dto.targetUserId ?? null,
-        dto.targetOrgId ?? null,
-        newTargetUser?.organizationId,
-        newTargetUser?.role,
-        issue.assignedToUserId === actor.userId,
-        currentAssignedOrgId,
-        issue.raisedByOrgId,
-        newTargetUser?.organization?.type,
-        resolvedTargetOrg?.type,
-      );
     }
+
+    const currentAssignedOrgId =
+      issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+    this.authService.canAssign(
+      actor,
+      dto.targetUserId ?? null,
+      dto.targetOrgId ?? null,
+      newTargetUser?.organizationId,
+      newTargetUser?.role,
+      issue.assignedToUserId === actor.userId,
+      currentAssignedOrgId,
+      issue.raisedByOrgId,
+      newTargetUser?.organization?.type,
+      resolvedTargetOrg?.type,
+    );
 
     const oldTargetUser = issue.assignedToUserId
       ? await this.prisma.user.findUnique({
@@ -416,10 +400,15 @@ export class IssuesService {
         assignedToOrgId: dto.targetOrgId ?? newTargetUser?.organizationId ?? null,
         assignedToDepartmentId: dto.targetDepartmentId ?? null,
         assignedById: actor.userId,
-        status:
-          issue.status === 'NEW' || issue.status === 'ACKNOWLEDGED' || issue.status === 'REOPENED'
-            ? 'ASSIGNED'
-            : issue.status,
+        status: (() => {
+          if (issue.status === 'NEW') {
+            return (actor.organizationType === 'SI' || actor.role === 'SUPER_ADMIN') ? 'ASSIGNED' : 'UNDER_REVIEW';
+          }
+          if (['UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'SI_REVIEW'].includes(issue.status as string)) {
+            return 'ASSIGNED';
+          }
+          return issue.status;
+        })(),
         closedAt: null,
       },
     });
@@ -524,52 +513,165 @@ export class IssuesService {
       throw new ForbiddenException('You are not authorized to change the status of this issue');
     }
 
-    const transition = this.stateMachine.canTransition(issue.status, dto.status);
+    // --- State machine validation ---
+    const transition = this.stateMachine.canTransition(issue.status, dto.status as IssueStatus);
     if (!transition.valid) {
       throw new BadRequestException(transition.error);
     }
 
-    if (dto.status === 'VERIFIED' || dto.status === 'CLOSED') {
+    // --- Determine actual stored status (RESOLVED is a virtual action) ---
+    let actualStatus: IssueStatus = dto.status as IssueStatus;
+
+    if (dto.status === 'RESOLVED') {
+      if (!dto.resolutionNote?.trim()) {
+        throw new BadRequestException('Resolution note is required when resolving an issue');
+      }
+
+      // Unconditionally route to SI_REVIEW for SI verification
+      actualStatus = 'SI_REVIEW';
+    }
+
+    // --- Role-based guards per status ---
+
+    // Only SI org members (or SUPER_ADMIN) can move NEW -> UNDER_REVIEW
+    if (actualStatus === 'UNDER_REVIEW' && issue.status === 'NEW') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException(
+          'Only the SI (Data Edge) team can move an issue to Under Review',
+        );
+      }
+    }
+
+    // UNDER_REVIEW actions: only SI org members (or SUPER_ADMIN) can validate or ask for clarification
+    if (issue.status === 'UNDER_REVIEW' && (actualStatus === 'ASSIGNED' || actualStatus === 'CLARIFICATION_REQUESTED')) {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException(
+          'Only the SI (Data Edge) team can validate or request clarification for an issue under review',
+        );
+      }
+    }
+
+    // PENDING_CLIENT_APPROVAL -> CLOSED: only CLIENT org admin, issue creator, or SUPER_ADMIN
+    if (actualStatus === 'CLOSED') {
       if (actor.role !== 'SUPER_ADMIN') {
         const isCreator = issue.raisedById === actor.userId;
         const isCreatorOrgAdmin =
           actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
         if (!isCreator && !isCreatorOrgAdmin) {
           throw new ForbiddenException(
-            'Only the issue creator or their org admin can verify and close this issue',
+            'Only the issue creator or their org admin can close this issue',
           );
         }
       }
     }
 
-    if (issue.status === 'CLOSED' && dto.status === 'REOPENED') {
-      if (
-        actor.role !== 'SUPER_ADMIN' &&
-        (actor.role !== 'ORG_ADMIN' || actor.organizationId !== issue.raisedByOrgId)
-      ) {
+    // PENDING_CLIENT_APPROVAL -> ASSIGNED (client rejects): CLIENT org or SUPER_ADMIN or SI admin
+    if (actualStatus === 'ASSIGNED' && issue.status === 'PENDING_CLIENT_APPROVAL') {
+      if (actor.role !== 'SUPER_ADMIN') {
+        const isClientOrg = actor.organizationId === issue.raisedByOrgId;
+        const isSiOrg = actor.organizationType === 'SI';
+        if (!isClientOrg && !isSiOrg) {
+          throw new ForbiddenException(
+            'Only the client org or SI team can send an issue back for review',
+          );
+        }
+      }
+    }
+
+    // SI_REVIEW -> ASSIGNED (SI rejects): SI admin or SUPER_ADMIN
+    if (actualStatus === 'ASSIGNED' && issue.status === 'SI_REVIEW') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
         throw new ForbiddenException(
-          "Only the issue creator's org admin can reopen a closed issue",
+          'Only the SI (Data Edge) team can reject an issue in SI Review',
         );
       }
     }
 
-    if (dto.status === 'REOPENED' && !dto.comment?.trim()) {
-      throw new BadRequestException('A comment is required when reopening an issue');
+    // CLOSED -> UNDER_REVIEW: only SI org admin or SUPER_ADMIN
+    if (actualStatus === 'UNDER_REVIEW' && issue.status === 'CLOSED') {
+      if (actor.role !== 'SUPER_ADMIN') {
+        if (actor.organizationType !== 'SI' || actor.role !== 'ORG_ADMIN') {
+          throw new ForbiddenException(
+            'Only the SI org admin or SUPER_ADMIN can reopen a closed issue',
+          );
+        }
+      }
     }
 
-    if (dto.status === 'RESOLVED' && !dto.resolutionNote?.trim()) {
-      throw new BadRequestException('Resolution note is required when resolving an issue');
+    // SI_REVIEW actions: only SI org admin or SI dept managers (or SUPER_ADMIN)
+    if (issue.status === 'SI_REVIEW') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException(
+          'Only the SI (Data Edge) team can perform review on OEM-resolved issues',
+        );
+      }
     }
 
-    const updateData: Prisma.IssueUpdateInput = {
-      status: dto.status,
-    };
-    if (dto.status === 'CLOSED') {
+    // IN_QA actions: only SI org admin or dept managers (or SUPER_ADMIN)
+    if (issue.status === 'IN_QA') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException('Only the SI (Data Edge) team can perform QA validation');
+      }
+    }
+
+    // CLARIFICATION_REQUESTED requires a comment, and only assignee/SI can request it
+    if (actualStatus === 'CLARIFICATION_REQUESTED' && issue.status !== 'CLARIFICATION_REQUESTED') {
+      if (!dto.comment?.trim()) {
+        throw new BadRequestException(
+          'A comment is required when requesting clarification from the client',
+        );
+      }
+      const isAssignee = actor.userId === issue.assignedToUserId;
+      const isAssigneeOrg = actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
+      if (!isAssignee && !isAssigneeOrg && actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException('Only the assigned team can request clarification');
+      }
+    }
+
+    // UNDER_REVIEW or IN_PROGRESS from CLARIFICATION_REQUESTED requires a comment, and only issue creator/client org can provide it
+    if (
+      (actualStatus === 'UNDER_REVIEW' || actualStatus === 'IN_PROGRESS') &&
+      issue.status === 'CLARIFICATION_REQUESTED'
+    ) {
+      if (!dto.comment?.trim()) {
+        throw new BadRequestException(
+          'A comment is required when providing clarification',
+        );
+      }
+      const isCreator = issue.raisedById === actor.userId;
+      const isClientOrgAdmin = actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
+      if (!isCreator && !isClientOrgAdmin && actor.role !== 'SUPER_ADMIN') {
+        throw new ForbiddenException('Only the issue creator or client org admin can provide clarification');
+      }
+    }
+
+    // Moving to IN_PROGRESS from ASSIGNED can only be done by the assigned team
+    if (actualStatus === 'IN_PROGRESS' && issue.status === 'ASSIGNED') {
+      const isAssignee = actor.userId === issue.assignedToUserId;
+      const isAssigneeOrg = actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
+      if (!isAssignee && !isAssigneeOrg && actor.role !== 'SUPER_ADMIN') {
+        throw new ForbiddenException('Only the assigned team can mark the issue as in progress');
+      }
+    }
+
+    // Resolving an issue can only be done by the assigned team or SI
+    if (dto.status === 'RESOLVED') {
+      const isAssignee = actor.userId === issue.assignedToUserId;
+      const isAssigneeOrg = actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
+      if (!isAssignee && !isAssigneeOrg && actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException('Only the assigned team can resolve this issue');
+      }
+    }
+
+    // --- Build update payload ---
+    const updateData: Prisma.IssueUpdateInput = { status: actualStatus };
+
+    if (actualStatus === 'CLOSED') {
       updateData.closedAt = new Date();
     }
+
     if (dto.status === 'RESOLVED') {
       updateData.resolutionNote = dto.resolutionNote?.trim();
-      // Verify user still exists before connecting
       const userExists = await this.prisma.user.findUnique({
         where: { id: actor.userId },
         select: { id: true },
@@ -580,10 +682,7 @@ export class IssuesService {
       updateData.resolvedAt = new Date();
     }
 
-    const updated = await this.prisma.issue.update({
-      where: { id },
-      data: updateData,
-    });
+    await this.prisma.issue.update({ where: { id }, data: updateData });
 
     await this.prisma.activityLog.create({
       data: {
@@ -591,17 +690,13 @@ export class IssuesService {
         userId: actor.userId,
         action: 'STATUS_CHANGED',
         oldValue: issue.status,
-        newValue: dto.status,
+        newValue: actualStatus,
       },
     });
 
     if (dto.comment && dto.comment.trim().length > 0) {
       await this.prisma.comment.create({
-        data: {
-          issueId: id,
-          userId: actor.userId,
-          text: dto.comment,
-        },
+        data: { issueId: id, userId: actor.userId, text: dto.comment },
       });
     }
 
@@ -609,10 +704,19 @@ export class IssuesService {
       id,
       issue.title,
       issue.status,
-      dto.status,
+      actualStatus,
       issue.raisedById,
       issue.assignedToUserId,
     );
+
+    // When issue enters SI_REVIEW, notify all SI org admins and dept managers in the project
+    if (actualStatus === 'SI_REVIEW' && issue.projectId) {
+      await this.notificationsService.notifySiTeamForReview(
+        id,
+        issue.title,
+        issue.projectId,
+      );
+    }
 
     return this.findOne(id, actor);
   }
