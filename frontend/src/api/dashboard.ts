@@ -40,6 +40,55 @@ export interface OrgComparison {
   overdue: number;
 }
 
+export interface SlaAging {
+  onTrack: number;
+  warning: number;
+  critical: number;
+  overdue: number;
+}
+
+export interface WorkflowBottlenecks {
+  needsTriage: number;
+  awaitingClarification: number;
+  pendingSiReview: number;
+  pendingClientApproval: number;
+}
+
+export interface RoutingDistributionEntry {
+  orgName: string;
+  orgType: string;
+  assignedCount: number;
+  raisedCount: number;
+}
+
+export interface TeamMemberSummary {
+  userId: string;
+  userName: string;
+  assignedCount: number;
+  resolvedCount: number;
+}
+
+export interface OrgSummary {
+  orgName: string;
+  totalOpen: number;
+  totalOverdue: number;
+  byStatus: Record<string, number>;
+  teamMembers: TeamMemberSummary[];
+}
+
+export interface TeamWorkloadEntry {
+  userName: string;
+  assignedCount: number;
+  inProgressCount: number;
+}
+
+export interface MyRaisedIssues {
+  total: number;
+  open: number;
+  overdue: number;
+  pendingApproval: number;
+}
+
 export interface DashboardMetrics {
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
@@ -51,6 +100,12 @@ export interface DashboardMetrics {
   myAssignedIssues: AssignedIssueSummary[];
   recentActivity: ActivityEntry[];
   orgComparison: OrgComparison[];
+  slaAging: SlaAging;
+  workflowBottlenecks: WorkflowBottlenecks;
+  routingDistribution: RoutingDistributionEntry[];
+  orgSummary: OrgSummary | null;
+  teamWorkload: TeamWorkloadEntry[];
+  myRaisedIssues: MyRaisedIssues;
 }
 
 export async function fetchDashboardMetrics(projectIds?: string): Promise<DashboardMetrics> {
