@@ -490,13 +490,13 @@ export class NotificationsService {
           where: {
             ...visibilityFilter,
             deadline: { lt: now },
-            status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+            status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] as any },
           },
         }),
         this.prisma.issue.count({
           where: {
             ...visibilityFilter,
-            status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
+            status: 'CLOSED' as any,
             updatedAt: { gte: startOfMonth },
           },
         }),
@@ -513,7 +513,7 @@ export class NotificationsService {
     const resolvedWithDate = await this.prisma.issue.findMany({
       where: {
         ...visibilityFilter,
-        status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
+        status: 'CLOSED' as any,
         resolvedAt: { not: null },
       },
       select: { createdAt: true, resolvedAt: true },
@@ -536,7 +536,7 @@ export class NotificationsService {
         where: {
           ...visibilityFilter,
           resolvedAt: { gte: thirtyDaysAgo, not: null },
-          status: { in: ['RESOLVED', 'CLOSED', 'VERIFIED'] as any },
+          status: 'CLOSED' as any,
         },
         select: { resolvedAt: true },
       }),
@@ -601,7 +601,7 @@ export class NotificationsService {
         },
         select: { id: true, name: true },
       });
-      const openStatuses = ['NEW', 'ACKNOWLEDGED', 'ASSIGNED', 'IN_PROGRESS', 'REOPENED'];
+      const openStatuses = ['NEW', 'UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'ASSIGNED', 'IN_PROGRESS'];
       orgComparison = await Promise.all(
         orgs.map(async (org) => {
           const [open, overdue] = await Promise.all([
@@ -612,7 +612,7 @@ export class NotificationsService {
               where: {
                 raisedByOrgId: org.id,
                 deadline: { lt: now },
-                status: { notIn: ['CLOSED', 'VERIFIED'] as any },
+                status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] as any },
               },
             }),
           ]);
@@ -620,6 +620,264 @@ export class NotificationsService {
         }),
       );
     }
+
+    // ── SLA Aging (all visible non-terminal issues with deadlines) ──
+    const terminalStatuses = ['CLOSED', 'SI_REVIEW', 'IN_QA', 'PENDING_CLIENT_APPROVAL'] as any;
+    const slaIssues = await this.prisma.issue.findMany({
+      where: {
+        ...visibilityFilter,
+        deadline: { not: null },
+        status: { notIn: terminalStatuses },
+      },
+      select: { createdAt: true, deadline: true },
+    });
+
+    let slaOnTrack = 0;
+    let slaWarning = 0;
+    let slaCritical = 0;
+    let slaOverdue = 0;
+
+    for (const issue of slaIssues) {
+      const deadline = issue.deadline!.getTime();
+      const created = issue.createdAt.getTime();
+      const nowMs = now.getTime();
+      const totalDuration = deadline - created;
+      if (totalDuration <= 0) {
+        slaOverdue++;
+        continue;
+      }
+      const elapsed = nowMs - created;
+      const pctRemaining = ((deadline - nowMs) / totalDuration) * 100;
+
+      if (nowMs > deadline) {
+        slaOverdue++;
+      } else if (pctRemaining < 20) {
+        slaCritical++;
+      } else if (pctRemaining < 50) {
+        slaWarning++;
+      } else {
+        slaOnTrack++;
+      }
+    }
+
+    const slaAging = {
+      onTrack: slaOnTrack,
+      warning: slaWarning,
+      critical: slaCritical,
+      overdue: slaOverdue,
+    };
+
+    // ── Workflow Bottlenecks (SI org + SUPER_ADMIN) ──
+    let workflowBottlenecks = {
+      needsTriage: 0,
+      awaitingClarification: 0,
+      pendingSiReview: 0,
+      pendingClientApproval: 0,
+    };
+
+    const isSiOrSuperAdmin =
+      actor.role === 'SUPER_ADMIN' || actor.organizationType === 'SI';
+
+    if (isSiOrSuperAdmin) {
+      const [needsTriage, awaitingClarification, pendingSiReview, pendingClientApproval] =
+        await Promise.all([
+          this.prisma.issue.count({
+            where: { ...visibilityFilter, status: 'NEW' as any },
+          }),
+          this.prisma.issue.count({
+            where: { ...visibilityFilter, status: 'CLARIFICATION_REQUESTED' as any },
+          }),
+          this.prisma.issue.count({
+            where: { ...visibilityFilter, status: 'SI_REVIEW' as any },
+          }),
+          this.prisma.issue.count({
+            where: { ...visibilityFilter, status: 'PENDING_CLIENT_APPROVAL' as any },
+          }),
+        ]);
+      workflowBottlenecks = { needsTriage, awaitingClarification, pendingSiReview, pendingClientApproval };
+    }
+
+    // ── Routing Distribution (SI org + SUPER_ADMIN) ──
+    let routingDistribution: Array<{
+      orgName: string;
+      orgType: string;
+      assignedCount: number;
+      raisedCount: number;
+    }> = [];
+
+    if (isSiOrSuperAdmin) {
+      const orgs = await this.prisma.organization.findMany({
+        where: {
+          type: { not: 'SUPER_ADMIN' as any },
+          users: { some: { email: { not: { startsWith: 'deleted-' } } } },
+        },
+        select: { id: true, name: true, type: true },
+      });
+
+      routingDistribution = await Promise.all(
+        orgs.map(async (org) => {
+          const [assignedCount, raisedCount] = await Promise.all([
+            this.prisma.issue.count({
+              where: { ...visibilityFilter, assignedToOrgId: org.id },
+            }),
+            this.prisma.issue.count({
+              where: { ...visibilityFilter, raisedByOrgId: org.id },
+            }),
+          ]);
+          return { orgName: org.name, orgType: org.type, assignedCount, raisedCount };
+        }),
+      );
+    }
+
+    // ── Org Summary (ORG_ADMIN only) ──
+    let orgSummary: {
+      orgName: string;
+      totalOpen: number;
+      totalOverdue: number;
+      byStatus: Record<string, number>;
+      teamMembers: Array<{
+        userId: string;
+        userName: string;
+        assignedCount: number;
+        resolvedCount: number;
+      }>;
+    } | null = null;
+
+    if (actor.role === 'ORG_ADMIN') {
+      const orgUsers = await this.prisma.user.findMany({
+        where: { organizationId: actor.organizationId, status: 'ACTIVE' as any },
+        select: { id: true, name: true },
+      });
+
+      const orgOpenStatuses = ['NEW', 'UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'ASSIGNED', 'IN_PROGRESS'] as any;
+      const [totalOpen, totalOverdue, orgStatusCounts] = await Promise.all([
+        this.prisma.issue.count({
+          where: {
+            OR: [
+              { raisedByOrgId: actor.organizationId },
+              { assignedToOrgId: actor.organizationId },
+            ],
+            status: { in: orgOpenStatuses },
+          },
+        }),
+        this.prisma.issue.count({
+          where: {
+            OR: [
+              { raisedByOrgId: actor.organizationId },
+              { assignedToOrgId: actor.organizationId },
+            ],
+            deadline: { lt: now },
+            status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] as any },
+          },
+        }),
+        this.prisma.issue.groupBy({
+          by: ['status'],
+          where: {
+            OR: [
+              { raisedByOrgId: actor.organizationId },
+              { assignedToOrgId: actor.organizationId },
+            ],
+          },
+          _count: { id: true },
+        }),
+      ]);
+
+      const orgByStatus: Record<string, number> = {};
+      for (const r of orgStatusCounts) orgByStatus[r.status] = r._count.id;
+
+      const teamMembers = await Promise.all(
+        orgUsers.map(async (u) => {
+          const [assignedCount, resolvedCount] = await Promise.all([
+            this.prisma.issue.count({
+              where: { assignedToUserId: u.id, status: { notIn: ['CLOSED'] as any } },
+            }),
+            this.prisma.issue.count({
+              where: { assignedToUserId: u.id, status: 'CLOSED' as any },
+            }),
+          ]);
+          return { userId: u.id, userName: u.name, assignedCount, resolvedCount };
+        }),
+      );
+
+      const orgRecord = await this.prisma.organization.findUnique({
+        where: { id: actor.organizationId },
+        select: { name: true },
+      });
+
+      orgSummary = {
+        orgName: orgRecord?.name ?? '',
+        totalOpen,
+        totalOverdue,
+        byStatus: orgByStatus,
+        teamMembers,
+      };
+    }
+
+    // ── Team Workload (SI USER only) ──
+    let teamWorkload: Array<{
+      userName: string;
+      assignedCount: number;
+      inProgressCount: number;
+    }> = [];
+
+    if (actor.role === 'USER' && actor.organizationType === 'SI') {
+      const teammates = await this.prisma.user.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          status: 'ACTIVE' as any,
+          id: { not: actor.userId },
+        },
+        select: { id: true, name: true },
+      });
+
+      teamWorkload = await Promise.all(
+        teammates.map(async (t) => {
+          const [assignedCount, inProgressCount] = await Promise.all([
+            this.prisma.issue.count({
+              where: { assignedToUserId: t.id, status: { notIn: ['CLOSED'] as any } },
+            }),
+            this.prisma.issue.count({
+              where: { assignedToUserId: t.id, status: 'IN_PROGRESS' as any },
+            }),
+          ]);
+          return { userName: t.name, assignedCount, inProgressCount };
+        }),
+      );
+    }
+
+    // ── My Raised Issues Summary (all users) ──
+    const [myTotalRaised, myOpenRaised, myOverdueRaised, myPendingApprovalRaised] =
+      await Promise.all([
+        this.prisma.issue.count({
+          where: { raisedById: actor.userId },
+        }),
+        this.prisma.issue.count({
+          where: {
+            raisedById: actor.userId,
+            status: { notIn: ['CLOSED'] as any },
+          },
+        }),
+        this.prisma.issue.count({
+          where: {
+            raisedById: actor.userId,
+            deadline: { lt: now },
+            status: { notIn: ['CLOSED', 'PENDING_CLIENT_APPROVAL'] as any },
+          },
+        }),
+        this.prisma.issue.count({
+          where: {
+            raisedById: actor.userId,
+            status: 'PENDING_CLIENT_APPROVAL' as any,
+          },
+        }),
+      ]);
+
+    const myRaisedIssues = {
+      total: myTotalRaised,
+      open: myOpenRaised,
+      overdue: myOverdueRaised,
+      pendingApproval: myPendingApprovalRaised,
+    };
 
     return {
       byStatus,
@@ -632,6 +890,12 @@ export class NotificationsService {
       myAssignedIssues,
       recentActivity,
       orgComparison,
+      slaAging,
+      workflowBottlenecks,
+      routingDistribution,
+      orgSummary,
+      teamWorkload,
+      myRaisedIssues,
     };
   }
 }
