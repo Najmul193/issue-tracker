@@ -1,25 +1,27 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const STATUS_COLORS: Record<string, string> = {
-  NEW: '#6366f1',
-  ACKNOWLEDGED: '#f59e0b',
-  ASSIGNED: '#3b82f6',
-  IN_PROGRESS: '#8b5cf6',
-  RESOLVED: '#10b981',
-  VERIFIED: '#14b8a6',
+  NEW: '#0ea5e9',
+  UNDER_REVIEW: '#3b82f6',
+  CLARIFICATION_REQUESTED: '#f97316',
+  ASSIGNED: '#8b5cf6',
+  IN_PROGRESS: '#a855f7',
+  IN_QA: '#f59e0b',
+  SI_REVIEW: '#eab308',
+  PENDING_CLIENT_APPROVAL: '#14b8a6',
   CLOSED: '#6b7280',
-  REOPENED: '#ef4444',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'New',
-  ACKNOWLEDGED: 'Acknowledged',
+  UNDER_REVIEW: 'Under Review',
+  CLARIFICATION_REQUESTED: 'Clarification Requested',
   ASSIGNED: 'Assigned',
   IN_PROGRESS: 'In Progress',
-  RESOLVED: 'Resolved',
-  VERIFIED: 'Verified',
+  IN_QA: 'In QA',
+  SI_REVIEW: 'SI Review',
+  PENDING_CLIENT_APPROVAL: 'Pending Approval',
   CLOSED: 'Closed',
-  REOPENED: 'Reopened',
 };
 
 interface Props {
