@@ -568,14 +568,14 @@ export class IssuesService {
       }
     }
 
-    // PENDING_CLIENT_APPROVAL -> ASSIGNED (client rejects): CLIENT org or SUPER_ADMIN or SI admin
+    // PENDING_CLIENT_APPROVAL -> ASSIGNED (client rejects): issue creator, CLIENT org admin, or SUPER_ADMIN
     if (actualStatus === 'ASSIGNED' && issue.status === 'PENDING_CLIENT_APPROVAL') {
       if (actor.role !== 'SUPER_ADMIN') {
-        const isClientOrg = actor.organizationId === issue.raisedByOrgId;
-        const isSiOrg = actor.organizationType === 'SI';
-        if (!isClientOrg && !isSiOrg) {
+        const isCreator = issue.raisedById === actor.userId;
+        const isCreatorOrgAdmin = actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
+        if (!isCreator && !isCreatorOrgAdmin) {
           throw new ForbiddenException(
-            'Only the client org or SI team can send an issue back for review',
+            'Only the issue creator or their org admin can send an issue back for review',
           );
         }
       }

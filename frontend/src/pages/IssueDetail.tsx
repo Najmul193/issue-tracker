@@ -343,6 +343,11 @@ export default function IssueDetail() {
         if (t === 'RESOLVED' || t === 'CLARIFICATION_REQUESTED' || t === 'IN_PROGRESS') return canWorkOnIssue;
         return false;
       }
+      
+      // 5. Client actions (approving or rejecting)
+      if (status === 'PENDING_CLIENT_APPROVAL') {
+        return canClose; // canClose exactly matches (isCreator || isCreatorOrgAdmin || SUPER_ADMIN)
+      }
 
       return true;
     });
