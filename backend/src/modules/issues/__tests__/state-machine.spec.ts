@@ -45,6 +45,9 @@ describe('StateMachine — new branched workflow', () => {
     it('CLOSED allows UNDER_REVIEW', () => {
       expect(sm.getAllowedTransitions('CLOSED')).toEqual(['UNDER_REVIEW']);
     });
+    it('SI_APPROVAL allows ASSIGNED and CLARIFICATION_REQUESTED', () => {
+      expect(sm.getAllowedTransitions('SI_APPROVAL')).toEqual(['ASSIGNED', 'CLARIFICATION_REQUESTED']);
+    });
   });
 
   // ─── canTransition — valid paths ────────────────────────────────────────────
@@ -85,6 +88,11 @@ describe('StateMachine — new branched workflow', () => {
 
     it('CLOSED -> UNDER_REVIEW (reopen)', () =>
       expect(sm.canTransition('CLOSED', 'UNDER_REVIEW')).toEqual({ valid: true }));
+
+    it('SI_APPROVAL -> ASSIGNED (SI validates)', () =>
+      expect(sm.canTransition('SI_APPROVAL', 'ASSIGNED')).toEqual({ valid: true }));
+    it('SI_APPROVAL -> CLARIFICATION_REQUESTED (SI requests clarification)', () =>
+      expect(sm.canTransition('SI_APPROVAL', 'CLARIFICATION_REQUESTED')).toEqual({ valid: true }));
   });
 
   // ─── canTransition — invalid paths ──────────────────────────────────────────

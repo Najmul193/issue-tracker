@@ -2,6 +2,7 @@ import { apiGet, apiPost, apiPatch, apiDelete, getAuthToken, getBaseUrl } from '
 
 export type IssueStatus =
   | 'NEW'
+  | 'SI_APPROVAL'
   | 'UNDER_REVIEW'
   | 'CLARIFICATION_REQUESTED'
   | 'ASSIGNED'

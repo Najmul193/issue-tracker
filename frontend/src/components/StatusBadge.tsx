@@ -2,6 +2,7 @@ import type { IssueStatus } from '../api/issues';
 
 const STATUS_LABELS: Record<IssueStatus, string> = {
   NEW: 'New',
+  SI_APPROVAL: 'SI Approval',
   UNDER_REVIEW: 'Under Review',
   CLARIFICATION_REQUESTED: 'Clarification Requested',
   ASSIGNED: 'Assigned',
@@ -14,6 +15,7 @@ const STATUS_LABELS: Record<IssueStatus, string> = {
 
 const COLOR_MAP: Record<IssueStatus, string> = {
   NEW:                      'bg-sky-100 text-sky-800',
+  SI_APPROVAL:              'bg-indigo-100 text-indigo-800',
   UNDER_REVIEW:             'bg-blue-100 text-blue-800',
   CLARIFICATION_REQUESTED:  'bg-orange-100 text-orange-800',
   ASSIGNED:                 'bg-violet-100 text-violet-800',

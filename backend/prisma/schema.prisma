@@ -42,6 +42,7 @@ enum IssuePriority {
 
 enum IssueStatus {
   NEW
+  SI_APPROVAL
   UNDER_REVIEW
   CLARIFICATION_REQUESTED
   ASSIGNED

@@ -255,12 +255,21 @@ export class IssuesService {
       }
     }
 
+    // SI_APPROVAL is a hold stage — the issue creator assigns during creation but the
+    // assignment is on hold until SI validates. Only SI team or SUPER_ADMIN can reassign.
+    if (issue.status === 'SI_APPROVAL') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException(
+          'Only the SI team or SUPER_ADMIN can reassign an issue during SI approval',
+        );
+      }
+    }
+
     // In the new workflow, assignment is only allowed during triage / review / clarification
     // or from IN_PROGRESS for re-routing.
-    // SI_REVIEW is NOT assignable — the SI team rejects via updateStatus (SI_REVIEW → ASSIGNED),
-    // then reassigns from ASSIGNED state. This prevents any actor from bypassing SI review.
     const assignableStatuses: string[] = [
       'NEW',
+      'SI_APPROVAL',
       'UNDER_REVIEW',
       'CLARIFICATION_REQUESTED',
       'ASSIGNED',
@@ -421,20 +430,23 @@ export class IssuesService {
         assignedToDepartmentId: dto.targetDepartmentId ?? null,
         assignedById: actor.userId,
         status: (() => {
+          // First-time assignment from NEW:
+          //   SI/SUPER_ADMIN assigns directly to ASSIGNED (SI triage skips SI_APPROVAL).
+          //   Client (issue creator) sends to SI_APPROVAL — assignment is on hold until SI validates.
           if (issue.status === 'NEW') {
             return actor.organizationType === 'SI' || actor.role === 'SUPER_ADMIN'
               ? 'ASSIGNED'
-              : 'UNDER_REVIEW';
+              : 'SI_APPROVAL';
           }
-          // SI_REVIEW → ASSIGNED transition is handled exclusively by updateStatus (SI reject flow)
-          // and must NOT be triggered by reassignment to prevent bypassing SI review.
+          // SI triage: SI moves from UNDER_REVIEW/CLARIFICATION_REQUESTED to ASSIGNED
+          // when they assign the triaged issue to an OEM team.
           if (
-            ['UNDER_REVIEW', 'CLARIFICATION_REQUESTED'].includes(
-              issue.status as string,
-            )
+            (actor.organizationType === 'SI' || actor.role === 'SUPER_ADMIN') &&
+            ['UNDER_REVIEW', 'CLARIFICATION_REQUESTED'].includes(issue.status as string)
           ) {
             return 'ASSIGNED';
           }
+          // All other reassignments never mutate the status.
           return issue.status;
         })(),
         closedAt: null,

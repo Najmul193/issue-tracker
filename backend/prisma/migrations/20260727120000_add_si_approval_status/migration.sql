@@ -1,0 +1,4 @@
+-- AlterEnum: Add SI_APPROVAL to IssueStatus enum
+
+-- Add SI_APPROVAL between NEW and UNDER_REVIEW
+ALTER TYPE "IssueStatus" ADD VALUE 'SI_APPROVAL' BEFORE 'UNDER_REVIEW';

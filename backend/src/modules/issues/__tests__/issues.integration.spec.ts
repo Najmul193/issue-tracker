@@ -285,6 +285,14 @@ describe('Issues Integration (all scenarios)', () => {
       .send({ status: 'UNDER_REVIEW' });
   }
 
+  // Helper: SI validates at SI_APPROVAL → ASSIGNED
+  async function advanceThroughSiApproval(issueId: string, siAdminT: string) {
+    return request(app.getHttpServer())
+      .patch(`/api/issues/${issueId}/status`)
+      .set('Cookie', `access_token=${siAdminT}`)
+      .send({ status: 'ASSIGNED' });
+  }
+
   // ─── Scenario 1: Create issue ─────────────────────────────────────────────
   describe('Scenario 1: Create issue as Bank user', () => {
     it('auto-sets raised_by_id and raised_by_org_id from JWT', async () => {
@@ -294,6 +302,86 @@ describe('Issues Integration (all scenarios)', () => {
       expect(res.body.raisedById).toBe(bankUserId);
       expect(res.body.raisedByOrgId).toBe(bankOrgId);
       expect(res.body.status).toBe('NEW');
+    });
+  });
+
+  // ─── Scenario 1b: Client assign at NEW goes to SI_APPROVAL ─────────────
+  describe('Scenario 1b: Client assigning at NEW sends issue to SI_APPROVAL', () => {
+    it('client assign at NEW → SI_APPROVAL (hold state)', async () => {
+      const bankT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
+      const issue = await createIssue({ token: bankT });
+      const id = issue.body.id;
+      const res = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/assign`)
+        .set('Cookie', `access_token=${bankT}`)
+        .send({ targetOrgId: oracleOrgId });
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('SI_APPROVAL');
+    });
+
+    it('OEM cannot reassign at SI_APPROVAL', async () => {
+      const bankT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
+      const oracleAdminT = token(oracleAdminId, 'ORG_ADMIN', oracleOrgId, 'OEM');
+      const issue = await createIssue({ token: bankT });
+      const id = issue.body.id;
+
+      // Client assigns → SI_APPROVAL
+      const r1 = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/assign`)
+        .set('Cookie', `access_token=${bankT}`)
+        .send({ targetOrgId: oracleOrgId });
+      expect(r1.status).toBe(200);
+      expect(r1.body.status).toBe('SI_APPROVAL');
+
+      // OEM admin cannot reassign — blocked
+      const r2 = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/assign`)
+        .set('Cookie', `access_token=${oracleAdminT}`)
+        .send({ targetUserId: oracleUserId, targetOrgId: oracleOrgId });
+      expect(r2.status).toBe(403);
+    });
+
+    it('SI validates at SI_APPROVAL → ASSIGNED', async () => {
+      const bankT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
+      const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      const issue = await createIssue({ token: bankT });
+      const id = issue.body.id;
+
+      // Client assigns → SI_APPROVAL
+      const r1 = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/assign`)
+        .set('Cookie', `access_token=${bankT}`)
+        .send({ targetOrgId: oracleOrgId });
+      expect(r1.status).toBe(200);
+      expect(r1.body.status).toBe('SI_APPROVAL');
+
+      // SI validates → ASSIGNED
+      const r2 = await advanceThroughSiApproval(id, siAdminT);
+      expect(r2.status).toBe(200);
+      expect(r2.body.status).toBe('ASSIGNED');
+    });
+
+    it('SI can reassign at SI_APPROVAL and status stays SI_APPROVAL', async () => {
+      const bankT = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');
+      const siAdminT = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+      const issue = await createIssue({ token: bankT });
+      const id = issue.body.id;
+
+      // Client assigns → SI_APPROVAL
+      const r1 = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/assign`)
+        .set('Cookie', `access_token=${bankT}`)
+        .send({ targetOrgId: oracleOrgId });
+      expect(r1.status).toBe(200);
+      expect(r1.body.status).toBe('SI_APPROVAL');
+
+      // SI reassigns → still SI_APPROVAL
+      const r2 = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/assign`)
+        .set('Cookie', `access_token=${siAdminT}`)
+        .send({ targetUserId: oracleUserId, targetOrgId: oracleOrgId });
+      expect(r2.status).toBe(200);
+      expect(r2.body.status).toBe('SI_APPROVAL');
     });
   });
 
@@ -564,13 +652,20 @@ describe('Issues Integration (all scenarios)', () => {
         .set('Cookie', `access_token=${oracleUserT}`)
         .send({ status: 'RESOLVED', resolutionNote: 'Attempted fix' });
 
-      // SI rejects -> back to ASSIGNED (SI reassigns to OEM)
-      const r = await request(app.getHttpServer())
+      // SI rejects -> ASSIGNED (via updateStatus), then reassigns to OEM
+      const r1 = await request(app.getHttpServer())
+        .patch(`/api/issues/${id}/status`)
+        .set('Cookie', `access_token=${siAdminT}`)
+        .send({ status: 'ASSIGNED' });
+      expect(r1.status).toBe(200);
+      expect(r1.body.status).toBe('ASSIGNED');
+
+      const r2 = await request(app.getHttpServer())
         .patch(`/api/issues/${id}/assign`)
         .set('Cookie', `access_token=${siAdminT}`)
         .send({ targetUserId: oracleUserId, targetOrgId: oracleOrgId });
-      expect(r.status).toBe(200);
-      expect(r.body.status).toBe('ASSIGNED');
+      expect(r2.status).toBe(200);
+      expect(r2.body.status).toBe('ASSIGNED');
     });
   });
 

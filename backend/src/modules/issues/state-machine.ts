@@ -14,12 +14,17 @@ interface TransitionResult {
  *   Flow A (Client -> SI):       NEW -> UNDER_REVIEW -> ASSIGNED -> IN_PROGRESS -> [IN_QA ->] PENDING_CLIENT_APPROVAL -> CLOSED
  *   Flow B (Client -> SI -> OEM): NEW -> UNDER_REVIEW -> ASSIGNED -> IN_PROGRESS -> SI_REVIEW -> PENDING_CLIENT_APPROVAL -> CLOSED
  *
+ * SI Approval gate:
+ *   When the issue creator assigns during creation, status goes to SI_APPROVAL (hold state).
+ *   Only SI can validate: SI_APPROVAL -> ASSIGNED (assignment takes effect).
+ *
  * NOTE: When an actor submits status=RESOLVED, the service layer intercepts it and
  * auto-routes to SI_REVIEW (OEM assignee), IN_QA (SI assignee + requiresQA=true), or
  * PENDING_CLIENT_APPROVAL (SI assignee + requiresQA=false). RESOLVED is never stored in the DB.
  */
 const TRANSITION_MAP: Record<string, IssueStatus[]> = {
   NEW: ['UNDER_REVIEW'],
+  SI_APPROVAL: ['ASSIGNED', 'CLARIFICATION_REQUESTED'], // SI validates or requests clarification
   UNDER_REVIEW: ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
   CLARIFICATION_REQUESTED: ['UNDER_REVIEW', 'IN_PROGRESS'],
   ASSIGNED: ['IN_PROGRESS'],

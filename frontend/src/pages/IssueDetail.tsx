@@ -26,6 +26,7 @@ import { ApiError, getBaseUrl, getAuthToken } from '../api/client';
  */
 const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatusOrResolve[]> = {
   NEW:                      ['UNDER_REVIEW'],
+  SI_APPROVAL:              ['ASSIGNED', 'CLARIFICATION_REQUESTED'],
   UNDER_REVIEW:             ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
   CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'IN_PROGRESS'],
   ASSIGNED:                 ['IN_PROGRESS'],
@@ -318,6 +319,7 @@ export default function IssueDetail() {
       if (t === 'UNDER_REVIEW' && status === 'CLOSED') return canActOnSiReview;
       if (t === 'CLOSED') return canClose;
       if (status === 'UNDER_REVIEW') return canActOnSiReview;
+      if (status === 'SI_APPROVAL') return canActOnSiReview;
       if (status === 'SI_REVIEW') return canActOnSiReview;
       // 3. Issue Creator actions (providing clarification)
       if (status === 'CLARIFICATION_REQUESTED') {
@@ -326,11 +328,14 @@ export default function IssueDetail() {
         const canProvideClarification = isCreator || isClientOrgAdmin || currentUser?.role === 'SUPER_ADMIN';
         
         const lastStatusChange = issue?.activityLogs?.find(l => l.action === 'STATUS_CHANGED' && l.newValue === 'CLARIFICATION_REQUESTED');
-        const cameFromUnderReview = lastStatusChange?.oldValue === 'UNDER_REVIEW';
+        const cameFrom = lastStatusChange?.oldValue;
+        // Clarification from UNDER_REVIEW or SI_APPROVAL → respond with UNDER_REVIEW
+        // Clarification from IN_PROGRESS (OEM) → respond with IN_PROGRESS
+        const respondWithUnderReview = cameFrom === 'UNDER_REVIEW' || cameFrom === 'SI_APPROVAL';
 
         if (canProvideClarification) {
-          if (cameFromUnderReview && t === 'UNDER_REVIEW') return true;
-          if (!cameFromUnderReview && t === 'IN_PROGRESS') return true;
+          if (respondWithUnderReview && t === 'UNDER_REVIEW') return true;
+          if (!respondWithUnderReview && t === 'IN_PROGRESS') return true;
         }
         return false;
       }
@@ -621,10 +626,10 @@ export default function IssueDetail() {
         
         let canAssign = false;
 
-        // SI_REVIEW is a gatekeeping stage — only SI team can reassign (reject OEM work)
-        const isSiReviewLock = issue.status === 'SI_REVIEW' && currentUser.organization.type !== 'SI';
+        // SI_REVIEW and SI_APPROVAL are gatekeeping stages — only SI team can reassign
+        const isSiLocked = (issue.status === 'SI_REVIEW' || issue.status === 'SI_APPROVAL') && currentUser.organization.type !== 'SI';
 
-        if (isSiReviewLock) {
+        if (isSiLocked) {
           canAssign = false;
         } else if (currentUser.organization.type === 'SI') {
           canAssign = true;
