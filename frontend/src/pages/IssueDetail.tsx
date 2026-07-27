@@ -620,8 +620,13 @@ export default function IssueDetail() {
         const isRaiserNormal = isRaiserOrg && currentUser.role === 'USER';
         
         let canAssign = false;
-        
-        if (currentUser.organization.type === 'SI') {
+
+        // SI_REVIEW is a gatekeeping stage — only SI team can reassign (reject OEM work)
+        const isSiReviewLock = issue.status === 'SI_REVIEW' && currentUser.organization.type !== 'SI';
+
+        if (isSiReviewLock) {
+          canAssign = false;
+        } else if (currentUser.organization.type === 'SI') {
           canAssign = true;
         } else if (isRaiserAdmin) {
           canAssign = true;

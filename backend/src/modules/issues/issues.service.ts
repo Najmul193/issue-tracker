@@ -245,17 +245,29 @@ export class IssuesService {
       throw new ForbiddenException('Cannot assign a closed issue. Reopen it first.');
     }
 
+    // SI_REVIEW is a gatekeeping stage — only SI team or SUPER_ADMIN can reassign
+    // (to reject the OEM's work and route it back). OEM/org users must not bypass SI review.
+    if (issue.status === 'SI_REVIEW') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException(
+          'Only the SI team or SUPER_ADMIN can reassign an issue during SI review',
+        );
+      }
+    }
+
     // In the new workflow, assignment is only allowed during triage / review / clarification
     // or when SI rejects OEM work (SI_REVIEW -> ASSIGNED) or from IN_PROGRESS for re-routing.
     const assignableStatuses: string[] = [
-      'NEW', 'UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'ASSIGNED', 'IN_PROGRESS',
+      'NEW',
+      'UNDER_REVIEW',
+      'CLARIFICATION_REQUESTED',
+      'ASSIGNED',
+      'IN_PROGRESS',
       'REOPENED', // kept for backward-compat with any residual data
       'SI_REVIEW', // SI rejects OEM -> reassign to OEM lead
     ];
     if (!assignableStatuses.includes(issue.status as string)) {
-      throw new ForbiddenException(
-        `Cannot reassign an issue in status ${issue.status}`,
-      );
+      throw new ForbiddenException(`Cannot reassign an issue in status ${issue.status}`);
     }
 
     const newTargetUser = dto.targetUserId
@@ -361,7 +373,11 @@ export class IssuesService {
 
     const currentAssignedOrgId =
       issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
-    const isAlreadyAssigned = !!(issue.assignedToUserId || issue.assignedToOrgId || issue.assignedToDepartmentId);
+    const isAlreadyAssigned = !!(
+      issue.assignedToUserId ||
+      issue.assignedToOrgId ||
+      issue.assignedToDepartmentId
+    );
 
     this.authService.canAssign(
       actor,
@@ -405,9 +421,15 @@ export class IssuesService {
         assignedById: actor.userId,
         status: (() => {
           if (issue.status === 'NEW') {
-            return (actor.organizationType === 'SI' || actor.role === 'SUPER_ADMIN') ? 'ASSIGNED' : 'UNDER_REVIEW';
+            return actor.organizationType === 'SI' || actor.role === 'SUPER_ADMIN'
+              ? 'ASSIGNED'
+              : 'UNDER_REVIEW';
           }
-          if (['UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'SI_REVIEW'].includes(issue.status as string)) {
+          if (
+            ['UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'SI_REVIEW'].includes(
+              issue.status as string,
+            )
+          ) {
             return 'ASSIGNED';
           }
           return issue.status;
@@ -546,7 +568,10 @@ export class IssuesService {
     }
 
     // UNDER_REVIEW actions: only SI org members (or SUPER_ADMIN) can validate or ask for clarification
-    if (issue.status === 'UNDER_REVIEW' && (actualStatus === 'ASSIGNED' || actualStatus === 'CLARIFICATION_REQUESTED')) {
+    if (
+      issue.status === 'UNDER_REVIEW' &&
+      (actualStatus === 'ASSIGNED' || actualStatus === 'CLARIFICATION_REQUESTED')
+    ) {
       if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
         throw new ForbiddenException(
           'Only the SI (Data Edge) team can validate or request clarification for an issue under review',
@@ -572,7 +597,8 @@ export class IssuesService {
     if (actualStatus === 'ASSIGNED' && issue.status === 'PENDING_CLIENT_APPROVAL') {
       if (actor.role !== 'SUPER_ADMIN') {
         const isCreator = issue.raisedById === actor.userId;
-        const isCreatorOrgAdmin = actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
+        const isCreatorOrgAdmin =
+          actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
         if (!isCreator && !isCreatorOrgAdmin) {
           throw new ForbiddenException(
             'Only the issue creator or their org admin can send an issue back for review',
@@ -625,8 +651,14 @@ export class IssuesService {
         );
       }
       const isAssignee = actor.userId === issue.assignedToUserId;
-      const isAssigneeOrg = actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
-      if (!isAssignee && !isAssigneeOrg && actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+      const isAssigneeOrg =
+        actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
+      if (
+        !isAssignee &&
+        !isAssigneeOrg &&
+        actor.role !== 'SUPER_ADMIN' &&
+        actor.organizationType !== 'SI'
+      ) {
         throw new ForbiddenException('Only the assigned team can request clarification');
       }
     }
@@ -637,21 +669,23 @@ export class IssuesService {
       issue.status === 'CLARIFICATION_REQUESTED'
     ) {
       if (!dto.comment?.trim()) {
-        throw new BadRequestException(
-          'A comment is required when providing clarification',
-        );
+        throw new BadRequestException('A comment is required when providing clarification');
       }
       const isCreator = issue.raisedById === actor.userId;
-      const isClientOrgAdmin = actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
+      const isClientOrgAdmin =
+        actor.organizationId === issue.raisedByOrgId && actor.role === 'ORG_ADMIN';
       if (!isCreator && !isClientOrgAdmin && actor.role !== 'SUPER_ADMIN') {
-        throw new ForbiddenException('Only the issue creator or client org admin can provide clarification');
+        throw new ForbiddenException(
+          'Only the issue creator or client org admin can provide clarification',
+        );
       }
     }
 
     // Moving to IN_PROGRESS from ASSIGNED can only be done by the assigned team
     if (actualStatus === 'IN_PROGRESS' && issue.status === 'ASSIGNED') {
       const isAssignee = actor.userId === issue.assignedToUserId;
-      const isAssigneeOrg = actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
+      const isAssigneeOrg =
+        actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
       if (!isAssignee && !isAssigneeOrg && actor.role !== 'SUPER_ADMIN') {
         throw new ForbiddenException('Only the assigned team can mark the issue as in progress');
       }
@@ -660,8 +694,14 @@ export class IssuesService {
     // Resolving an issue can only be done by the assigned team or SI
     if (dto.status === 'RESOLVED') {
       const isAssignee = actor.userId === issue.assignedToUserId;
-      const isAssigneeOrg = actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
-      if (!isAssignee && !isAssigneeOrg && actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+      const isAssigneeOrg =
+        actor.organizationId === (issue.assignedToOrgId ?? issue.assignedToUser?.organizationId);
+      if (
+        !isAssignee &&
+        !isAssigneeOrg &&
+        actor.role !== 'SUPER_ADMIN' &&
+        actor.organizationType !== 'SI'
+      ) {
         throw new ForbiddenException('Only the assigned team can resolve this issue');
       }
     }
@@ -714,11 +754,7 @@ export class IssuesService {
 
     // When issue enters SI_REVIEW, notify all SI org admins and dept managers in the project
     if (actualStatus === 'SI_REVIEW' && issue.projectId) {
-      await this.notificationsService.notifySiTeamForReview(
-        id,
-        issue.title,
-        issue.projectId,
-      );
+      await this.notificationsService.notifySiTeamForReview(id, issue.title, issue.projectId);
     }
 
     return this.findOne(id, actor);
