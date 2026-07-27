@@ -699,7 +699,15 @@ export default function IssueDetail() {
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="">Select user...</option>
-              {(users || []).map((u: AssignableUser) => (
+              {(users || [])
+                .filter((u: AssignableUser) => {
+                  if (!currentUser || !issue) return true;
+                  if (issue.status === 'SI_REVIEW' && currentUser.organization?.type === 'SI') {
+                    if (u.organizationId === issue.raisedByOrg?.id) return false;
+                  }
+                  return true;
+                })
+                .map((u: AssignableUser) => (
                 <option key={u.id} value={u.id}>
                   {u.name} ({u.email})
                 </option>
