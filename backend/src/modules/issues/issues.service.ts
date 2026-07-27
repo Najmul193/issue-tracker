@@ -176,7 +176,7 @@ export class IssuesService {
         include: {
           raisedBy: { select: { id: true, name: true, email: true } },
           assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
-          raisedByOrg: { select: { id: true, name: true } },
+        raisedByOrg: { select: { id: true, name: true, type: true } },
           assignedToOrg: { select: { id: true, name: true } },
           assignedToDepartment: { select: { id: true, name: true } },
           project: { select: { id: true, name: true } },
@@ -193,7 +193,7 @@ export class IssuesService {
       where: { id },
       include: {
         raisedBy: { select: { id: true, name: true, email: true } },
-        raisedByOrg: { select: { id: true, name: true } },
+        raisedByOrg: { select: { id: true, name: true, type: true } },
         assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
         assignedToOrg: { select: { id: true, name: true } },
         assignedToDepartment: { select: { id: true, name: true } },
@@ -401,6 +401,7 @@ export class IssuesService {
       newTargetUser?.organization?.type,
       resolvedTargetOrg?.type,
       isAlreadyAssigned,
+      issue.raisedByOrg.type,
     );
 
     const oldTargetUser = issue.assignedToUserId
