@@ -458,6 +458,12 @@ describe('Users Management (all scenarios)', () => {
         .set('Cookie', `access_token=${siAdminToken}`)
         .send({ targetUserId: siUserId, targetOrgId: dataEdgeOrgId });
 
+      // SI validates at SI_APPROVAL → ASSIGNED
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issueId}/status`)
+        .set('Cookie', `access_token=${siAdminToken}`)
+        .send({ status: 'ASSIGNED' });
+
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issueId}/status`)
         .set('Cookie', `access_token=${siUserToken}`)

@@ -89,9 +89,8 @@ export class AuthService {
       );
     }
 
-    // SI (Data Edge) org admins are the central routing team — they can assign to any org/user
-    if (actor.organizationType === 'SI' && actor.role === 'ORG_ADMIN') {
-      // Only guard: cannot assign to a SUPER_ADMIN (already checked above)
+    // SI (Data Edge) is the middleware routing team — any SI member can assign to any org/user
+    if (actor.organizationType === 'SI') {
       return;
     }
 
