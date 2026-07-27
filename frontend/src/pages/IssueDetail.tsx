@@ -770,9 +770,8 @@ export default function IssueDetail() {
                     if (assignedOrgId === currentUser.organization.id) {
                       return pd.department.organizationId === currentUser.organization.id;
                     }
-                    return pd.department.organizationId !== issue.raisedByOrg?.id;
                   }
-                  return true;
+                  return pd.department.organizationId !== issue.raisedByOrg?.id;
                 })
                 .map((pd: ProjectDept) => (
                   <option key={pd.department.id} value={pd.department.id}>
