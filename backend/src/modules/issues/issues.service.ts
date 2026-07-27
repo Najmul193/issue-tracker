@@ -684,9 +684,9 @@ export class IssuesService {
       }
     }
 
-    // UNDER_REVIEW or IN_PROGRESS from CLARIFICATION_REQUESTED requires a comment, and only issue creator/client org can provide it
+    // UNDER_REVIEW, SI_APPROVAL, or IN_PROGRESS from CLARIFICATION_REQUESTED requires a comment, and only issue creator/client org can provide it
     if (
-      (actualStatus === 'UNDER_REVIEW' || actualStatus === 'IN_PROGRESS') &&
+      (actualStatus === 'UNDER_REVIEW' || actualStatus === 'SI_APPROVAL' || actualStatus === 'IN_PROGRESS') &&
       issue.status === 'CLARIFICATION_REQUESTED'
     ) {
       if (!dto.comment?.trim()) {

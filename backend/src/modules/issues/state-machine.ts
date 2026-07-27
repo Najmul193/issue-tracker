@@ -26,7 +26,7 @@ const TRANSITION_MAP: Record<string, IssueStatus[]> = {
   NEW: ['UNDER_REVIEW'],
   SI_APPROVAL: ['ASSIGNED', 'CLARIFICATION_REQUESTED'], // SI validates or requests clarification
   UNDER_REVIEW: ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
-  CLARIFICATION_REQUESTED: ['UNDER_REVIEW', 'IN_PROGRESS'],
+  CLARIFICATION_REQUESTED: ['UNDER_REVIEW', 'SI_APPROVAL', 'IN_PROGRESS'],
   ASSIGNED: ['IN_PROGRESS'],
   IN_PROGRESS: ['CLARIFICATION_REQUESTED'],
   // RESOLVED is a virtual input mapped in canTransition; service routes to SI_REVIEW unconditionally
