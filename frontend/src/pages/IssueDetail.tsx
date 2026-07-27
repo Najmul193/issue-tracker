@@ -702,9 +702,12 @@ export default function IssueDetail() {
               {(users || [])
                 .filter((u: AssignableUser) => {
                   if (!currentUser || !issue) return true;
-                  // SI middleware: never route back to the issue creator's org
                   if (currentUser.organization.type === 'SI') {
-                    if (u.organizationId === issue.raisedByOrg.id) return false;
+                    const assignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
+                    if (assignedOrgId === currentUser.organization.id) {
+                      return u.organizationId === currentUser.organization.id;
+                    }
+                    return u.organizationId !== issue.raisedByOrg.id;
                   }
                   return true;
                 })
@@ -727,9 +730,12 @@ export default function IssueDetail() {
                 .filter((po: ProjectOrg) => {
                   const o = po.organization;
                   if (o.type === 'SUPER_ADMIN') return false;
-                  // SI middleware: never route back to the issue creator's org
                   if (currentUser?.organization?.type === 'SI') {
-                    if (o.id === issue.raisedByOrg?.id) return false;
+                    const assignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
+                    if (assignedOrgId === currentUser.organization.id) {
+                      return o.id === currentUser.organization.id;
+                    }
+                    return o.id !== issue.raisedByOrg?.id;
                   }
                   if (currentUser?.role === 'USER') return o.type !== currentUser?.organization?.type;
                   if (currentUser?.role === 'ORG_ADMIN' && issue) {
@@ -759,7 +765,14 @@ export default function IssueDetail() {
               {(projectDepts || [])
                 .filter((pd: ProjectDept) => {
                   if (!currentUser || !issue) return true;
-                  return pd.department.organizationId !== issue.raisedByOrg?.id;
+                  if (currentUser.organization.type === 'SI') {
+                    const assignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
+                    if (assignedOrgId === currentUser.organization.id) {
+                      return pd.department.organizationId === currentUser.organization.id;
+                    }
+                    return pd.department.organizationId !== issue.raisedByOrg?.id;
+                  }
+                  return true;
                 })
                 .map((pd: ProjectDept) => (
                   <option key={pd.department.id} value={pd.department.id}>

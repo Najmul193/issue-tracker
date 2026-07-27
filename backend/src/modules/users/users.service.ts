@@ -210,13 +210,17 @@ export class UsersService {
         }
       }
 
-      // SI middleware: always exclude creator org users from assignable list
+      // SI middleware: if assigned to SI, only own org users; otherwise exclude creator org
       if (actor.organizationType === 'SI' && issue) {
+        const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+        const isAssignedToSI = currentAssignedOrgId === actor.organizationId;
         return this.prisma.user.findMany({
           where: {
             status: 'ACTIVE',
             role: { not: 'SUPER_ADMIN' },
-            organizationId: { not: issue.raisedByOrgId },
+            ...(isAssignedToSI
+              ? { organizationId: actor.organizationId }
+              : { organizationId: { not: issue.raisedByOrgId } }),
             ...(projectOrgFilter || {}),
           },
           select: {
