@@ -256,7 +256,9 @@ export class IssuesService {
     }
 
     // In the new workflow, assignment is only allowed during triage / review / clarification
-    // or when SI rejects OEM work (SI_REVIEW -> ASSIGNED) or from IN_PROGRESS for re-routing.
+    // or from IN_PROGRESS for re-routing.
+    // SI_REVIEW is NOT assignable — the SI team rejects via updateStatus (SI_REVIEW → ASSIGNED),
+    // then reassigns from ASSIGNED state. This prevents any actor from bypassing SI review.
     const assignableStatuses: string[] = [
       'NEW',
       'UNDER_REVIEW',
@@ -264,7 +266,6 @@ export class IssuesService {
       'ASSIGNED',
       'IN_PROGRESS',
       'REOPENED', // kept for backward-compat with any residual data
-      'SI_REVIEW', // SI rejects OEM -> reassign to OEM lead
     ];
     if (!assignableStatuses.includes(issue.status as string)) {
       throw new ForbiddenException(`Cannot reassign an issue in status ${issue.status}`);
@@ -425,8 +426,10 @@ export class IssuesService {
               ? 'ASSIGNED'
               : 'UNDER_REVIEW';
           }
+          // SI_REVIEW → ASSIGNED transition is handled exclusively by updateStatus (SI reject flow)
+          // and must NOT be triggered by reassignment to prevent bypassing SI review.
           if (
-            ['UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'SI_REVIEW'].includes(
+            ['UNDER_REVIEW', 'CLARIFICATION_REQUESTED'].includes(
               issue.status as string,
             )
           ) {
