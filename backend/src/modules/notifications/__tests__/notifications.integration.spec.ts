@@ -197,7 +197,14 @@ describe('Notifications Integration', () => {
         status: 'ACTIVE',
       },
     });
-    createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id, siAdmin.id, siUser.id, oracleUser.id);
+    createdUserIds.push(
+      superAdmin.id,
+      bankAdmin.id,
+      bankUser.id,
+      siAdmin.id,
+      siUser.id,
+      oracleUser.id,
+    );
 
     superAdminId = superAdmin.id;
     bankAdminId = bankAdmin.id;

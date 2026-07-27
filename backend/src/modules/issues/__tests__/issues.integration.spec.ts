@@ -148,27 +148,84 @@ describe('Issues Integration (all scenarios)', () => {
     oracleOrgId = oracleOrg.id;
 
     const superAdmin = await prisma.user.create({
-      data: { name: 'Super Admin', email: `superadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'SUPER_ADMIN', organizationId: superAdminOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Super Admin',
+        email: `superadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'SUPER_ADMIN',
+        organizationId: superAdminOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankAdmin = await prisma.user.create({
-      data: { name: 'Bank Admin', email: `bankadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank Admin',
+        email: `bankadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const bankUser = await prisma.user.create({
-      data: { name: 'Bank User', email: `bankuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: bankOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Bank User',
+        email: `bankuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: bankOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siAdmin = await prisma.user.create({
-      data: { name: 'SI Admin', email: `siadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI Admin',
+        email: `siadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const siUser = await prisma.user.create({
-      data: { name: 'SI User', email: `siuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: dataEdgeOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'SI User',
+        email: `siuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: dataEdgeOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const oracleAdmin = await prisma.user.create({
-      data: { name: 'Oracle Admin', email: `oracleadmin-${suiteId}@test.dev`, passwordHash: pw, role: 'ORG_ADMIN', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Oracle Admin',
+        email: `oracleadmin-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'ORG_ADMIN',
+        organizationId: oracleOrg.id,
+        status: 'ACTIVE',
+      },
     });
     const oracleUser = await prisma.user.create({
-      data: { name: 'Oracle User', email: `oracleuser-${suiteId}@test.dev`, passwordHash: pw, role: 'USER', organizationId: oracleOrg.id, status: 'ACTIVE' },
+      data: {
+        name: 'Oracle User',
+        email: `oracleuser-${suiteId}@test.dev`,
+        passwordHash: pw,
+        role: 'USER',
+        organizationId: oracleOrg.id,
+        status: 'ACTIVE',
+      },
     });
-    createdUserIds.push(superAdmin.id, bankAdmin.id, bankUser.id, siAdmin.id, siUser.id, oracleAdmin.id, oracleUser.id);
+    createdUserIds.push(
+      superAdmin.id,
+      bankAdmin.id,
+      bankUser.id,
+      siAdmin.id,
+      siUser.id,
+      oracleAdmin.id,
+      oracleUser.id,
+    );
 
     superAdminId = superAdmin.id;
     bankAdminId = bankAdmin.id;
@@ -189,7 +246,15 @@ describe('Issues Integration (all scenarios)', () => {
         data: { projectId: project.id, organizationId: org.id },
       });
     }
-    for (const user of [superAdmin, bankAdmin, bankUser, siAdmin, siUser, oracleAdmin, oracleUser]) {
+    for (const user of [
+      superAdmin,
+      bankAdmin,
+      bankUser,
+      siAdmin,
+      siUser,
+      oracleAdmin,
+      oracleUser,
+    ]) {
       await prisma.projectUser.create({ data: { projectId: project.id, userId: user.id } });
     }
   }
@@ -199,7 +264,15 @@ describe('Issues Integration (all scenarios)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/issues')
       .set('Cookie', `access_token=${actor.token}`)
-      .send({ title: 'Test Issue', description: 'Test description', type: 'BUG', priority: 'HIGH', deadline: future, projectId, ...overrides });
+      .send({
+        title: 'Test Issue',
+        description: 'Test description',
+        type: 'BUG',
+        priority: 'HIGH',
+        deadline: future,
+        projectId,
+        ...overrides,
+      });
     if (res.body && res.body.id) createdIssueIds.push(res.body.id);
     return res;
   }
@@ -260,7 +333,10 @@ describe('Issues Integration (all scenarios)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/issues/${issue.body.id}/status`)
         .set('Cookie', `access_token=${siT}`)
-        .send({ status: 'CLARIFICATION_REQUESTED', comment: 'Please clarify the steps to reproduce' });
+        .send({
+          status: 'CLARIFICATION_REQUESTED',
+          comment: 'Please clarify the steps to reproduce',
+        });
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('CLARIFICATION_REQUESTED');
     });
@@ -706,7 +782,12 @@ describe('Issues Integration (all scenarios)', () => {
         .get(`/api/issues/${id}/activity`)
         .set('Cookie', `access_token=${siT}`);
       const logs = activity.body;
-      expect(logs.some((l: any) => l.action === 'STATUS_CHANGED' && l.oldValue === 'NEW' && l.newValue === 'UNDER_REVIEW')).toBe(true);
+      expect(
+        logs.some(
+          (l: any) =>
+            l.action === 'STATUS_CHANGED' && l.oldValue === 'NEW' && l.newValue === 'UNDER_REVIEW',
+        ),
+      ).toBe(true);
     });
   });
 });

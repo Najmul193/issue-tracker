@@ -19,16 +19,16 @@ interface TransitionResult {
  * PENDING_CLIENT_APPROVAL (SI assignee + requiresQA=false). RESOLVED is never stored in the DB.
  */
 const TRANSITION_MAP: Record<string, IssueStatus[]> = {
-  NEW:                      ['UNDER_REVIEW'],
-  UNDER_REVIEW:             ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
-  CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'IN_PROGRESS'],
-  ASSIGNED:                 ['IN_PROGRESS'],
-  IN_PROGRESS:              ['CLARIFICATION_REQUESTED'],
+  NEW: ['UNDER_REVIEW'],
+  UNDER_REVIEW: ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
+  CLARIFICATION_REQUESTED: ['UNDER_REVIEW', 'IN_PROGRESS'],
+  ASSIGNED: ['IN_PROGRESS'],
+  IN_PROGRESS: ['CLARIFICATION_REQUESTED'],
   // RESOLVED is a virtual input mapped in canTransition; service routes to SI_REVIEW unconditionally
-  IN_QA:                    ['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS'], // Keeping in schema but unused in UI
-  SI_REVIEW:                ['PENDING_CLIENT_APPROVAL', 'ASSIGNED'], // Approve -> Client, Reject -> Assignee
-  PENDING_CLIENT_APPROVAL:  ['CLOSED', 'ASSIGNED'], // Approve -> Closed, Reject -> Assignee
-  CLOSED:                   ['UNDER_REVIEW'],
+  IN_QA: ['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS'], // Keeping in schema but unused in UI
+  SI_REVIEW: ['PENDING_CLIENT_APPROVAL', 'ASSIGNED'], // Approve -> Client, Reject -> Assignee
+  PENDING_CLIENT_APPROVAL: ['CLOSED', 'ASSIGNED'], // Approve -> Closed, Reject -> Assignee
+  CLOSED: ['UNDER_REVIEW'],
 };
 
 @Injectable()

@@ -601,7 +601,13 @@ export class NotificationsService {
         },
         select: { id: true, name: true },
       });
-      const openStatuses = ['NEW', 'UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'ASSIGNED', 'IN_PROGRESS'];
+      const openStatuses = [
+        'NEW',
+        'UNDER_REVIEW',
+        'CLARIFICATION_REQUESTED',
+        'ASSIGNED',
+        'IN_PROGRESS',
+      ];
       orgComparison = await Promise.all(
         orgs.map(async (org) => {
           const [open, overdue] = await Promise.all([
@@ -675,8 +681,7 @@ export class NotificationsService {
       pendingClientApproval: 0,
     };
 
-    const isSiOrSuperAdmin =
-      actor.role === 'SUPER_ADMIN' || actor.organizationType === 'SI';
+    const isSiOrSuperAdmin = actor.role === 'SUPER_ADMIN' || actor.organizationType === 'SI';
 
     if (isSiOrSuperAdmin) {
       const [needsTriage, awaitingClarification, pendingSiReview, pendingClientApproval] =
@@ -694,7 +699,12 @@ export class NotificationsService {
             where: { ...visibilityFilter, status: 'PENDING_CLIENT_APPROVAL' as any },
           }),
         ]);
-      workflowBottlenecks = { needsTriage, awaitingClarification, pendingSiReview, pendingClientApproval };
+      workflowBottlenecks = {
+        needsTriage,
+        awaitingClarification,
+        pendingSiReview,
+        pendingClientApproval,
+      };
     }
 
     // ── Routing Distribution (SI org + SUPER_ADMIN) ──
@@ -749,7 +759,13 @@ export class NotificationsService {
         select: { id: true, name: true },
       });
 
-      const orgOpenStatuses = ['NEW', 'UNDER_REVIEW', 'CLARIFICATION_REQUESTED', 'ASSIGNED', 'IN_PROGRESS'] as any;
+      const orgOpenStatuses = [
+        'NEW',
+        'UNDER_REVIEW',
+        'CLARIFICATION_REQUESTED',
+        'ASSIGNED',
+        'IN_PROGRESS',
+      ] as any;
       const [totalOpen, totalOverdue, orgStatusCounts] = await Promise.all([
         this.prisma.issue.count({
           where: {

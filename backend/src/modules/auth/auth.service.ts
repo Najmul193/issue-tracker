@@ -163,7 +163,7 @@ export class AuthService {
           'Only the assignee or users from the raising organization can route this issue',
         );
       }
-      
+
       // If it is already assigned, normal users cannot reassign it (unless they are the assignee, handled above)
       if (isAlreadyAssigned) {
         throw new ForbiddenException(
