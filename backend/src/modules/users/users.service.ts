@@ -150,6 +150,7 @@ export class UsersService {
           raisedByOrgId: true,
           assignedToOrgId: true,
           projectId: true,
+          status: true,
           assignedToUser: { select: { organizationId: true } },
         },
       });
@@ -207,6 +208,27 @@ export class UsersService {
             orderBy: { name: 'asc' },
           });
         }
+      }
+
+      // SI in SI_REVIEW: exclude creator org users from assignable list
+      if (actor.organizationType === 'SI' && issue?.status === 'SI_REVIEW') {
+        return this.prisma.user.findMany({
+          where: {
+            status: 'ACTIVE',
+            role: { not: 'SUPER_ADMIN' },
+            organizationId: { not: issue.raisedByOrgId },
+            ...(projectOrgFilter || {}),
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            organizationId: true,
+            role: true,
+            departmentId: true,
+          },
+          orderBy: { name: 'asc' },
+        });
       }
     }
 

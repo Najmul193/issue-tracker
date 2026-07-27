@@ -718,6 +718,10 @@ export default function IssueDetail() {
                 .filter((po: ProjectOrg) => {
                   const o = po.organization;
                   if (o.type === 'SUPER_ADMIN') return false;
+                  // SI in SI_REVIEW: exclude creator org
+                  if (issue.status === 'SI_REVIEW' && currentUser?.organization?.type === 'SI') {
+                    if (o.id === issue.raisedByOrg?.id) return false;
+                  }
                   if (currentUser?.role === 'USER') return o.type !== currentUser?.organization?.type;
                   if (currentUser?.role === 'ORG_ADMIN' && issue) {
                     const isRaiser = issue.raisedByOrg?.id === currentUser.organization.id;

@@ -176,7 +176,7 @@ export class IssuesService {
         include: {
           raisedBy: { select: { id: true, name: true, email: true } },
           assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
-        raisedByOrg: { select: { id: true, name: true, type: true } },
+          raisedByOrg: { select: { id: true, name: true, type: true } },
           assignedToOrg: { select: { id: true, name: true } },
           assignedToDepartment: { select: { id: true, name: true } },
           project: { select: { id: true, name: true } },
@@ -274,6 +274,7 @@ export class IssuesService {
       'CLARIFICATION_REQUESTED',
       'ASSIGNED',
       'IN_PROGRESS',
+      'SI_REVIEW',
       'REOPENED', // kept for backward-compat with any residual data
     ];
     if (!assignableStatuses.includes(issue.status as string)) {
@@ -445,6 +446,10 @@ export class IssuesService {
             (actor.organizationType === 'SI' || actor.role === 'SUPER_ADMIN') &&
             ['UNDER_REVIEW', 'CLARIFICATION_REQUESTED'].includes(issue.status as string)
           ) {
+            return 'ASSIGNED';
+          }
+          // SI rejects from SI_REVIEW: reassign to a different OEM team, status goes to ASSIGNED.
+          if (issue.status === 'SI_REVIEW') {
             return 'ASSIGNED';
           }
           // All other reassignments never mutate the status.

@@ -92,18 +92,16 @@ export class AuthService {
 
     // SI (Data Edge) is the middleware routing team — any SI member can assign to any org/user
     if (actor.organizationType === 'SI') {
-      // Middleware restriction: SI cannot route back to the issue creator's org (CLIENT)
-      if (raisedByOrgType === 'CLIENT') {
-        if (targetUserId && targetUserOrgId === raisedByOrgId) {
-          throw new ForbiddenException(
-            'SI cannot route a client issue back to the issue creator organization',
-          );
-        }
-        if (targetOrgId && targetOrgId === raisedByOrgId) {
-          throw new ForbiddenException(
-            'SI cannot route a client issue back to the issue creator organization',
-          );
-        }
+      // Middleware restriction: SI cannot route back to the issue creator's org
+      if (targetUserId && targetUserOrgId === raisedByOrgId) {
+        throw new ForbiddenException(
+          'SI cannot route an issue back to the issue creator organization',
+        );
+      }
+      if (targetOrgId && targetOrgId === raisedByOrgId) {
+        throw new ForbiddenException(
+          'SI cannot route an issue back to the issue creator organization',
+        );
       }
       return;
     }

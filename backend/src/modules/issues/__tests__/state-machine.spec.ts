@@ -46,7 +46,10 @@ describe('StateMachine — new branched workflow', () => {
       expect(sm.getAllowedTransitions('CLOSED')).toEqual(['UNDER_REVIEW']);
     });
     it('SI_APPROVAL allows ASSIGNED and CLARIFICATION_REQUESTED', () => {
-      expect(sm.getAllowedTransitions('SI_APPROVAL')).toEqual(['ASSIGNED', 'CLARIFICATION_REQUESTED']);
+      expect(sm.getAllowedTransitions('SI_APPROVAL')).toEqual([
+        'ASSIGNED',
+        'CLARIFICATION_REQUESTED',
+      ]);
     });
   });
 
