@@ -18,10 +18,9 @@ describe('StateMachine — new branched workflow', () => {
         'ASSIGNED',
       ]);
     });
-    it('CLARIFICATION_REQUESTED allows UNDER_REVIEW, SI_APPROVAL, and IN_PROGRESS', () => {
+    it('CLARIFICATION_REQUESTED allows UNDER_REVIEW and IN_PROGRESS', () => {
       expect(sm.getAllowedTransitions('CLARIFICATION_REQUESTED')).toEqual([
         'UNDER_REVIEW',
-        'SI_APPROVAL',
         'IN_PROGRESS',
       ]);
     });
@@ -65,8 +64,6 @@ describe('StateMachine — new branched workflow', () => {
       expect(sm.canTransition('UNDER_REVIEW', 'ASSIGNED')).toEqual({ valid: true }));
     it('CLARIFICATION_REQUESTED -> UNDER_REVIEW', () =>
       expect(sm.canTransition('CLARIFICATION_REQUESTED', 'UNDER_REVIEW')).toEqual({ valid: true }));
-    it('CLARIFICATION_REQUESTED -> SI_APPROVAL (back to hold)', () =>
-      expect(sm.canTransition('CLARIFICATION_REQUESTED', 'SI_APPROVAL')).toEqual({ valid: true }));
     it('CLARIFICATION_REQUESTED -> IN_PROGRESS', () =>
       expect(sm.canTransition('CLARIFICATION_REQUESTED', 'IN_PROGRESS')).toEqual({ valid: true }));
     it('ASSIGNED -> IN_PROGRESS', () =>

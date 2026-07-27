@@ -28,7 +28,7 @@ const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatusOrResolve[]> = {
   NEW:                      ['UNDER_REVIEW'],
   SI_APPROVAL:              ['ASSIGNED', 'CLARIFICATION_REQUESTED'],
   UNDER_REVIEW:             ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
-  CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'SI_APPROVAL', 'IN_PROGRESS'],
+  CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'IN_PROGRESS'],
   ASSIGNED:                 ['IN_PROGRESS'],
   IN_PROGRESS:              ['RESOLVED', 'CLARIFICATION_REQUESTED'],
   IN_QA:                    ['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS'], // Kept for legacy issues
@@ -246,10 +246,6 @@ export default function IssueDetail() {
       setStatusError('A comment is required when providing clarification.');
       return;
     }
-    if (target === 'SI_APPROVAL' && issue?.status === 'CLARIFICATION_REQUESTED' && !statusComment.trim()) {
-      setStatusError('A comment is required when providing clarification.');
-      return;
-    }
     // Resolve requires a resolution note
     if (target === 'RESOLVED' && !resolutionNoteInput.trim()) {
       setStatusError('A resolution note is required when resolving an issue.');
@@ -333,16 +329,13 @@ export default function IssueDetail() {
         
         const lastStatusChange = issue?.activityLogs?.find(l => l.action === 'STATUS_CHANGED' && l.newValue === 'CLARIFICATION_REQUESTED');
         const cameFrom = lastStatusChange?.oldValue;
-        // Clarification from UNDER_REVIEW → respond with UNDER_REVIEW
-        // Clarification from SI_APPROVAL → respond with SI_APPROVAL (back to hold)
+        // Clarification from UNDER_REVIEW or SI_APPROVAL → respond with UNDER_REVIEW
         // Clarification from IN_PROGRESS (OEM) → respond with IN_PROGRESS
-        const respondWithUnderReview = cameFrom === 'UNDER_REVIEW';
-        const respondWithSiApproval = cameFrom === 'SI_APPROVAL';
+        const respondWithUnderReview = cameFrom === 'UNDER_REVIEW' || cameFrom === 'SI_APPROVAL';
 
         if (canProvideClarification) {
           if (respondWithUnderReview && t === 'UNDER_REVIEW') return true;
-          if (respondWithSiApproval && t === 'SI_APPROVAL') return true;
-          if (!respondWithUnderReview && !respondWithSiApproval && t === 'IN_PROGRESS') return true;
+          if (!respondWithUnderReview && t === 'IN_PROGRESS') return true;
         }
         return false;
       }
@@ -554,19 +547,6 @@ export default function IssueDetail() {
                     value={statusComment}
                     onChange={(e) => setStatusComment(e.target.value)}
                     className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              )}
-              {showStatusConfirm === 'SI_APPROVAL' && issue.status === 'CLARIFICATION_REQUESTED' && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Comment (required to provide clarification)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={statusComment}
-                    onChange={(e) => setStatusComment(e.target.value)}
-                    className="block w-full rounded-md border border-gray-300 px-1.5 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               )}
