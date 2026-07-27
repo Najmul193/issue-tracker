@@ -702,8 +702,9 @@ export default function IssueDetail() {
               {(users || [])
                 .filter((u: AssignableUser) => {
                   if (!currentUser || !issue) return true;
-                  if (issue.status === 'SI_REVIEW' && currentUser.organization?.type === 'SI') {
-                    if (u.organizationId === issue.raisedByOrg?.id) return false;
+                  // SI middleware: never route back to the issue creator's org
+                  if (currentUser.organization.type === 'SI') {
+                    if (u.organizationId === issue.raisedByOrg.id) return false;
                   }
                   return true;
                 })
@@ -726,8 +727,8 @@ export default function IssueDetail() {
                 .filter((po: ProjectOrg) => {
                   const o = po.organization;
                   if (o.type === 'SUPER_ADMIN') return false;
-                  // SI in SI_REVIEW: exclude creator org
-                  if (issue.status === 'SI_REVIEW' && currentUser?.organization?.type === 'SI') {
+                  // SI middleware: never route back to the issue creator's org
+                  if (currentUser?.organization?.type === 'SI') {
                     if (o.id === issue.raisedByOrg?.id) return false;
                   }
                   if (currentUser?.role === 'USER') return o.type !== currentUser?.organization?.type;

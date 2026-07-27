@@ -210,8 +210,8 @@ export class UsersService {
         }
       }
 
-      // SI in SI_REVIEW: exclude creator org users from assignable list
-      if (actor.organizationType === 'SI' && issue?.status === 'SI_REVIEW') {
+      // SI middleware: always exclude creator org users from assignable list
+      if (actor.organizationType === 'SI' && issue) {
         return this.prisma.user.findMany({
           where: {
             status: 'ACTIVE',
