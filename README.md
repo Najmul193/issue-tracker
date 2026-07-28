@@ -97,11 +97,12 @@ The test setup automatically:
 │   │       ├── health/
 │   │       ├── users/
 │   │       ├── auth/
-│       │       ├── issues/
-│       │       ├── organizations/
-│       │       ├── projects/
-│       │       ├── departments/
-│       │       ├── attachments/
+│   │       ├── issues/
+│   │       ├── organizations/
+│   │       ├── projects/
+│   │       ├── departments/
+│   │       ├── attachments/
+│   │       ├── storage/
 │   │       └── notifications/
 │   ├── Dockerfile
 │   ├── docker-entrypoint.sh  # Runs migrations before starting the app

@@ -1,7 +1,7 @@
 # Issue Tracker — Project Documentation
 
 **Version 1.0.0**  
-*Multi-tenant issue tracking system for Banks, System Integrators, and Oracle clients.*
+*Multi-tenant issue tracking system for Clients, System Integrators, and OEM clients.*
 
 ---
 
