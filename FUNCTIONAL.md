@@ -65,10 +65,10 @@ https://flexcube-tracker-frontend.onrender.com/login
 The Dashboard shows key summary cards and extended metrics:
 
 **Summary Cards:**
-- **Total Open** — count of issues not in CLOSED or VERIFIED status
+- **Total Open** — count of issues not in CLOSED status
 - **Overdue** — count of issues past their deadline
 - **Critical** — count of CRITICAL priority issues
-- **Resolved This Month** — issues resolved/closed/verified in the current month
+- **Resolved This Month** — issues resolved/closed in the current month
 
 **Charts & Analytics:**
 - **By Status** — bar chart showing issue counts per status
@@ -99,7 +99,7 @@ The Dashboard shows key summary cards and extended metrics:
 5. Filter issues using the controls at the top:
    - **Type**: All / Bug / New Requirement / Change Request / Query
    - **Priority**: All / Critical / High / Medium / Low
-   - **Status**: All / New / Acknowledged / Assigned / In Progress / Resolved / Verified / Closed / Reopened
+   - **Status**: All / New / SI Approval / Under Review / Clarification Requested / Assigned / In Progress / In QA / SI Review / Pending Client Approval / Closed
    - **Overdue**: Toggle to show only overdue issues
    - **Module**: Type to search by module name
 6. Navigate between pages using the pagination controls at the bottom.
@@ -159,10 +159,12 @@ All roles (SUPER_ADMIN, ORG_ADMIN, USER) can create issues.
 
 ```
 NEW → Under Review
+SI_APPROVAL → Assigned, Clarification Requested
 UNDER_REVIEW → Clarification Requested, Assigned
 CLARIFICATION_REQUESTED → Under Review, In Progress
 ASSIGNED → In Progress
-IN_PROGRESS → Resolved, Clarification Requested
+IN_PROGRESS → Clarification Requested (+ virtual RESOLVED action)
+IN_QA → Pending Client Approval, In Progress
 SI_REVIEW → Pending Client Approval, Assigned
 PENDING_CLIENT_APPROVAL → Closed, Assigned
 CLOSED → Under Review         (raiser's org admin or SUPER_ADMIN only)
@@ -386,12 +388,13 @@ Users can reset their password via email.
 
 ### Complete Walkthrough: Bug Report → Fix → Close
 
-1. **USER** logs in and creates a new BUG issue with CRITICAL priority.
-2. **ORG_ADMIN** sees the issue in the list, views it, and assigns it to a developer.
-3. The **assigned user** receives a notification, changes status to **In Progress**, works on the fix.
-4. The developer changes status to **Resolved** with a resolution note.
-5. **The reporter** or **an ORG_ADMIN in the reporter's org** verifies the fix and changes status to **Verified** → **Closed**. (The developer who resolved the issue cannot verify or close it.)
-6. If the bug reappears, someone can **Reopen** it (with a comment), and the cycle continues.
+1. **USER** logs in and creates a new BUG issue with CRITICAL priority. Status is **NEW**.
+2. **SI Team (ORG_ADMIN)** reviews the issue and changes status to **UNDER_REVIEW**, then assigns it to a developer (**ASSIGNED**).
+3. The **assigned user** receives a notification, changes status to **IN_PROGRESS**, works on the fix.
+4. The developer completes the fix and submits for resolution. The system routes to **SI_REVIEW** (OEM assignee) or **PENDING_CLIENT_APPROVAL** (SI assignee).
+5. **SI Team** reviews (if SI_REVIEW) and approves → **PENDING_CLIENT_APPROVAL**.
+6. **The reporter** or **an ORG_ADMIN in the reporter's org** approves and closes the issue → **CLOSED**. (The developer who resolved the issue cannot close it.)
+7. If the bug reappears, someone can **Reopen** it (with a comment), and the cycle continues (CLOSED → UNDER_REVIEW).
 
 ---
 
@@ -449,12 +452,13 @@ All endpoints are under the `/api` prefix.
 | DELETE | /departments/:id/managers/:userId | Remove department manager (admin only) |
 | GET | /projects/:id/departments | List project departments |
 | POST | /projects/:id/departments | Add department to project (admin only) |
-| DELETE | /projects/:id/departments/:deptId | Remove department from project (admin only) |
+| DELETE | /projects/:id/departments/:departmentId | Remove department from project (admin only) |
 | GET | /notifications | List notifications (supports `projectIds` filter) |
 | GET | /notifications/unread-count | Unread count (supports `projectIds` filter) |
 | PATCH | /notifications/:id/read | Mark notification read |
 | PATCH | /notifications/read-all | Mark all read |
 | GET | /attachments/:id/download | Download attachment |
+| GET | /attachments/:id/preview | Preview attachment (images only) |
 
 ---
 

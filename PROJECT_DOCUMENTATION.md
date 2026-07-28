@@ -143,15 +143,23 @@ Issues traverse a defined state machine with enforced transition rules:
              └─────────────────────────┘                     │
                           │                                  │
                           └──────────────────────────────────┘
+
+      SI_APPROVAL (gate state):
+        Creator assigns during issue creation → SI_APPROVAL
+        SI validates → ASSIGNED  |  SI requests clarification → CLARIFICATION_REQUESTED
 ```
 
 **Transition Rules:**
 - **NEW → UNDER_REVIEW** — Handled by SI Team to review the issue initially.
+- **SI_APPROVAL → ASSIGNED** — SI Team validates the creator's assignment.
+- **SI_APPROVAL → CLARIFICATION_REQUESTED** — SI Team requests more details before approving.
 - **UNDER_REVIEW → CLARIFICATION_REQUESTED** — SI Team can request more details from the client.
+- **UNDER_REVIEW → ASSIGNED** — SI Team assigns the issue after review.
 - **IN_PROGRESS → CLARIFICATION_REQUESTED** — Assignee can request clarification from the client while working on the issue.
 - **CLARIFICATION_REQUESTED → UNDER_REVIEW / IN_PROGRESS** — The issue creator or client org admin provides clarification, and the issue returns to the stage it came from.
-- **SI_REVIEW** — Only the SI (Data Edge) team can perform a review on issues resolved by the OEM.
-- **PENDING_CLIENT_APPROVAL → CLOSED** — Only the issue creator, client ORG_ADMIN, or SUPER_ADMIN can approve and close the issue.
+- **IN_QA → PENDING_CLIENT_APPROVAL / IN_PROGRESS** — QA passes or fails and returns to progress.
+- **SI_REVIEW → PENDING_CLIENT_APPROVAL / ASSIGNED** — Only the SI (Data Edge) team can perform a review on issues resolved by the OEM. Reject sends back to assignee.
+- **PENDING_CLIENT_APPROVAL → CLOSED / ASSIGNED** — Only the issue creator, client ORG_ADMIN, or SUPER_ADMIN can approve and close the issue. Reject sends back to assignee.
 - **CLOSED → UNDER_REVIEW** — Reopening a closed issue sends it back to the SI Team for triage.
 - **Resolution note** required for `RESOLVED`. **Comment** required for `CLARIFICATION_REQUESTED`.
 
@@ -323,7 +331,7 @@ External Services:
 
 ### 3.3 Database Schema
 
-Fourteen database tables (models) defined in Prisma schema:
+Fifteen database tables (models) defined in Prisma schema:
 
 ```
 ┌──────────────┐       ┌──────────────────┐       ┌──────────────────┐
@@ -343,6 +351,7 @@ Fourteen database tables (models) defined in Prisma schema:
                                 │                 │ raisedByOrgId(FK)│
                                 │ 1:N             │ assignedToUserId │
                                 │                 │ assignedToOrgId  │
+                                │                 │ assignedToDeptId │
                                 │                 │ assignedById     │
                                 │                 │ resolutionNote   │
                                 │                 │ resolvedById     │
@@ -487,6 +496,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
 | GET | `/api/attachments/:id/download` | Authenticated | Download file |
+| GET | `/api/attachments/:id/preview` | Authenticated | Preview file (images only) |
 
 #### Notifications
 | Method | Path | Access | Description |
@@ -518,7 +528,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | DELETE | `/api/projects/:id/users/:userId` | SUPER_ADMIN / ORG_ADMIN | Remove user from project |
 | GET | `/api/projects/:id/departments` | Project member | List project departments |
 | POST | `/api/projects/:id/departments` | Admin | Add department to project |
-| DELETE | `/api/projects/:id/departments/:deptId` | Admin | Remove department from project |
+| DELETE | `/api/projects/:id/departments/:departmentId` | Admin | Remove department from project |
 
 ---
 

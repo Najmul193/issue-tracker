@@ -143,7 +143,7 @@
 <body>
 
 <h1>Bug Tracker — Database ERD</h1>
-<p class="subtitle">PostgreSQL · Prisma ORM · 14 models · Interactive</p>
+<p class="subtitle">PostgreSQL · Prisma ORM · 15 models · Interactive</p>
 
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#378ADD"></div> Core entity</div>
@@ -184,15 +184,16 @@ const TABLES = [
     {n:'id',t:'uuid',pk:true},{n:'name',t:'string'},{n:'organizationId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'}
   ]},
   { id:'Project', cat:'core', x:660, y:20, fields:[
-    {n:'id',t:'uuid',pk:true},{n:'name',t:'string',uk:true},{n:'description',t:'string'},{n:'createdAt',t:'datetime'},{n:'updatedAt',t:'datetime'}
+    {n:'id',t:'uuid',pk:true},{n:'name',t:'string',uk:true},{n:'description',t:'string?'},{n:'createdAt',t:'datetime'},{n:'updatedAt',t:'datetime'}
   ]},
   { id:'Issue', cat:'core', x:240, y:300, fields:[
     {n:'id',t:'uuid',pk:true},{n:'title',t:'string'},{n:'description',t:'string'},{n:'type',t:'IssueType'},
     {n:'priority',t:'IssuePriority'},{n:'status',t:'IssueStatus'},{n:'module',t:'string'},{n:'deadline',t:'datetime'},
     {n:'raisedById',t:'uuid',fk:true},{n:'raisedByOrgId',t:'uuid',fk:true},{n:'assignedToUserId',t:'uuid',fk:true},
-    {n:'assignedToOrgId',t:'uuid',fk:true},{n:'assignedToDeptId',t:'uuid',fk:true},
+    {n:'assignedToOrgId',t:'uuid',fk:true},{n:'assignedToDepartmentId',t:'uuid',fk:true},
     {n:'assignedById',t:'uuid',fk:true},{n:'projectId',t:'uuid',fk:true},{n:'createdAt',t:'datetime'},
-    {n:'updatedAt',t:'datetime'},{n:'closedAt',t:'datetime'},{n:'resolvedById',t:'uuid',fk:true},{n:'resolvedAt',t:'datetime'}
+    {n:'updatedAt',t:'datetime'},{n:'closedAt',t:'datetime'},{n:'lastNotifiedStage',t:'NotifiedStage'},
+    {n:'resolutionNote',t:'string'},{n:'resolvedById',t:'uuid',fk:true},{n:'resolvedAt',t:'datetime'}
   ]},
   { id:'Comment', cat:'supporting', x:20, y:510, fields:[
     {n:'id',t:'uuid',pk:true},{n:'issueId',t:'uuid',fk:true},{n:'userId',t:'uuid',fk:true},
