@@ -16,7 +16,7 @@ export default function SlaAgingBar({ data }: Props) {
 
   if (total === 0) {
     return (
-      <div className="flex h-12 items-center justify-center text-sm text-gray-400">
+      <div className="flex h-12 items-center justify-center text-sm text-neutral-400 dark:text-slate-500">
         No issues with deadlines
       </div>
     );
@@ -24,7 +24,7 @@ export default function SlaAgingBar({ data }: Props) {
 
   return (
     <div>
-      <div className="flex h-6 w-full overflow-hidden rounded-full bg-gray-100">
+      <div className="flex h-6 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-slate-700">
         {SEGMENTS.map((seg) => {
           const count = data[seg.key];
           if (count === 0) return null;
@@ -45,12 +45,9 @@ export default function SlaAgingBar({ data }: Props) {
           const pct = total > 0 ? Math.round((count / total) * 100) : 0;
           return (
             <div key={seg.key} className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: seg.color }}
-              />
-              <span className="text-xs font-medium text-gray-700">{seg.label}</span>
-              <span className="text-xs text-gray-500">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seg.color }} />
+              <span className="text-xs font-medium text-neutral-700 dark:text-slate-300">{seg.label}</span>
+              <span className="text-xs text-neutral-500 dark:text-slate-400">
                 {count} ({pct}%)
               </span>
             </div>

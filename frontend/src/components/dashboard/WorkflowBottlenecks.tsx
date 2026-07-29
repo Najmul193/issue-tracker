@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { CircleDot, MessageCircleQuestion, SearchCheck, Hourglass } from 'lucide-react';
 import type { WorkflowBottlenecks } from '../../api/dashboard';
 
 interface Props {
@@ -9,37 +10,37 @@ const CARDS = [
   {
     key: 'needsTriage' as const,
     label: 'Needs Triage',
-    sublabel: 'NEW',
-    color: 'border-sky-400 bg-sky-50',
-    textColor: 'text-sky-700',
-    countColor: 'text-sky-900',
+    icon: CircleDot,
+    border: 'border-l-status-new',
+    bg: 'bg-status-new/5 dark:bg-status-new/10',
+    text: 'text-status-new',
     link: '/issues?status=NEW',
   },
   {
     key: 'awaitingClarification' as const,
     label: 'Awaiting Clarification',
-    sublabel: 'CLARIFICATION_REQUESTED',
-    color: 'border-orange-400 bg-orange-50',
-    textColor: 'text-orange-700',
-    countColor: 'text-orange-900',
+    icon: MessageCircleQuestion,
+    border: 'border-l-status-clarification_requested',
+    bg: 'bg-status-clarification_requested/5 dark:bg-status-clarification_requested/10',
+    text: 'text-status-clarification_requested',
     link: '/issues?status=CLARIFICATION_REQUESTED',
   },
   {
     key: 'pendingSiReview' as const,
     label: 'Pending SI Review',
-    sublabel: 'SI_REVIEW',
-    color: 'border-yellow-400 bg-yellow-50',
-    textColor: 'text-yellow-700',
-    countColor: 'text-yellow-900',
+    icon: SearchCheck,
+    border: 'border-l-status-si_review',
+    bg: 'bg-status-si_review/5 dark:bg-status-si_review/10',
+    text: 'text-status-si_review',
     link: '/issues?status=SI_REVIEW',
   },
   {
     key: 'pendingClientApproval' as const,
     label: 'Pending Approval',
-    sublabel: 'PENDING_CLIENT_APPROVAL',
-    color: 'border-teal-400 bg-teal-50',
-    textColor: 'text-teal-700',
-    countColor: 'text-teal-900',
+    icon: Hourglass,
+    border: 'border-l-status-pending_client_approval',
+    bg: 'bg-status-pending_client_approval/5 dark:bg-status-pending_client_approval/10',
+    text: 'text-status-pending_client_approval',
     link: '/issues?status=PENDING_CLIENT_APPROVAL',
   },
 ];
@@ -47,18 +48,22 @@ const CARDS = [
 export default function WorkflowBottlenecks({ data }: Props) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {CARDS.map((card) => (
-        <Link
-          key={card.key}
-          to={card.link}
-          className={`rounded-lg border-l-4 ${card.color} p-3 transition-colors hover:shadow-sm`}
-        >
-          <p className={`text-xs font-medium ${card.textColor}`}>{card.label}</p>
-          <p className={`mt-1 text-2xl font-bold ${card.countColor}`}>
-            {data[card.key]}
-          </p>
-        </Link>
-      ))}
+      {CARDS.map((card) => {
+        const Icon = card.icon;
+        return (
+          <Link
+            key={card.key}
+            to={card.link}
+            className={`rounded-lg border-l-4 ${card.border} ${card.bg} p-3 transition-shadow hover:shadow-card`}
+          >
+            <div className="flex items-center gap-1.5">
+              <Icon className={`h-3.5 w-3.5 ${card.text}`} />
+              <p className={`text-xs font-medium ${card.text}`}>{card.label}</p>
+            </div>
+            <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-slate-100">{data[card.key]}</p>
+          </Link>
+        );
+      })}
     </div>
   );
 }

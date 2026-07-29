@@ -1,5 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  ListChecks,
+  AlertTriangle,
+  AlertOctagon,
+  CheckCircle2,
+  Timer,
+  CircleDot,
+  SearchCheck,
+  Hourglass,
+  FileText,
+  UserCheck,
+  Gauge,
+  Workflow,
+  BarChart3,
+  Route,
+  TrendingUp,
+  History,
+  type LucideIcon,
+} from 'lucide-react';
 import { fetchDashboardMetrics } from '../api/dashboard';
 import { useAuth } from '../context/AuthContext';
 import { useProjectFilter } from '../context/ProjectFilterContext';
@@ -16,6 +36,10 @@ import OrgSummaryPanel from '../components/dashboard/OrgSummaryPanel';
 import TeamWorkloadBar from '../components/dashboard/TeamWorkloadBar';
 import MyRaisedSummary from '../components/dashboard/MyRaisedSummary';
 import QuickActions from '../components/dashboard/QuickActions';
+import SpotlightBanner from '../components/dashboard/SpotlightBanner';
+import Card from '../components/ui/Card';
+import { SkeletonCard } from '../components/ui/Skeleton';
+import { staggerContainer, staggerItem } from '../lib/motion';
 
 /* ─── helpers ──────────────────────────────────────────────────────────────── */
 
@@ -42,7 +66,7 @@ function isOverdue(iso: string | null): boolean {
 function humanReadableAction(action: string, oldValue: string | null, newValue: string | null): string {
   if (action === 'CREATED') return 'created this issue';
   if (action === 'STATUS_CHANGED') {
-    return `changed status from ${oldValue ?? '?'} \u2192 ${newValue ?? '?'}`;
+    return `changed status from ${oldValue ?? '?'} → ${newValue ?? '?'}`;
   }
   if (action === 'ASSIGNED') {
     try { const nv = JSON.parse(newValue || '{}'); return `assigned to ${nv.assignedToUserName || nv.assignedToOrgName || 'someone'}`; }
@@ -67,42 +91,45 @@ function getGreeting(): string {
 
 /* ─── sub-components ────────────────────────────────────────────────────────── */
 
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="h-3 w-20 rounded bg-gray-200" />
-      <div className="mt-2 h-7 w-12 rounded bg-gray-200" />
-    </div>
-  );
-}
+const TONE_CLASSES: Record<string, string> = {
+  neutral: 'bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-300',
+  brand: 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400',
+  red: 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400',
+  green: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400',
+  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+  teal: 'bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400',
+  sky: 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
+  yellow: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-400',
+};
 
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-      {title}
-    </h3>
-  );
-}
-
-function CardLink({
+function StatCard({
   to,
   label,
   value,
-  valueColor = 'text-gray-900',
+  icon: Icon,
+  tone = 'neutral',
 }: {
   to: string;
   label: string;
   value: string | number;
-  valueColor?: string;
+  icon: LucideIcon;
+  tone?: keyof typeof TONE_CLASSES;
 }) {
   return (
-    <Link
-      to={to}
-      className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-blue-300 hover:shadow-md"
-    >
-      <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className={`mt-1 text-3xl font-bold ${valueColor}`}>{value}</p>
-    </Link>
+    <motion.div variants={staggerItem}>
+      <Link
+        to={to}
+        className="group flex h-full flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover dark:border-slate-700/60 dark:bg-slate-800"
+      >
+        <span className={`flex h-8 w-8 items-center justify-center rounded-full ${TONE_CLASSES[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <div>
+          <p className="text-sm font-medium text-neutral-500 dark:text-slate-400">{label}</p>
+          <p className="mt-0.5 text-3xl font-bold text-neutral-900 dark:text-slate-100">{value}</p>
+        </div>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -117,7 +144,7 @@ function AssignedIssuesList({
 }) {
   if (isLoading) return <SkeletonSection height={200} />;
   if (issues.length === 0) {
-    return <p className="text-sm text-gray-400">No issues currently assigned to you.</p>;
+    return <p className="text-sm text-neutral-400 dark:text-slate-500">No issues currently assigned to you.</p>;
   }
   return (
     <ul className="space-y-2">
@@ -127,17 +154,17 @@ function AssignedIssuesList({
           <li key={issue.id}>
             <Link
               to={`/issues/${issue.id}`}
-              className="flex items-center justify-between rounded-md border border-gray-100 px-3 py-2 hover:bg-gray-50 transition-colors"
+              className="flex items-center justify-between rounded-lg border border-neutral-100 px-3 py-2 transition-colors hover:bg-neutral-50 dark:border-slate-700/60 dark:hover:bg-slate-700/40"
             >
               <div className="min-w-0">
-                <p className={`truncate text-sm font-medium ${overdue ? 'text-red-700' : 'text-gray-900'}`}>
+                <p className={`truncate text-sm font-medium ${overdue ? 'text-red-700 dark:text-red-400' : 'text-neutral-900 dark:text-slate-100'}`}>
                   {overdue && <span className="mr-1 text-red-500">!</span>}
                   {issue.title}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{issue.status.replace(/_/g, ' ')}</p>
+                <p className="mt-0.5 text-xs text-neutral-400 dark:text-slate-500">{issue.status.replace(/_/g, ' ')}</p>
               </div>
               <div className="ml-3 shrink-0 text-right">
-                <span className={`text-xs font-medium ${overdue ? 'text-red-600' : 'text-gray-500'}`}>
+                <span className={`text-xs font-medium ${overdue ? 'text-red-600 dark:text-red-400' : 'text-neutral-500 dark:text-slate-400'}`}>
                   {formatDeadline(issue.deadline)}
                 </span>
               </div>
@@ -168,25 +195,25 @@ function RecentActivityList({
 }) {
   if (isLoading) return <SkeletonSection height={200} />;
   if (activities.length === 0) {
-    return <p className="text-sm text-gray-400">No recent activity.</p>;
+    return <p className="text-sm text-neutral-400 dark:text-slate-500">No recent activity.</p>;
   }
   return (
     <ul className="space-y-3">
       {activities.map((log) => (
         <li key={log.id} className="flex items-start gap-2 text-sm">
-          <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-300" />
+          <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300 dark:bg-slate-600" />
           <div className="min-w-0">
-            <p className="text-gray-700 leading-snug">
-              <span className="font-medium text-gray-900">{log.user.name}</span>{' '}
+            <p className="leading-snug text-neutral-700 dark:text-slate-300">
+              <span className="font-medium text-neutral-900 dark:text-slate-100">{log.user.name}</span>{' '}
               {humanReadableAction(log.action, log.oldValue, log.newValue)} on{' '}
               <Link
                 to={`/issues/${log.issue.id}`}
-                className="text-blue-600 hover:underline font-medium truncate"
+                className="truncate font-medium text-brand-600 hover:underline dark:text-brand-400"
               >
                 {log.issue.title}
               </Link>
             </p>
-            <p className="text-xs text-gray-400">{formatRelativeTime(log.createdAt)}</p>
+            <p className="text-xs text-neutral-400 dark:text-slate-500">{formatRelativeTime(log.createdAt)}</p>
           </div>
         </li>
       ))}
@@ -220,15 +247,50 @@ export default function Dashboard() {
 
   const userName = currentUser?.name?.split(' ')[0] ?? 'there';
 
+  /* ── Priority Spotlight: derived entirely from data already fetched above ── */
+  let spotlight: { icon: LucideIcon; message: string; to: string } | null = null;
+  if (data) {
+    if (isSiAdmin) {
+      if (data.workflowBottlenecks.needsTriage > 0) {
+        spotlight = {
+          icon: CircleDot,
+          message: `${data.workflowBottlenecks.needsTriage} issue${data.workflowBottlenecks.needsTriage === 1 ? '' : 's'} waiting for triage`,
+          to: '/issues?status=NEW',
+        };
+      } else if (data.workflowBottlenecks.pendingSiReview > 0) {
+        spotlight = {
+          icon: SearchCheck,
+          message: `${data.workflowBottlenecks.pendingSiReview} resolution${data.workflowBottlenecks.pendingSiReview === 1 ? '' : 's'} waiting on your review`,
+          to: '/issues?status=SI_REVIEW',
+        };
+      }
+    } else if (isClientOrOemAdmin && data.workflowBottlenecks.pendingClientApproval > 0) {
+      spotlight = {
+        icon: Hourglass,
+        message: `${data.workflowBottlenecks.pendingClientApproval} issue${data.workflowBottlenecks.pendingClientApproval === 1 ? '' : 's'} awaiting your approval`,
+        to: '/issues?status=PENDING_CLIENT_APPROVAL',
+      };
+    } else if (isUser) {
+      const overdueAssigned = data.myAssignedIssues.filter((i) => isOverdue(i.deadline)).length;
+      if (overdueAssigned > 0) {
+        spotlight = {
+          icon: AlertTriangle,
+          message: `${overdueAssigned} of your assigned issue${overdueAssigned === 1 ? ' is' : 's are'} overdue`,
+          to: '/concern?concernFilter=assigned',
+        };
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* ── Welcome Banner ────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
             {getGreeting()}, {userName}
           </h2>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-sm text-neutral-500 dark:text-slate-400">
             {currentUser?.organization?.name} &middot;{' '}
             {currentUser?.role === 'SUPER_ADMIN'
               ? 'Super Admin'
@@ -240,9 +302,11 @@ export default function Dashboard() {
         <QuickActions />
       </div>
 
+      {spotlight && <SpotlightBanner icon={spotlight.icon} message={spotlight.message} to={spotlight.to} />}
+
       {/* Partial error banner */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
           Could not fully load dashboard data. Some sections may be unavailable.
         </div>
       )}
@@ -252,344 +316,206 @@ export default function Dashboard() {
          ══════════════════════════════════════════════════════════════════════ */}
       {currentUser?.role === 'SUPER_ADMIN' && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+          >
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
               <>
-                <CardLink to="/issues" label="Total Open" value={totalOpen ?? '\u2014'} />
-                <CardLink to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '\u2014'} valueColor="text-red-600" />
-                <CardLink to="/issues?priority=CRITICAL" label="Critical" value={data?.byPriority.CRITICAL ?? '\u2014'} valueColor="text-red-600" />
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Resolved This Month</p>
-                  <p className="mt-1 text-3xl font-bold text-green-600">{data?.resolvedThisMonth ?? '\u2014'}</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Avg Resolution</p>
-                  <p className="mt-1 text-3xl font-bold text-blue-600">
-                    {data?.avgResolutionDays != null ? `${data.avgResolutionDays}d` : '\u2014'}
-                  </p>
-                </div>
+                <StatCard to="/issues" label="Total Open" value={totalOpen ?? '—'} icon={ListChecks} tone="brand" />
+                <StatCard to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '—'} icon={AlertTriangle} tone="red" />
+                <StatCard to="/issues?priority=CRITICAL" label="Critical" value={data?.byPriority.CRITICAL ?? '—'} icon={AlertOctagon} tone="red" />
+                <StatCard to="/issues?status=CLOSED" label="Resolved This Month" value={data?.resolvedThisMonth ?? '—'} icon={CheckCircle2} tone="green" />
+                <StatCard to="/issues" label="Avg Resolution" value={data?.avgResolutionDays != null ? `${data.avgResolutionDays}d` : '—'} icon={Timer} tone="sky" />
               </>
             )}
-          </div>
+          </motion.div>
 
-          {/* SLA Aging */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Deadline Health (SLA Aging)" />
-            {isLoading ? (
-              <div className="animate-pulse h-12 rounded bg-gray-100" />
-            ) : data ? (
-              <SlaAgingBar data={data.slaAging} />
-            ) : null}
-          </div>
+          <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
+            {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
+          </Card>
 
-          {/* Workflow Bottlenecks + My Raised */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:col-span-2">
-              <SectionHeader title="Workflow Bottlenecks" />
-              {isLoading ? (
-                <div className="animate-pulse h-20 rounded bg-gray-100" />
-              ) : data ? (
-                <WorkflowBottlenecks data={data.workflowBottlenecks} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Raised Issues" />
-              {isLoading ? (
-                <div className="animate-pulse h-20 rounded bg-gray-100" />
-              ) : data ? (
-                <MyRaisedSummary data={data.myRaisedIssues} />
-              ) : null}
-            </div>
+            <Card title="Workflow Bottlenecks" icon={<Workflow />} className="lg:col-span-2">
+              {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <WorkflowBottlenecks data={data.workflowBottlenecks} /> : null}
+            </Card>
+            <Card title="My Raised Issues" icon={<FileText />}>
+              {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <MyRaisedSummary data={data.myRaisedIssues} /> : null}
+            </Card>
           </div>
 
-          {/* Org Comparison (prominent) */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Organization Comparison" />
+          <Card title="Organization Comparison" icon={<BarChart3 />}>
             {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
+              <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" />
             ) : data && data.orgComparison.length > 0 ? (
               <OrgComparisonBar data={data.orgComparison} />
             ) : (
-              <p className="text-sm text-gray-400">No organization data.</p>
+              <p className="text-sm text-neutral-400 dark:text-slate-500">No organization data.</p>
             )}
-          </div>
+          </Card>
 
-          {/* Routing Distribution */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Routing Distribution" />
-            {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
-            ) : data ? (
-              <RoutingDistribution data={data.routingDistribution} />
-            ) : null}
-          </div>
+          <Card title="Routing Distribution" icon={<Route />}>
+            {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <RoutingDistribution data={data.routingDistribution} /> : null}
+          </Card>
 
-          {/* Charts Row */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="By Status" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <StatusDonut byStatus={data.byStatus} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="By Priority" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <PriorityBar byPriority={data.byPriority} />
-              ) : null}
-            </div>
+            <Card title="By Status">
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <StatusDonut byStatus={data.byStatus} /> : null}
+            </Card>
+            <Card title="By Priority">
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <PriorityBar byPriority={data.byPriority} /> : null}
+            </Card>
           </div>
 
-          {/* Type + Trend */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="By Type" />
-            {isLoading ? (
-              <div className="animate-pulse h-40 rounded bg-gray-100" />
-            ) : data ? (
-              <TypeBar byType={data.byType} />
-            ) : null}
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Trend \u2014 Last 30 Days" />
-            {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
-            ) : data ? (
-              <TrendLine data={data.trendLast30Days} />
-            ) : null}
-          </div>
+          <Card title="By Type">
+            {isLoading ? <div className="h-40 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TypeBar byType={data.byType} /> : null}
+          </Card>
+          <Card title="Trend — Last 30 Days" icon={<TrendingUp />}>
+            {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TrendLine data={data.trendLast30Days} /> : null}
+          </Card>
 
-          {/* Bottom Panels */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Assigned Issues" />
+            <Card title="My Assigned Issues" icon={<UserCheck />}>
               <AssignedIssuesList issues={data?.myAssignedIssues ?? []} isLoading={isLoading} />
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Recent Activity" />
+            </Card>
+            <Card title="Recent Activity" icon={<History />}>
               <RecentActivityList activities={data?.recentActivity ?? []} isLoading={isLoading} />
-            </div>
+            </Card>
           </div>
         </>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SI ORG_ADMIN Layout
+          SI ORG_ADMIN Layout — bottlenecks/routing promoted first
          ══════════════════════════════════════════════════════════════════════ */}
       {isSiAdmin && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+          >
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
               <>
-                <CardLink to="/issues" label="Total Open" value={totalOpen ?? '\u2014'} />
-                <CardLink to="/issues?status=NEW" label="Needs Triage" value={data?.workflowBottlenecks.needsTriage ?? '\u2014'} valueColor="text-sky-600" />
-                <CardLink to="/issues?status=SI_REVIEW" label="Pending SI Review" value={data?.workflowBottlenecks.pendingSiReview ?? '\u2014'} valueColor="text-yellow-600" />
-                <CardLink to="/issues?status=PENDING_CLIENT_APPROVAL" label="Pending Approval" value={data?.workflowBottlenecks.pendingClientApproval ?? '\u2014'} valueColor="text-teal-600" />
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Resolved This Month</p>
-                  <p className="mt-1 text-3xl font-bold text-green-600">{data?.resolvedThisMonth ?? '\u2014'}</p>
-                </div>
+                <StatCard to="/issues" label="Total Open" value={totalOpen ?? '—'} icon={ListChecks} tone="brand" />
+                <StatCard to="/issues?status=NEW" label="Needs Triage" value={data?.workflowBottlenecks.needsTriage ?? '—'} icon={CircleDot} tone="sky" />
+                <StatCard to="/issues?status=SI_REVIEW" label="Pending SI Review" value={data?.workflowBottlenecks.pendingSiReview ?? '—'} icon={SearchCheck} tone="yellow" />
+                <StatCard to="/issues?status=PENDING_CLIENT_APPROVAL" label="Pending Approval" value={data?.workflowBottlenecks.pendingClientApproval ?? '—'} icon={Hourglass} tone="teal" />
+                <StatCard to="/issues?status=CLOSED" label="Resolved This Month" value={data?.resolvedThisMonth ?? '—'} icon={CheckCircle2} tone="green" />
               </>
             )}
-          </div>
+          </motion.div>
 
-          {/* SLA Aging */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Deadline Health (SLA Aging)" />
-            {isLoading ? (
-              <div className="animate-pulse h-12 rounded bg-gray-100" />
-            ) : data ? (
-              <SlaAgingBar data={data.slaAging} />
-            ) : null}
-          </div>
-
-          {/* Workflow Bottlenecks + Routing Distribution */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Workflow Bottlenecks" />
-              {isLoading ? (
-                <div className="animate-pulse h-20 rounded bg-gray-100" />
-              ) : data ? (
-                <WorkflowBottlenecks data={data.workflowBottlenecks} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Routing Distribution" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <RoutingDistribution data={data.routingDistribution} />
-              ) : null}
-            </div>
+            <Card title="Workflow Bottlenecks" icon={<Workflow />}>
+              {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <WorkflowBottlenecks data={data.workflowBottlenecks} /> : null}
+            </Card>
+            <Card title="Routing Distribution" icon={<Route />}>
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <RoutingDistribution data={data.routingDistribution} /> : null}
+            </Card>
           </div>
 
-          {/* Org Summary + My Raised */}
+          <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
+            {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
+          </Card>
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:col-span-2">
-              <SectionHeader title="Team Overview" />
-              {isLoading ? (
-                <SkeletonSection height={200} />
-              ) : data && data.orgSummary ? (
-                <OrgSummaryPanel data={data.orgSummary} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Raised Issues" />
-              {isLoading ? (
-                <div className="animate-pulse h-20 rounded bg-gray-100" />
-              ) : data ? (
-                <MyRaisedSummary data={data.myRaisedIssues} />
-              ) : null}
-            </div>
+            <Card title="Team Overview" icon={<BarChart3 />} className="lg:col-span-2">
+              {isLoading ? <SkeletonSection height={200} /> : data && data.orgSummary ? <OrgSummaryPanel data={data.orgSummary} /> : null}
+            </Card>
+            <Card title="My Raised Issues" icon={<FileText />}>
+              {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <MyRaisedSummary data={data.myRaisedIssues} /> : null}
+            </Card>
           </div>
 
-          {/* Charts */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="By Status" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <StatusDonut byStatus={data.byStatus} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="By Priority" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <PriorityBar byPriority={data.byPriority} />
-              ) : null}
-            </div>
+            <Card title="By Status">
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <StatusDonut byStatus={data.byStatus} /> : null}
+            </Card>
+            <Card title="By Priority">
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <PriorityBar byPriority={data.byPriority} /> : null}
+            </Card>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Trend \u2014 Last 30 Days" />
-            {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
-            ) : data ? (
-              <TrendLine data={data.trendLast30Days} />
-            ) : null}
-          </div>
+          <Card title="Trend — Last 30 Days" icon={<TrendingUp />}>
+            {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TrendLine data={data.trendLast30Days} /> : null}
+          </Card>
 
-          {/* Bottom Panels */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Assigned Issues" />
+            <Card title="My Assigned Issues" icon={<UserCheck />}>
               <AssignedIssuesList issues={data?.myAssignedIssues ?? []} isLoading={isLoading} />
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Recent Activity" />
+            </Card>
+            <Card title="Recent Activity" icon={<History />}>
               <RecentActivityList activities={data?.recentActivity ?? []} isLoading={isLoading} />
-            </div>
+            </Card>
           </div>
         </>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          CLIENT / OEM ORG_ADMIN Layout
+          CLIENT / OEM ORG_ADMIN Layout — approval + team overview promoted first
          ══════════════════════════════════════════════════════════════════════ */}
       {isClientOrOemAdmin && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+          >
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
               <>
-                <CardLink to="/issues" label="Total Open" value={totalOpen ?? '\u2014'} />
-                <CardLink to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '\u2014'} valueColor="text-red-600" />
-                <CardLink to="/issues?status=PENDING_CLIENT_APPROVAL" label="Pending Approval" value={data?.workflowBottlenecks.pendingClientApproval ?? '\u2014'} valueColor="text-teal-600" />
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">My Raised</p>
-                  <p className="mt-1 text-3xl font-bold text-blue-600">{data?.myRaisedIssues.open ?? '\u2014'}</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Resolved This Month</p>
-                  <p className="mt-1 text-3xl font-bold text-green-600">{data?.resolvedThisMonth ?? '\u2014'}</p>
-                </div>
+                <StatCard to="/issues" label="Total Open" value={totalOpen ?? '—'} icon={ListChecks} tone="brand" />
+                <StatCard to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '—'} icon={AlertTriangle} tone="red" />
+                <StatCard to="/issues?status=PENDING_CLIENT_APPROVAL" label="Pending Approval" value={data?.workflowBottlenecks.pendingClientApproval ?? '—'} icon={Hourglass} tone="teal" />
+                <StatCard to="/issues?concern=true&concernFilter=raised" label="My Raised" value={data?.myRaisedIssues.open ?? '—'} icon={FileText} tone="brand" />
+                <StatCard to="/issues?status=CLOSED" label="Resolved This Month" value={data?.resolvedThisMonth ?? '—'} icon={CheckCircle2} tone="green" />
               </>
             )}
-          </div>
+          </motion.div>
 
-          {/* SLA Aging */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Deadline Health (SLA Aging)" />
-            {isLoading ? (
-              <div className="animate-pulse h-12 rounded bg-gray-100" />
-            ) : data ? (
-              <SlaAgingBar data={data.slaAging} />
-            ) : null}
-          </div>
-
-          {/* Org Summary + My Raised */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:col-span-2">
-              <SectionHeader title="Team Overview" />
-              {isLoading ? (
-                <SkeletonSection height={200} />
-              ) : data && data.orgSummary ? (
-                <OrgSummaryPanel data={data.orgSummary} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Raised Issues" />
-              {isLoading ? (
-                <div className="animate-pulse h-20 rounded bg-gray-100" />
-              ) : data ? (
-                <MyRaisedSummary data={data.myRaisedIssues} />
-              ) : null}
-            </div>
+            <Card title="Team Overview" icon={<BarChart3 />} className="lg:col-span-2">
+              {isLoading ? <SkeletonSection height={200} /> : data && data.orgSummary ? <OrgSummaryPanel data={data.orgSummary} /> : null}
+            </Card>
+            <Card title="My Raised Issues" icon={<FileText />}>
+              {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <MyRaisedSummary data={data.myRaisedIssues} /> : null}
+            </Card>
           </div>
 
-          {/* Charts */}
+          <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
+            {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
+          </Card>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="By Status" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <StatusDonut byStatus={data.byStatus} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="By Priority" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <PriorityBar byPriority={data.byPriority} />
-              ) : null}
-            </div>
+            <Card title="By Status">
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <StatusDonut byStatus={data.byStatus} /> : null}
+            </Card>
+            <Card title="By Priority">
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <PriorityBar byPriority={data.byPriority} /> : null}
+            </Card>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Trend \u2014 Last 30 Days" />
-            {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
-            ) : data ? (
-              <TrendLine data={data.trendLast30Days} />
-            ) : null}
-          </div>
+          <Card title="Trend — Last 30 Days" icon={<TrendingUp />}>
+            {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TrendLine data={data.trendLast30Days} /> : null}
+          </Card>
 
-          {/* Bottom Panels */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Assigned Issues" />
+            <Card title="My Assigned Issues" icon={<UserCheck />}>
               <AssignedIssuesList issues={data?.myAssignedIssues ?? []} isLoading={isLoading} />
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Recent Activity" />
+            </Card>
+            <Card title="Recent Activity" icon={<History />}>
               <RecentActivityList activities={data?.recentActivity ?? []} isLoading={isLoading} />
-            </div>
+            </Card>
           </div>
         </>
       )}
@@ -599,140 +525,95 @@ export default function Dashboard() {
          ══════════════════════════════════════════════════════════════════════ */}
       {isUser && currentUser?.organization?.type === 'SI' && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:grid-cols-4"
+          >
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
               <>
-                <CardLink to="/concern?concernFilter=assigned" label="My Assigned" value={data?.myAssignedIssues.length ?? '\u2014'} />
-                <CardLink to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '\u2014'} valueColor="text-red-600" />
-                <CardLink to="/concern?concernFilter=raised" label="My Raised" value={data?.myRaisedIssues.open ?? '\u2014'} valueColor="text-blue-600" />
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Resolved This Month</p>
-                  <p className="mt-1 text-3xl font-bold text-green-600">{data?.resolvedThisMonth ?? '\u2014'}</p>
-                </div>
+                <StatCard to="/concern?concernFilter=assigned" label="My Assigned" value={data?.myAssignedIssues.length ?? '—'} icon={UserCheck} tone="brand" />
+                <StatCard to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '—'} icon={AlertTriangle} tone="red" />
+                <StatCard to="/concern?concernFilter=raised" label="My Raised" value={data?.myRaisedIssues.open ?? '—'} icon={FileText} tone="brand" />
+                <StatCard to="/issues?status=CLOSED" label="Resolved This Month" value={data?.resolvedThisMonth ?? '—'} icon={CheckCircle2} tone="green" />
               </>
             )}
-          </div>
+          </motion.div>
 
-          {/* SLA Aging */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Deadline Health (SLA Aging)" />
-            {isLoading ? (
-              <div className="animate-pulse h-12 rounded bg-gray-100" />
-            ) : data ? (
-              <SlaAgingBar data={data.slaAging} />
-            ) : null}
-          </div>
-
-          {/* Team Workload + My Raised */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Team Workload" />
-              {isLoading ? (
-                <div className="animate-pulse h-48 rounded bg-gray-100" />
-              ) : data ? (
-                <TeamWorkloadBar data={data.teamWorkload} />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Raised Issues" />
-              {isLoading ? (
-                <div className="animate-pulse h-20 rounded bg-gray-100" />
-              ) : data ? (
-                <MyRaisedSummary data={data.myRaisedIssues} />
-              ) : null}
-            </div>
-          </div>
-
-          {/* Charts */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Trend \u2014 Last 30 Days" />
-            {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
-            ) : data ? (
-              <TrendLine data={data.trendLast30Days} />
-            ) : null}
-          </div>
-
-          {/* Bottom Panels */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Assigned Issues" />
+            <Card title="My Assigned Issues" icon={<UserCheck />}>
               <AssignedIssuesList issues={data?.myAssignedIssues ?? []} isLoading={isLoading} />
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Recent Activity" />
+            </Card>
+            <Card title="Recent Activity" icon={<History />}>
               <RecentActivityList activities={data?.recentActivity ?? []} isLoading={isLoading} />
-            </div>
+            </Card>
           </div>
+
+          <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
+            {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card title="Team Workload" icon={<BarChart3 />}>
+              {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TeamWorkloadBar data={data.teamWorkload} /> : null}
+            </Card>
+            <Card title="My Raised Issues" icon={<FileText />}>
+              {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <MyRaisedSummary data={data.myRaisedIssues} /> : null}
+            </Card>
+          </div>
+
+          <Card title="Trend — Last 30 Days" icon={<TrendingUp />}>
+            {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TrendLine data={data.trendLast30Days} /> : null}
+          </Card>
         </>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          CLIENT / OEM USER Layout
+          CLIENT / OEM USER Layout — assigned/raised lists promoted first
          ══════════════════════════════════════════════════════════════════════ */}
       {isUser && currentUser?.organization?.type !== 'SI' && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:grid-cols-4"
+          >
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
             ) : (
               <>
-                <CardLink to="/concern?concernFilter=assigned" label="My Assigned" value={data?.myAssignedIssues.length ?? '\u2014'} />
-                <CardLink to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '\u2014'} valueColor="text-red-600" />
-                <CardLink to="/concern?concernFilter=raised" label="My Raised" value={data?.myRaisedIssues.open ?? '\u2014'} valueColor="text-blue-600" />
-                <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Resolved This Month</p>
-                  <p className="mt-1 text-3xl font-bold text-green-600">{data?.resolvedThisMonth ?? '\u2014'}</p>
-                </div>
+                <StatCard to="/concern?concernFilter=assigned" label="My Assigned" value={data?.myAssignedIssues.length ?? '—'} icon={UserCheck} tone="brand" />
+                <StatCard to="/issues?overdue=true" label="Overdue" value={data?.overdue ?? '—'} icon={AlertTriangle} tone="red" />
+                <StatCard to="/concern?concernFilter=raised" label="My Raised" value={data?.myRaisedIssues.open ?? '—'} icon={FileText} tone="brand" />
+                <StatCard to="/issues?status=CLOSED" label="Resolved This Month" value={data?.resolvedThisMonth ?? '—'} icon={CheckCircle2} tone="green" />
               </>
             )}
-          </div>
+          </motion.div>
 
-          {/* SLA Aging */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Deadline Health (SLA Aging)" />
-            {isLoading ? (
-              <div className="animate-pulse h-12 rounded bg-gray-100" />
-            ) : data ? (
-              <SlaAgingBar data={data.slaAging} />
-            ) : null}
-          </div>
-
-          {/* My Raised Summary */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="My Raised Issues" />
-            {isLoading ? (
-              <div className="animate-pulse h-20 rounded bg-gray-100" />
-            ) : data ? (
-              <MyRaisedSummary data={data.myRaisedIssues} />
-            ) : null}
-          </div>
-
-          {/* Trend */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <SectionHeader title="Trend \u2014 Last 30 Days" />
-            {isLoading ? (
-              <div className="animate-pulse h-48 rounded bg-gray-100" />
-            ) : data ? (
-              <TrendLine data={data.trendLast30Days} />
-            ) : null}
-          </div>
-
-          {/* Bottom Panels */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="My Assigned Issues" />
+            <Card title="My Assigned Issues" icon={<UserCheck />}>
               <AssignedIssuesList issues={data?.myAssignedIssues ?? []} isLoading={isLoading} />
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <SectionHeader title="Recent Activity" />
+            </Card>
+            <Card title="Recent Activity" icon={<History />}>
               <RecentActivityList activities={data?.recentActivity ?? []} isLoading={isLoading} />
-            </div>
+            </Card>
           </div>
+
+          <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
+            {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
+          </Card>
+
+          <Card title="My Raised Issues" icon={<FileText />}>
+            {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <MyRaisedSummary data={data.myRaisedIssues} /> : null}
+          </Card>
+
+          <Card title="Trend — Last 30 Days" icon={<TrendingUp />}>
+            {isLoading ? <div className="h-48 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <TrendLine data={data.trendLast30Days} /> : null}
+          </Card>
         </>
       )}
     </div>

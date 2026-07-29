@@ -41,7 +41,7 @@ export interface UpdateUserData {
   name?: string;
   phone?: string;
   status?: string;
-  departmentId?: string;
+  departmentId?: string | null;
 }
 
 export async function fetchUsers(): Promise<UserListItem[]> {

@@ -1,22 +1,29 @@
 import type { IssuePriority } from '../api/issues';
+import Badge from './ui/Badge';
 
-const colorMap: Record<IssuePriority, string> = {
-  CRITICAL: 'bg-red-100 text-red-800',
-  HIGH: 'bg-orange-100 text-orange-800',
-  MEDIUM: 'bg-yellow-100 text-yellow-800',
-  LOW: 'bg-green-100 text-green-800',
+const PRIORITY_TONE: Record<IssuePriority, string> = {
+  CRITICAL: 'bg-priority-critical/10 text-priority-critical ring-priority-critical/25 dark:bg-priority-critical/15 dark:text-red-400 dark:ring-priority-critical/30',
+  HIGH: 'bg-priority-high/10 text-priority-high ring-priority-high/25 dark:bg-priority-high/15 dark:text-orange-400 dark:ring-priority-high/30',
+  MEDIUM: 'bg-priority-medium/10 text-priority-medium ring-priority-medium/25 dark:bg-priority-medium/15 dark:text-yellow-400 dark:ring-priority-medium/30',
+  LOW: 'bg-priority-low/10 text-priority-low ring-priority-low/25 dark:bg-priority-low/15 dark:text-green-400 dark:ring-priority-low/30',
 };
 
-export default function PriorityBadge({
-  priority,
-}: {
-  priority: IssuePriority;
-}) {
+const PRIORITY_DOT: Record<IssuePriority, string> = {
+  CRITICAL: 'bg-priority-critical',
+  HIGH: 'bg-priority-high',
+  MEDIUM: 'bg-priority-medium',
+  LOW: 'bg-priority-low',
+};
+
+export default function PriorityBadge({ priority }: { priority: IssuePriority }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorMap[priority]}`}
+    <Badge
+      tone={PRIORITY_TONE[priority]}
+      icon={<span className={`block h-1.5 w-1.5 rounded-full ${PRIORITY_DOT[priority]}`} />}
     >
-      {priority}
-    </span>
+      {priority.charAt(0) + priority.slice(1).toLowerCase()}
+    </Badge>
   );
 }
+
+export { PRIORITY_TONE, PRIORITY_DOT };

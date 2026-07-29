@@ -1,10 +1,11 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useChartTheme, TYPE_COLORS } from '../../lib/chartTheme';
 
-const TYPE_COLORS: Record<string, string> = {
-  BUG: '#ef4444',
-  NEW_REQUIREMENT: '#3b82f6',
-  CHANGE_REQUEST: '#f59e0b',
-  QUERY: '#8b5cf6',
+const TYPE_COLOR_LOOKUP: Record<string, string> = {
+  BUG: TYPE_COLORS.bug,
+  NEW_REQUIREMENT: TYPE_COLORS.new_requirement,
+  CHANGE_REQUEST: TYPE_COLORS.change_request,
+  QUERY: TYPE_COLORS.query,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -19,24 +20,22 @@ interface Props {
 }
 
 export default function TypeBar({ byType }: Props) {
+  const theme = useChartTheme();
   const data = Object.entries(byType)
     .filter(([, v]) => v > 0)
     .map(([type, value]) => ({
       name: TYPE_LABELS[type] || type,
       value,
-      color: TYPE_COLORS[type] || '#94a3b8',
+      color: TYPE_COLOR_LOOKUP[type] || '#94a3b8',
     }));
 
   return (
     <ResponsiveContainer width="100%" height={180}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-        <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
-        <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
-        <Tooltip
-          formatter={(value) => [Number(value), 'Issues']}
-          contentStyle={{ fontSize: 12, borderRadius: 6 }}
-        />
-        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+        <XAxis type="number" tick={theme.axisTick} allowDecimals={false} />
+        <YAxis type="category" dataKey="name" width={80} tick={theme.axisTick} />
+        <Tooltip formatter={(value) => [Number(value), 'Issues']} contentStyle={theme.tooltipStyle} labelStyle={theme.tooltipLabelStyle} />
+        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={entry.color} />
           ))}

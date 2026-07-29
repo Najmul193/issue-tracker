@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronLeft, ChevronRight, X, Loader2, ImageOff } from 'lucide-react';
 import { fetchAttachmentPreview } from '../api/issues';
 import type { Attachment } from '../api/issues';
 
@@ -67,9 +69,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowLeft') setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : i));
       if (e.key === 'ArrowRight')
-        setLightboxIndex((i) =>
-          i !== null && i < attachments.length - 1 ? i + 1 : i,
-        );
+        setLightboxIndex((i) => (i !== null && i < attachments.length - 1 ? i + 1 : i));
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -88,7 +88,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
 
   return (
     <>
-      <div className="max-h-[400px] overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
+      <div className="scrollbar-thin max-h-[400px] overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-2 dark:border-slate-700 dark:bg-slate-900/40">
         <div className={`grid ${gridCols} gap-2`}>
           {attachments.map((att, idx) => {
             const url = previews[att.id] ?? null;
@@ -98,18 +98,19 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
             return (
               <div
                 key={att.id}
-                className="group relative flex aspect-video cursor-pointer items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-white"
+                className="group relative flex aspect-video cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-slate-700 dark:bg-slate-800"
                 onClick={() => url && setLightboxIndex(idx)}
               >
                 {isLoading && (
                   <div className="flex h-full w-full items-center justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                    <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
                   </div>
                 )}
                 {hasError && (
-                  <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
-                    <span className="text-xs text-gray-400">Preview unavailable</span>
-                    <span className="mt-1 max-w-full truncate text-xs font-medium text-gray-600">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
+                    <ImageOff className="h-5 w-5 text-neutral-300 dark:text-slate-600" />
+                    <span className="text-xs text-neutral-400 dark:text-slate-500">Preview unavailable</span>
+                    <span className="max-w-full truncate text-xs font-medium text-neutral-600 dark:text-slate-300">
                       {att.fileName}
                     </span>
                   </div>
@@ -129,7 +130,7 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
                 )}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <p className="max-w-full truncate text-xs text-white">{att.fileName}</p>
-                  <p className="text-[10px] text-gray-200">{formatFileSize(att.fileSize)}</p>
+                  <p className="text-[10px] text-neutral-200">{formatFileSize(att.fileSize)}</p>
                 </div>
               </div>
             );
@@ -137,62 +138,65 @@ export default function ImagePreviewGrid({ attachments }: ImagePreviewGridProps)
         </div>
       </div>
 
-      {lightboxIndex !== null && previews[attachments[lightboxIndex].id] && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          onClick={closeLightbox}
-        >
-          {lightboxIndex > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxIndex((i) => (i !== null ? i - 1 : i));
-              }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-          <img
-            key={attachments[lightboxIndex].id}
-            src={previews[attachments[lightboxIndex].id]!}
-            alt={attachments[lightboxIndex].fileName}
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
-            draggable={false}
-            onError={closeLightbox}
-          />
-          {lightboxIndex < attachments.length - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxIndex((i) => (i !== null ? i + 1 : i));
-              }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              closeLightbox();
-            }}
-            className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+      <AnimatePresence>
+        {lightboxIndex !== null && previews[attachments[lightboxIndex].id] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+            onClick={closeLightbox}
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white backdrop-blur-sm">
-            {lightboxIndex + 1} / {attachments.length}
-          </div>
-        </div>
-      )}
+            {lightboxIndex > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i !== null ? i - 1 : i));
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
+            <motion.img
+              key={attachments[lightboxIndex].id}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.15 }}
+              src={previews[attachments[lightboxIndex].id]!}
+              alt={attachments[lightboxIndex].fileName}
+              className="max-h-[90vh] max-w-[90vw] object-contain"
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
+              onError={closeLightbox}
+            />
+            {lightboxIndex < attachments.length - 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i !== null ? i + 1 : i));
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                closeLightbox();
+              }}
+              className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white backdrop-blur-sm">
+              {lightboxIndex + 1} / {attachments.length}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

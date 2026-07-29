@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, SquarePen, Trash2, ShieldCheck, UserCog, User as UserIcon, Building2 } from 'lucide-react';
 import {
   fetchUsers, fetchOrganizations, createUser, updateUser, deleteUser, deleteOrganization,
   fetchDeletedUsers, fetchDeletedOrganizations, permanentDeleteUser, permanentDeleteOrganization,
@@ -9,9 +10,22 @@ import { fetchDepartments, createDepartment } from '../api/departments';
 import type { DepartmentWithOrg } from '../api/departments';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
+import Modal from '../components/ui/Modal';
+import AlertBanner from '../components/ui/AlertBanner';
+import { Table, Thead, Tbody, Tr, Th, Td } from '../components/ui/Table';
 
 const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'USER'] as const;
 const NEW_ORG_VALUE = '__new__';
+
+const ROLE_ICON: Record<string, typeof ShieldCheck> = {
+  SUPER_ADMIN: ShieldCheck,
+  ORG_ADMIN: UserCog,
+  USER: UserIcon,
+};
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -222,7 +236,7 @@ export default function Users() {
     setNewDeptError('');
   }
 
-  function handleCreateSubmit(e: React.FormEvent) {
+  function handleCreateSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
 
@@ -292,7 +306,7 @@ export default function Users() {
     setNewDeptError('');
   }
 
-  function handleEditSubmit(e: React.FormEvent) {
+  function handleEditSubmit(e: FormEvent) {
     e.preventDefault();
     if (!editingUser) return;
     setEditError(null);
@@ -304,7 +318,7 @@ export default function Users() {
       data: {
         name: editName.trim(),
         phone: editPhone.trim() || undefined,
-        departmentId: editDepartmentId || null as any,
+        departmentId: editDepartmentId || null,
         ...(currentUser?.role === 'SUPER_ADMIN' ? { status: editStatus } : {}),
       },
     });
@@ -313,9 +327,9 @@ export default function Users() {
   // Route guard: USER role sees "not authorized"
   if (!isAdmin) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center dark:border-slate-700/60 dark:bg-slate-800">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">Access Denied</h2>
+        <p className="mt-2 text-sm text-neutral-500 dark:text-slate-400">
           You do not have permission to access the Users page.
         </p>
       </div>
@@ -350,616 +364,553 @@ export default function Users() {
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4">
-        <div className="h-6 w-48 rounded bg-gray-200" />
-        <div className="h-8 w-full rounded bg-gray-200" />
-        <div className="h-64 w-full rounded bg-gray-200" />
+        <div className="h-6 w-48 rounded bg-neutral-200 dark:bg-slate-700" />
+        <div className="h-8 w-full rounded bg-neutral-200 dark:bg-slate-700" />
+        <div className="h-64 w-full rounded bg-neutral-200 dark:bg-slate-700" />
       </div>
     );
   }
 
+  const deptFieldForCreate = (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-slate-400">Department</label>
+      {!showNewDeptForm || newDeptTarget !== 'create' ? (
+        <Select
+          value={formDepartmentId}
+          onChange={(e) => {
+            if (e.target.value === '__new_dept__') {
+              setShowNewDeptForm(true);
+              setNewDeptTarget('create');
+              setNewDeptName('');
+              setNewDeptError('');
+            } else {
+              setFormDepartmentId(e.target.value);
+            }
+          }}
+        >
+          <option value="">None</option>
+          {(departments || [])
+            .filter((d) => (isSuperAdmin ? d.organizationId === formOrgId : d.organizationId === currentUser?.organizationId))
+            .map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          <option value="__new_dept__">+ New Department</option>
+        </Select>
+      ) : (
+        <div className="flex gap-2">
+          <Input
+            value={newDeptName}
+            onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(''); }}
+            placeholder="Department name"
+            className="flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (newDeptName.trim()) {
+                  const orgId = isSuperAdmin ? formOrgId : currentUser?.organizationId;
+                  if (orgId) createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: orgId });
+                } else {
+                  setNewDeptError('Department name is required');
+                }
+              }
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            isLoading={createDeptMutation.isPending}
+            disabled={!newDeptName.trim()}
+            onClick={() => {
+              if (newDeptName.trim()) {
+                const orgId = isSuperAdmin ? formOrgId : currentUser?.organizationId;
+                if (orgId) createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: orgId });
+              } else {
+                setNewDeptError('Department name is required');
+              }
+            }}
+          >
+            Create
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => { setShowNewDeptForm(false); setNewDeptName(''); setNewDeptError(''); }}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+      {newDeptError && newDeptTarget === 'create' && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{newDeptError}</p>}
+    </div>
+  );
+
+  const deptFieldForEdit = (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-slate-400">Department</label>
+      {!showNewDeptForm || newDeptTarget !== 'edit' ? (
+        <Select
+          value={editDepartmentId}
+          onChange={(e) => {
+            if (e.target.value === '__new_dept__') {
+              setShowNewDeptForm(true);
+              setNewDeptTarget('edit');
+              setNewDeptName('');
+              setNewDeptError('');
+            } else {
+              setEditDepartmentId(e.target.value);
+            }
+          }}
+        >
+          <option value="">None</option>
+          {(departments || [])
+            .filter((d) => d.organizationId === editingUser?.organizationId)
+            .map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          <option value="__new_dept__">+ New Department</option>
+        </Select>
+      ) : (
+        <div className="flex gap-2">
+          <Input
+            value={newDeptName}
+            onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(''); }}
+            placeholder="Department name"
+            className="flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (newDeptName.trim() && editingUser) {
+                  createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: editingUser.organizationId });
+                } else {
+                  setNewDeptError('Department name is required');
+                }
+              }
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            isLoading={createDeptMutation.isPending}
+            disabled={!newDeptName.trim()}
+            onClick={() => {
+              if (newDeptName.trim() && editingUser) {
+                createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: editingUser.organizationId });
+              } else {
+                setNewDeptError('Department name is required');
+              }
+            }}
+          >
+            Create
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => { setShowNewDeptForm(false); setNewDeptName(''); setNewDeptError(''); }}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+      {newDeptError && newDeptTarget === 'edit' && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{newDeptError}</p>}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Users</h2>
-        <button
-          onClick={openCreateModal}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
+        <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">Users</h2>
+        <Button icon={<Plus />} onClick={openCreateModal}>
           Create User
-        </button>
+        </Button>
       </div>
 
       {/* Org filter for SUPER_ADMIN */}
       {isSuperAdmin && (
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-gray-500">Organization</label>
-          <select
-            value={orgFilter}
-            onChange={(e) => setOrgFilter(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
+          <label className="text-xs font-medium text-neutral-500 dark:text-slate-400">Organization</label>
+          <Select value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)} className="max-w-xs">
             <option value="">All Organizations</option>
             {(orgs || []).map((o) => (
               <option key={o.id} value={o.id}>{o.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
 
-      {/* Users table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      {/* Users table — desktop */}
+      <div className="hidden md:block">
+        <Table>
+          <Thead>
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Role</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Department</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Created</th>
-              <th className="px-4 py-3" />
+              <Th>Name</Th>
+              <Th>Email</Th>
+              <Th>Role</Th>
+              <Th>Organization</Th>
+              <Th>Department</Th>
+              <Th>Status</Th>
+              <Th>Created</Th>
+              <Th />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
+          </Thead>
+          <Tbody>
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-neutral-400 dark:text-slate-500">
                   No users found.
                 </td>
               </tr>
             ) : (
               filteredUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{u.name}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">{u.role.replace('_', ' ')}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.organization?.name || '—'}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{u.role === 'ORG_ADMIN' ? 'Admin' : (u.department?.name || '—')}</td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                <Tr key={u.id}>
+                  <Td className="whitespace-nowrap font-medium text-neutral-900 dark:text-slate-100">{u.name}</Td>
+                  <Td className="whitespace-nowrap">{u.email}</Td>
+                  <Td className="whitespace-nowrap">{u.role.replace('_', ' ')}</Td>
+                  <Td className="whitespace-nowrap">{u.organization?.name || '—'}</Td>
+                  <Td className="whitespace-nowrap">{u.role === 'ORG_ADMIN' ? 'Admin' : (u.department?.name || '—')}</Td>
+                  <Td className="whitespace-nowrap">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       u.status === 'ACTIVE'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400'
+                        : 'bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-400'
                     }`}>
                       {u.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                     </span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                  </Td>
+                  <Td className="whitespace-nowrap text-neutral-500 dark:text-slate-400">
                     {u.createdAt ? formatDate(u.createdAt) : '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                  </Td>
+                  <Td className="whitespace-nowrap text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {canEdit(u) && (
+                        <button
+                          onClick={() => openEditModal(u)}
+                          aria-label="Edit user"
+                          className="rounded-md p-1.5 text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10"
+                        >
+                          <SquarePen className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDelete(u) && (
+                        <button
+                          onClick={() => { setDeletingUser(u); setDeleteError(null); }}
+                          aria-label="Delete user"
+                          className="rounded-md p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </Tbody>
+        </Table>
+      </div>
+
+      {/* Users list — mobile cards */}
+      <ul className="space-y-3 md:hidden">
+        {filteredUsers.length === 0 ? (
+          <li className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400 dark:border-slate-700/60 dark:bg-slate-800 dark:text-slate-500">
+            No users found.
+          </li>
+        ) : (
+          filteredUsers.map((u) => {
+            const RoleIcon = ROLE_ICON[u.role] ?? UserIcon;
+            return (
+              <li key={u.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-card dark:border-slate-700/60 dark:bg-slate-800">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">{u.name}</p>
+                    <p className="truncate text-xs text-neutral-500 dark:text-slate-400">{u.email}</p>
+                  </div>
+                  <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    u.status === 'ACTIVE'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400'
+                      : 'bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-400'
+                  }`}>
+                    {u.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-slate-700 dark:text-slate-300">
+                    <RoleIcon className="h-3 w-3" />
+                    {u.role.replace('_', ' ')}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-slate-700 dark:text-slate-300">
+                    <Building2 className="h-3 w-3" />
+                    {u.organization?.name || '—'}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2 dark:border-slate-700/60">
+                  <span className="text-xs text-neutral-400 dark:text-slate-500">
+                    {u.role === 'ORG_ADMIN' ? 'Admin' : (u.department?.name || 'No department')}
+                  </span>
+                  <div className="flex items-center gap-1">
                     {canEdit(u) && (
                       <button
                         onClick={() => openEditModal(u)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                        aria-label="Edit user"
+                        className="rounded-md p-1.5 text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10"
                       >
-                        Edit
+                        <SquarePen className="h-4 w-4" />
                       </button>
                     )}
                     {canDelete(u) && (
                       <button
                         onClick={() => { setDeletingUser(u); setDeleteError(null); }}
-                        className="ml-3 text-sm font-medium text-red-600 hover:text-red-700"
+                        aria-label="Delete user"
+                        className="rounded-md p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                       >
-                        Delete
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                </div>
+              </li>
+            );
+          })
+        )}
+      </ul>
 
       {/* Create User Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">Create User</h3>
-            <form onSubmit={handleCreateSubmit} className="space-y-3">
-              {formError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {formError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
-                <input
-                  type="email"
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Password *</label>
-                <input
-                  type="password"
-                  value={formPassword}
-                  onChange={(e) => setFormPassword(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                <input
-                  type="text"
-                  value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              {isSuperAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Role *</label>
-                  <select
-                    value={formRole}
-                    onChange={(e) => setFormRole(e.target.value)}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{r.replace('_', ' ')}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {isOrgAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
-                  <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                    USER
-                  </p>
-                </div>
-              )}
-
-              {isSuperAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Organization *</label>
-                  <select
-                    value={formOrgId}
-                    onChange={(e) => {
-                      setFormOrgId(e.target.value);
-                      if (e.target.value !== NEW_ORG_VALUE) setFormNewOrgName('');
-                      setFormDepartmentId('');
-                      setShowNewDeptForm(false);
-                      setNewDeptName('');
-                      setNewDeptError('');
-                    }}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">Select organization...</option>
-                    {(orgs || []).map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))}
-                    <option value={NEW_ORG_VALUE}>+ New Organization</option>
-                  </select>
-                </div>
-              )}
-
-              {isSuperAdmin && formOrgId === NEW_ORG_VALUE && (
-                <div className="space-y-3 rounded-md border border-blue-200 bg-blue-50 p-3">
-                  <p className="text-xs font-medium text-blue-700">New Organization Details</p>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Organization Name *</label>
-                    <input
-                      type="text"
-                      value={formNewOrgName}
-                      onChange={(e) => setFormNewOrgName(e.target.value)}
-                      placeholder="e.g. Bank2"
-                      className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Organization Type *</label>
-                    <select
-                      value={formNewOrgType}
-                      onChange={(e) => setFormNewOrgType(e.target.value)}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="CLIENT">CLIENT</option>
-                      <option value="SI">SI</option>
-                      <option value="OEM">OEM</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {isOrgAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Organization</label>
-                  <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                    {currentUser?.organization?.name || 'Your organization'}
-                  </p>
-                </div>
-              )}
-
-              {((isSuperAdmin && formOrgId && formOrgId !== NEW_ORG_VALUE) || isOrgAdmin) && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
-                  {!showNewDeptForm || newDeptTarget !== 'create' ? (
-                    <>
-                      <select
-                        value={formDepartmentId}
-                        onChange={(e) => {
-                          if (e.target.value === '__new_dept__') {
-                            setShowNewDeptForm(true);
-                            setNewDeptTarget('create');
-                            setNewDeptName('');
-                            setNewDeptError('');
-                          } else {
-                            setFormDepartmentId(e.target.value);
-                          }
-                        }}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">None</option>
-                        {(departments || [])
-                          .filter((d) => isSuperAdmin ? d.organizationId === formOrgId : d.organizationId === currentUser?.organizationId)
-                          .map((d) => (
-                            <option key={d.id} value={d.id}>{d.name}</option>
-                          ))}
-                        <option value="__new_dept__">+ New Department</option>
-                      </select>
-                    </>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newDeptName}
-                        onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(''); }}
-                        placeholder="Department name"
-                        className="block flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (newDeptName.trim()) {
-                              const orgId = isSuperAdmin ? formOrgId : currentUser?.organizationId;
-                              if (orgId) createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: orgId });
-                            } else {
-                              setNewDeptError('Department name is required');
-                            }
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        disabled={createDeptMutation.isPending || !newDeptName.trim()}
-                        onClick={() => {
-                          if (newDeptName.trim()) {
-                            const orgId = isSuperAdmin ? formOrgId : currentUser?.organizationId;
-                            if (orgId) createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: orgId });
-                          } else {
-                            setNewDeptError('Department name is required');
-                          }
-                        }}
-                        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {createDeptMutation.isPending ? 'Creating...' : 'Create'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowNewDeptForm(false); setNewDeptName(''); setNewDeptError(''); }}
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                  {newDeptError && newDeptTarget === 'create' && (
-                    <p className="mt-1 text-xs text-red-600">{newDeptError}</p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showCreateModal}
+        onClose={closeCreateModal}
+        title="Create User"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeCreateModal}>Cancel</Button>
+            <Button type="submit" form="create-user-form" isLoading={createMutation.isPending}>Create</Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <form id="create-user-form" onSubmit={handleCreateSubmit} className="space-y-3">
+          {formError && <AlertBanner tone="error">{formError}</AlertBanner>}
+
+          <Input label="Name *" value={formName} onChange={(e) => setFormName(e.target.value)} />
+          <Input label="Email *" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} />
+          <Input label="Password *" type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+          <Input label="Phone" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} />
+
+          {isSuperAdmin && (
+            <Select label="Role *" value={formRole} onChange={(e) => setFormRole(e.target.value)}>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>{r.replace('_', ' ')}</option>
+              ))}
+            </Select>
+          )}
+
+          {isOrgAdmin && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-slate-400">Role</label>
+              <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm text-neutral-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                USER
+              </p>
+            </div>
+          )}
+
+          {isSuperAdmin && (
+            <Select
+              label="Organization *"
+              value={formOrgId}
+              onChange={(e) => {
+                setFormOrgId(e.target.value);
+                if (e.target.value !== NEW_ORG_VALUE) setFormNewOrgName('');
+                setFormDepartmentId('');
+                setShowNewDeptForm(false);
+                setNewDeptName('');
+                setNewDeptError('');
+              }}
+            >
+              <option value="">Select organization...</option>
+              {(orgs || []).map((o) => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+              <option value={NEW_ORG_VALUE}>+ New Organization</option>
+            </Select>
+          )}
+
+          {isSuperAdmin && formOrgId === NEW_ORG_VALUE && (
+            <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50 p-3 dark:border-brand-500/30 dark:bg-brand-500/10">
+              <p className="text-xs font-medium text-brand-700 dark:text-brand-400">New Organization Details</p>
+              <Input
+                label="Organization Name *"
+                value={formNewOrgName}
+                onChange={(e) => setFormNewOrgName(e.target.value)}
+                placeholder="e.g. Bank2"
+              />
+              <Select label="Organization Type *" value={formNewOrgType} onChange={(e) => setFormNewOrgType(e.target.value)}>
+                <option value="CLIENT">CLIENT</option>
+                <option value="SI">SI</option>
+                <option value="OEM">OEM</option>
+              </Select>
+            </div>
+          )}
+
+          {isOrgAdmin && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-slate-400">Organization</label>
+              <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm text-neutral-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                {currentUser?.organization?.name || 'Your organization'}
+              </p>
+            </div>
+          )}
+
+          {((isSuperAdmin && formOrgId && formOrgId !== NEW_ORG_VALUE) || isOrgAdmin) && deptFieldForCreate}
+        </form>
+      </Modal>
 
       {/* Edit User Modal */}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Edit User — {editingUser.name}
-            </h3>
-            <form onSubmit={handleEditSubmit} className="space-y-3">
-              {editError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {editError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                  {editingUser.email}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                <input
-                  type="text"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              {(isSuperAdmin || isOrgAdmin) && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
-                  {!showNewDeptForm || newDeptTarget !== 'edit' ? (
-                    <>
-                      <select
-                        value={editDepartmentId}
-                        onChange={(e) => {
-                          if (e.target.value === '__new_dept__') {
-                            setShowNewDeptForm(true);
-                            setNewDeptTarget('edit');
-                            setNewDeptName('');
-                            setNewDeptError('');
-                          } else {
-                            setEditDepartmentId(e.target.value);
-                          }
-                        }}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">None</option>
-                        {(departments || [])
-                          .filter((d) => d.organizationId === editingUser?.organizationId)
-                          .map((d) => (
-                            <option key={d.id} value={d.id}>{d.name}</option>
-                          ))}
-                        <option value="__new_dept__">+ New Department</option>
-                      </select>
-                    </>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newDeptName}
-                        onChange={(e) => { setNewDeptName(e.target.value); setNewDeptError(''); }}
-                        placeholder="Department name"
-                        className="block flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (newDeptName.trim() && editingUser) {
-                              createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: editingUser.organizationId });
-                            } else {
-                              setNewDeptError('Department name is required');
-                            }
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        disabled={createDeptMutation.isPending || !newDeptName.trim()}
-                        onClick={() => {
-                          if (newDeptName.trim() && editingUser) {
-                            createDeptMutation.mutate({ name: newDeptName.trim(), organizationId: editingUser.organizationId });
-                          } else {
-                            setNewDeptError('Department name is required');
-                          }
-                        }}
-                        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {createDeptMutation.isPending ? 'Creating...' : 'Create'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowNewDeptForm(false); setNewDeptName(''); setNewDeptError(''); }}
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                  {newDeptError && newDeptTarget === 'edit' && (
-                    <p className="mt-1 text-xs text-red-600">{newDeptError}</p>
-                  )}
-                </div>
-              )}
-
-              {isSuperAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
-                    disabled={editingUser.id === currentUser!.id}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                  </select>
-                  {editingUser.id === currentUser!.id && (
-                    <p className="mt-1 text-xs text-gray-400">You cannot deactivate your own account.</p>
-                  )}
-                </div>
-              )}
-
-              {isOrgAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-                  <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500">
-                    {editingUser.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updateMutation.isPending}
-                  className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {updateMutation.isPending ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={!!editingUser}
+        onClose={closeEditModal}
+        title={editingUser ? `Edit User — ${editingUser.name}` : 'Edit User'}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeEditModal}>Cancel</Button>
+            <Button type="submit" form="edit-user-form" isLoading={updateMutation.isPending}>Save</Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {editingUser && (
+          <form id="edit-user-form" onSubmit={handleEditSubmit} className="space-y-3">
+            {editError && <AlertBanner tone="error">{editError}</AlertBanner>}
 
-      {/* Delete User Confirmation */}
-      {deletingUser && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete User</h3>
-            {deleteError && (
-              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {deleteError}
+            <Input label="Name *" value={editName} onChange={(e) => setEditName(e.target.value)} />
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-slate-400">Email</label>
+              <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm text-neutral-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                {editingUser.email}
+              </p>
+            </div>
+
+            <Input label="Phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+
+            {(isSuperAdmin || isOrgAdmin) && deptFieldForEdit}
+
+            {isSuperAdmin && (
+              <div>
+                <Select
+                  label="Status"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
+                  disabled={editingUser.id === currentUser!.id}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </Select>
+                {editingUser.id === currentUser!.id && (
+                  <p className="mt-1 text-xs text-neutral-400 dark:text-slate-500">You cannot deactivate your own account.</p>
+                )}
               </div>
             )}
-            <p className="text-sm text-gray-600">
-              Are you sure you want to delete <strong>{deletingUser.name}</strong> ({deletingUser.email})?
-              This will remove all their notifications, activity logs, comments, and attachments.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setDeletingUser(null)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(deletingUser.id)}
-                disabled={deleteMutation.isPending}
-                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
+
+            {isOrgAdmin && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-slate-400">Status</label>
+                <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm text-neutral-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                  {editingUser.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                </p>
+              </div>
+            )}
+          </form>
+        )}
+      </Modal>
+
+      {/* Delete User Confirmation */}
+      <Modal
+        isOpen={!!deletingUser}
+        onClose={() => setDeletingUser(null)}
+        title="Delete User"
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeletingUser(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              isLoading={deleteMutation.isPending}
+              onClick={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
+            >
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {deleteError && <AlertBanner tone="error">{deleteError}</AlertBanner>}
+        {deletingUser && (
+          <p className="text-sm text-neutral-600 dark:text-slate-300">
+            Are you sure you want to delete <strong>{deletingUser.name}</strong> ({deletingUser.email})?
+            This will remove all their notifications, activity logs, comments, and attachments.
+          </p>
+        )}
+      </Modal>
 
       {/* SUPER_ADMIN: Organization management */}
       {isSuperAdmin && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Organizations
-          </h3>
+        <Card title="Organizations">
           <div className="space-y-2">
             {(orgs || []).map((o) => (
-              <div key={o.id} className="flex items-center justify-between rounded-md border border-gray-100 px-3 py-2">
+              <div key={o.id} className="flex items-center justify-between rounded-lg border border-neutral-100 px-3 py-2 dark:border-slate-700/60">
                 <div>
-                  <span className="text-sm font-medium text-gray-900">{o.name}</span>
-                  <span className="ml-2 text-xs text-gray-400">{o.type}</span>
+                  <span className="text-sm font-medium text-neutral-900 dark:text-slate-100">{o.name}</span>
+                  <span className="ml-2 text-xs text-neutral-400 dark:text-slate-500">{o.type}</span>
                 </div>
                 <button
                   onClick={() => { setDeletingOrg(o); setDeleteError(null); }}
-                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                  className="text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                 >
                   Delete
                 </button>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Delete Organization Confirmation */}
-      {deletingOrg && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete Organization</h3>
-            {deleteError && (
-              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {deleteError}
-              </div>
-            )}
-            <p className="text-sm text-gray-600">
-              Are you sure you want to delete <strong>{deletingOrg.name}</strong>?
-              This will permanently delete all users in this organization. Issues raised by this organization will be preserved.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setDeletingOrg(null)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteOrgMutation.mutate(deletingOrg.id)}
-                disabled={deleteOrgMutation.isPending}
-                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleteOrgMutation.isPending ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
+      <Modal
+        isOpen={!!deletingOrg}
+        onClose={() => setDeletingOrg(null)}
+        title="Delete Organization"
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeletingOrg(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              isLoading={deleteOrgMutation.isPending}
+              onClick={() => deletingOrg && deleteOrgMutation.mutate(deletingOrg.id)}
+            >
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {deleteError && <AlertBanner tone="error">{deleteError}</AlertBanner>}
+        {deletingOrg && (
+          <p className="text-sm text-neutral-600 dark:text-slate-300">
+            Are you sure you want to delete <strong>{deletingOrg.name}</strong>?
+            This will permanently delete all users in this organization. Issues raised by this organization will be preserved.
+          </p>
+        )}
+      </Modal>
 
       {/* Silent Delete Section */}
       {isSuperAdmin && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Silent Delete
-          </h3>
+        <Card title="Silent Delete">
           <div className="mb-3 flex gap-2">
             <button
               onClick={() => setSilentTab('users')}
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                 silentTab === 'users'
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-neutral-800 text-white dark:bg-slate-600'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
               }`}
             >
               Deleted Users ({deletedUsers?.length || 0})
@@ -968,8 +919,8 @@ export default function Users() {
               onClick={() => setSilentTab('orgs')}
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                 silentTab === 'orgs'
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-neutral-800 text-white dark:bg-slate-600'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
               }`}
             >
               Deleted Orgs ({deletedOrgs?.length || 0})
@@ -977,155 +928,143 @@ export default function Users() {
           </div>
 
           {silentTab === 'users' && (
-            <div className="overflow-x-auto rounded-md border border-gray-100">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Org</Th>
+                  <Th>Role</Th>
+                  <Th>Deleted</Th>
+                  <Th />
+                </tr>
+              </Thead>
+              <Tbody>
+                {(!deletedUsers || deletedUsers.length === 0) ? (
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Org</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Role</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Deleted</th>
-                    <th className="px-3 py-2" />
+                    <td colSpan={5} className="px-3 py-6 text-center text-xs text-neutral-400 dark:text-slate-500">
+                      No softly deleted users.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {(!deletedUsers || deletedUsers.length === 0) ? (
-                    <tr>
-                      <td colSpan={5} className="px-3 py-6 text-center text-xs text-gray-400">
-                        No softly deleted users.
-                      </td>
-                    </tr>
-                  ) : (
-                    deletedUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900">{u.name}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{u.organization?.name || '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">{u.role.replace('_', ' ')}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-400">{u.createdAt ? formatDate(u.createdAt) : '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">
-                          <button
-                            onClick={() => { setPermanentDeletingUser(u); setPermDeleteError(null); }}
-                            className="text-xs font-medium text-red-600 hover:text-red-700"
-                          >
-                            Permanently Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                ) : (
+                  deletedUsers.map((u) => (
+                    <Tr key={u.id}>
+                      <Td className="whitespace-nowrap text-neutral-900 dark:text-slate-100">{u.name}</Td>
+                      <Td className="whitespace-nowrap">{u.organization?.name || '—'}</Td>
+                      <Td className="whitespace-nowrap">{u.role.replace('_', ' ')}</Td>
+                      <Td className="whitespace-nowrap text-xs text-neutral-400 dark:text-slate-500">
+                        {u.createdAt ? formatDate(u.createdAt) : '—'}
+                      </Td>
+                      <Td className="whitespace-nowrap text-right">
+                        <button
+                          onClick={() => { setPermanentDeletingUser(u); setPermDeleteError(null); }}
+                          className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          Permanently Delete
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </Tbody>
+            </Table>
           )}
 
           {silentTab === 'orgs' && (
-            <div className="overflow-x-auto rounded-md border border-gray-100">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Type</Th>
+                  <Th>Users</Th>
+                  <Th />
+                </tr>
+              </Thead>
+              <Tbody>
+                {(!deletedOrgs || deletedOrgs.length === 0) ? (
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Type</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Users</th>
-                    <th className="px-3 py-2" />
+                    <td colSpan={4} className="px-3 py-6 text-center text-xs text-neutral-400 dark:text-slate-500">
+                      No softly deleted organizations.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {(!deletedOrgs || deletedOrgs.length === 0) ? (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-6 text-center text-xs text-gray-400">
-                        No softly deleted organizations.
-                      </td>
-                    </tr>
-                  ) : (
-                    deletedOrgs.map((o) => (
-                      <tr key={o.id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900">{o.name}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{o.type}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-500">{o._count?.users ?? 0}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">
-                          <button
-                            onClick={() => { setPermanentDeletingOrg(o); setPermDeleteError(null); }}
-                            className="text-xs font-medium text-red-600 hover:text-red-700"
-                          >
-                            Permanently Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                ) : (
+                  deletedOrgs.map((o) => (
+                    <Tr key={o.id}>
+                      <Td className="whitespace-nowrap text-neutral-900 dark:text-slate-100">{o.name}</Td>
+                      <Td className="whitespace-nowrap">{o.type}</Td>
+                      <Td className="whitespace-nowrap">{o._count?.users ?? 0}</Td>
+                      <Td className="whitespace-nowrap text-right">
+                        <button
+                          onClick={() => { setPermanentDeletingOrg(o); setPermDeleteError(null); }}
+                          className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          Permanently Delete
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </Tbody>
+            </Table>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Permanent Delete User Confirmation */}
-      {permanentDeletingUser && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Permanently Delete User</h3>
-            {permDeleteError && (
-              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {permDeleteError}
-              </div>
-            )}
-            <p className="text-sm text-gray-600">
-              Are you sure you want to permanently delete <strong>{permanentDeletingUser.name}</strong>?
-              This will <strong>also delete all issues</strong> raised by this user. This action cannot be undone.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setPermanentDeletingUser(null)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => permanentDeleteUserMutation.mutate(permanentDeletingUser.id)}
-                disabled={permanentDeleteUserMutation.isPending}
-                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {permanentDeleteUserMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
-              </button>
-            </div>
+      <Modal
+        isOpen={!!permanentDeletingUser}
+        onClose={() => setPermanentDeletingUser(null)}
+        title="Permanently Delete User"
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPermanentDeletingUser(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              isLoading={permanentDeleteUserMutation.isPending}
+              onClick={() => permanentDeletingUser && permanentDeleteUserMutation.mutate(permanentDeletingUser.id)}
+            >
+              Permanently Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {permDeleteError && <AlertBanner tone="error">{permDeleteError}</AlertBanner>}
+        {permanentDeletingUser && (
+          <p className="text-sm text-neutral-600 dark:text-slate-300">
+            Are you sure you want to permanently delete <strong>{permanentDeletingUser.name}</strong>?
+            This will <strong>also delete all issues</strong> raised by this user. This action cannot be undone.
+          </p>
+        )}
+      </Modal>
 
       {/* Permanent Delete Org Confirmation */}
-      {permanentDeletingOrg && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Permanently Delete Organization</h3>
-            {permDeleteError && (
-              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {permDeleteError}
-              </div>
-            )}
-            <p className="text-sm text-gray-600">
-              Are you sure you want to permanently delete <strong>{permanentDeletingOrg.name}</strong>?
-              This will <strong>also delete all users and all issues</strong> in this organization.
-              This action cannot be undone.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setPermanentDeletingOrg(null)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => permanentDeleteOrgMutation.mutate(permanentDeletingOrg.id)}
-                disabled={permanentDeleteOrgMutation.isPending}
-                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {permanentDeleteOrgMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
-              </button>
-            </div>
+      <Modal
+        isOpen={!!permanentDeletingOrg}
+        onClose={() => setPermanentDeletingOrg(null)}
+        title="Permanently Delete Organization"
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPermanentDeletingOrg(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              isLoading={permanentDeleteOrgMutation.isPending}
+              onClick={() => permanentDeletingOrg && permanentDeleteOrgMutation.mutate(permanentDeletingOrg.id)}
+            >
+              Permanently Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {permDeleteError && <AlertBanner tone="error">{permDeleteError}</AlertBanner>}
+        {permanentDeletingOrg && (
+          <p className="text-sm text-neutral-600 dark:text-slate-300">
+            Are you sure you want to permanently delete <strong>{permanentDeletingOrg.name}</strong>?
+            This will <strong>also delete all users and all issues</strong> in this organization.
+            This action cannot be undone.
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

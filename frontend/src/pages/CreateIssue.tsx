@@ -1,11 +1,18 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
+import { UploadCloud, FileText, Trash2, X } from 'lucide-react';
 import { createIssue, uploadAttachments, deleteIssue } from '../api/issues';
 import type { IssueType, IssuePriority } from '../api/issues';
 import { useProjectFilter } from '../context/ProjectFilterContext';
 import { ApiError } from '../api/client';
 import { addDays } from 'date-fns';
+import Input from '../components/ui/Input';
+import Textarea from '../components/ui/Textarea';
+import Select from '../components/ui/Select';
+import Button from '../components/ui/Button';
+import AlertBanner from '../components/ui/AlertBanner';
 
 const typeOptions: { label: string; value: IssueType }[] = [
   { label: 'Bug', value: 'BUG' },
@@ -71,14 +78,13 @@ export default function CreateIssue() {
   const [type, setType] = useState<IssueType>('BUG');
   const [priority, setPriority] = useState<IssuePriority>('MEDIUM');
   const [module, setModule] = useState('');
-  const [deadline, setDeadline] = useState(() =>
-    toDatetimeLocal(addDays(new Date(), 5)),
-  );
+  const [deadline, setDeadline] = useState(() => toDatetimeLocal(addDays(new Date(), 5)));
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [deadlineManuallyEdited, setDeadlineManuallyEdited] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const { allProjects, selectedProjectIds, isAllSelected } = useProjectFilter();
 
   // Determine which projects to show in the dropdown
@@ -104,14 +110,10 @@ export default function CreateIssue() {
       });
 
       if (selectedFiles.length > 0) {
-        const validFiles = selectedFiles
-          .filter((f) => !f.error)
-          .map((f) => f.file);
+        const validFiles = selectedFiles.filter((f) => !f.error).map((f) => f.file);
         if (validFiles.length > 0) {
           try {
-            await uploadAttachments(issue.id, validFiles, (pct) =>
-              setUploadProgress(pct),
-            );
+            await uploadAttachments(issue.id, validFiles, (pct) => setUploadProgress(pct));
           } catch (err) {
             await deleteIssue(issue.id).catch(() => {});
             throw err;
@@ -198,255 +200,193 @@ export default function CreateIssue() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h2 className="mb-6 text-xl font-semibold text-gray-900">Create Issue</h2>
+      <h2 className="mb-6 text-xl font-semibold text-neutral-900 dark:text-slate-100">Create Issue</h2>
 
-      {apiError && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {apiError}
-        </div>
-      )}
+      <AnimatePresence>{apiError && <AlertBanner tone="error">{apiError}</AlertBanner>}</AnimatePresence>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Project */}
         {visibleProjects.length === 0 ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertBanner tone="warning">
             <p className="font-medium">No projects selected</p>
-            <p className="mt-0.5 text-xs text-amber-600">Select at least one project from the filter in the top navigation bar before creating an issue.</p>
-          </div>
+            <p className="mt-0.5 text-xs">
+              Select at least one project from the filter in the top navigation bar before creating an issue.
+            </p>
+          </AlertBanner>
         ) : showProjectDropdown ? (
-          <div>
-            <label htmlFor="project" className="block text-sm font-medium text-gray-700">
-              Project <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="project"
-              value={projectId}
-              onChange={(e) => {
-                setProjectId(e.target.value);
-                if (fieldErrors.projectId) setFieldErrors((p) => ({ ...p, projectId: '' }));
-              }}
-              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                fieldErrors.projectId ? 'border-red-300' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select a project...</option>
-              {visibleProjects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            {fieldErrors.projectId && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.projectId}</p>
-            )}
-          </div>
+          <Select
+            id="project"
+            label="Project *"
+            value={projectId}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              if (fieldErrors.projectId) setFieldErrors((p) => ({ ...p, projectId: '' }));
+            }}
+            error={fieldErrors.projectId}
+          >
+            <option value="">Select a project...</option>
+            {visibleProjects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
         ) : visibleProjects.length === 1 ? (
-          <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
-            <span className="font-medium text-gray-700">Project:</span> {visibleProjects[0].name}
+          <div className="rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:bg-slate-700/50 dark:text-slate-300">
+            <span className="font-medium text-neutral-700 dark:text-slate-200">Project:</span> {visibleProjects[0].name}
           </div>
         ) : null}
 
-        {/* Title */}
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-            Title <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              if (fieldErrors.title) setFieldErrors((p) => ({ ...p, title: '' }));
-            }}
-            className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-              fieldErrors.title ? 'border-red-300' : 'border-gray-300'
-            }`}
-          />
-          {fieldErrors.title && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.title}</p>
-          )}
-        </div>
+        <Input
+          id="title"
+          label="Title *"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (fieldErrors.title) setFieldErrors((p) => ({ ...p, title: '' }));
+          }}
+          error={fieldErrors.title}
+        />
 
-        {/* Description */}
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-            Description
-          </label>
-          <textarea
-            id="description"
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
+        <Textarea
+          id="description"
+          label="Description"
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
 
         {/* Type + Priority row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-              Type <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="type"
-              value={type}
-              onChange={(e) => setType(e.target.value as IssueType)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {typeOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="priority" className="block text-sm font-medium text-gray-700">
-              Priority <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="priority"
-              value={priority}
-              onChange={(e) => handlePriorityChange(e.target.value as IssuePriority)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {priorityOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select id="type" label="Type *" value={type} onChange={(e) => setType(e.target.value as IssueType)}>
+            {typeOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            id="priority"
+            label="Priority *"
+            value={priority}
+            onChange={(e) => handlePriorityChange(e.target.value as IssuePriority)}
+          >
+            {priorityOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
         </div>
 
         {/* Module + Deadline row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="module" className="block text-sm font-medium text-gray-700">
-              Module
-            </label>
-            <input
-              id="module"
-              type="text"
-              value={module}
-              onChange={(e) => setModule(e.target.value)}
-              placeholder="e.g. Authentication"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="deadline" className="block text-sm font-medium text-gray-700">
-              Deadline <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="deadline"
-              type="datetime-local"
-              value={deadline}
-              onChange={(e) => handleDeadlineChange(e.target.value)}
-              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                fieldErrors.deadline ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {fieldErrors.deadline && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.deadline}</p>
-            )}
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            id="module"
+            label="Module"
+            value={module}
+            onChange={(e) => setModule(e.target.value)}
+            placeholder="e.g. Authentication"
+          />
+          <Input
+            id="deadline"
+            type="datetime-local"
+            label="Deadline *"
+            value={deadline}
+            onChange={(e) => handleDeadlineChange(e.target.value)}
+            error={fieldErrors.deadline}
+          />
         </div>
 
         {/* Attachments */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-slate-300">
             Attachments (optional)
           </label>
           <div
             onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => {
               e.preventDefault();
+              setIsDragging(false);
               handleFileSelect(e.dataTransfer.files);
             }}
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-sm transition-colors ${
+              isDragging
+                ? 'border-brand-400 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+                : 'border-neutral-300 bg-neutral-50 text-neutral-500 hover:border-brand-400 hover:bg-brand-50 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:border-brand-500/60 dark:hover:bg-brand-500/10'
+            }`}
           >
-            <svg className="mb-2 h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p className="text-xs">Drag & drop files here, or click to browse</p>
-            <p className="mt-1 text-xs text-gray-400">
+            <UploadCloud className="mb-2 h-8 w-8 text-neutral-400 dark:text-slate-500" />
+            <p className="text-xs">Drag &amp; drop files here, or click to browse</p>
+            <p className="mt-1 text-xs text-neutral-400 dark:text-slate-500">
               Max {MAX_FILES} files, 15MB each. Allowed: images, PDF, Word, Excel, text, archives
             </p>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => handleFileSelect(e.target.files)}
-          />
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleFileSelect(e.target.files)} />
 
-          {selectedFiles.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {selectedFiles.map((sf, idx) => (
-                <li
-                  key={idx}
-                  className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
-                    sf.error ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="truncate font-medium text-gray-700">
-                      {sf.file.name}
-                    </span>
-                    <span className="shrink-0 text-gray-400">
-                      {formatFileSize(sf.file.size)}
-                    </span>
-                    {sf.error && (
-                      <span className="shrink-0 text-xs text-red-600">{sf.error}</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(idx)}
-                    className="shrink-0 ml-2 text-gray-400 hover:text-red-500"
+          <AnimatePresence initial={false}>
+            {selectedFiles.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {selectedFiles.map((sf, idx) => (
+                  <motion.li
+                    key={`${sf.file.name}-${idx}`}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${
+                      sf.error
+                        ? 'border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10'
+                        : 'border-neutral-200 bg-white dark:border-slate-700 dark:bg-slate-800'
+                    }`}
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 text-neutral-400 dark:text-slate-500" />
+                      <span className="truncate font-medium text-neutral-700 dark:text-slate-200">{sf.file.name}</span>
+                      <span className="shrink-0 text-neutral-400 dark:text-slate-500">{formatFileSize(sf.file.size)}</span>
+                      {sf.error && <span className="shrink-0 text-xs text-red-600 dark:text-red-400">{sf.error}</span>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(idx)}
+                      className="ml-2 shrink-0 text-neutral-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </motion.li>
+                ))}
+              </ul>
+            )}
+          </AnimatePresence>
 
           {uploadProgress !== null && (
             <div className="mt-3">
-              <div className="h-2 w-full rounded-full bg-gray-200">
-                <div
-                  className="h-2 rounded-full bg-blue-600 transition-all"
-                  style={{ width: `${uploadProgress}%` }}
+              <div className="h-2 w-full rounded-full bg-neutral-200 dark:bg-slate-700">
+                <motion.div
+                  className="h-2 rounded-full bg-brand-600"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  transition={{ duration: 0.2 }}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Uploading... {uploadProgress}%</p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">Uploading... {uploadProgress}%</p>
             </div>
           )}
         </div>
 
         {/* Submit */}
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
+          <Button type="submit" isLoading={isSubmitting} size="md" className="px-6">
             {isSubmitting ? 'Creating...' : 'Create Issue'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/issues')}
-            className="rounded-md border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => navigate('/issues')} icon={<X />} className="px-6">
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </div>

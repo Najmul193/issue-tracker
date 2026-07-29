@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Layers, UserCog, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchDepartments,
@@ -14,6 +15,13 @@ import {
 import { fetchUsers, fetchOrganizations, UserListItem } from '../api/users';
 import type { UserOrg } from '../api/users';
 import { ApiError } from '../api/client';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
+import Modal from '../components/ui/Modal';
+import AlertBanner from '../components/ui/AlertBanner';
+import EmptyState from '../components/ui/EmptyState';
+import { Table, Thead, Tbody, Tr, Th, Td } from '../components/ui/Table';
 
 export default function Departments() {
   const { user: currentUser } = useAuth();
@@ -73,7 +81,7 @@ export default function Departments() {
 
   const [deletingDept, setDeletingDept] = useState<DepartmentWithOrg | null>(null);
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: FormEvent) => {
     e.preventDefault();
     setFormError('');
     if (!formName.trim()) {
@@ -124,9 +132,9 @@ export default function Departments() {
 
   if (!isAdmin) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center dark:border-slate-700/60 dark:bg-slate-800">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">Access Denied</h2>
+        <p className="mt-2 text-sm text-neutral-500 dark:text-slate-400">
           You need admin privileges to manage departments.
         </p>
       </div>
@@ -140,271 +148,249 @@ export default function Departments() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
-        <button
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">Departments</h1>
+        <Button
+          icon={<Plus />}
           onClick={() => {
             setFormName('');
             setFormOrgId(currentUser?.organizationId || '');
             setFormError('');
             setShowCreateModal(true);
           }}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           Create Department
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="animate-pulse space-y-4">
-          <div className="h-10 rounded bg-gray-200" />
-          <div className="h-10 rounded bg-gray-200" />
-          <div className="h-10 rounded bg-gray-200" />
+          <div className="h-10 rounded bg-neutral-200 dark:bg-slate-700" />
+          <div className="h-10 rounded bg-neutral-200 dark:bg-slate-700" />
+          <div className="h-10 rounded bg-neutral-200 dark:bg-slate-700" />
         </div>
       ) : !filteredDepartments || filteredDepartments.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">
-          No departments found.
+        <div className="rounded-xl border border-neutral-200 bg-white dark:border-slate-700/60 dark:bg-slate-800">
+          <EmptyState icon={<Layers />} title="No departments found" />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Department
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Organization
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Managers
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredDepartments.map((dept) => (
-                <tr key={dept.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
-                    {dept.name}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                    {dept.organization?.name || '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                    {dept.managers && dept.managers.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {dept.managers.map((m) => (
-                          <span
-                            key={m.userId}
-                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700"
-                          >
-                            {m.user.name}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openManageManagers(dept)}
-                        className="rounded border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        Manage Managers
-                      </button>
-                      <button
-                        onClick={() => setDeletingDept(dept)}
-                        className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Department</Th>
+                  <Th>Organization</Th>
+                  <Th>Managers</Th>
+                  <Th>Actions</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">Create Department</h3>
-            <form onSubmit={handleCreateSubmit} className="space-y-3">
-              {formError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {formError}
-                </div>
-              )}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="e.g. IT, Finance, HR"
-                />
-              </div>
-              {isSuperAdmin && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Organization
-                  </label>
-                  <select
-                    value={formOrgId}
-                    onChange={(e) => setFormOrgId(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="">Select organization</option>
-                    {(orgs || [])
-                      .filter((o) => o.type !== 'SUPER_ADMIN')
-                      .map((o) => (
-                        <option key={o.id} value={o.id}>{o.name}</option>
-                      ))}
-                  </select>
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {deletingDept && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">Delete Department</h3>
-            <p className="text-sm text-gray-600">
-              Are you sure you want to delete <strong>{deletingDept.name}</strong>?
-              Issues assigned to this department will be reassigned to the organization queue.
-            </p>
-            <div className="flex justify-end gap-2 pt-4">
-              <button
-                onClick={() => setDeletingDept(null)}
-                className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  deleteMutation.mutate(deletingDept.id, {
-                    onSuccess: () => setDeletingDept(null),
-                  });
-                }}
-                disabled={deleteMutation.isPending}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {managingDept && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-12">
-          <div className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
-              Managers — {managingDept.name}
-            </h3>
-
-            <div className="mb-4 max-h-60 overflow-y-auto">
-              {managers.length === 0 ? (
-                <p className="text-sm text-gray-400">No managers assigned.</p>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {managers.map((m) => (
-                    <li key={m.userId} className="flex items-center justify-between py-2.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 shrink-0">
-                          Manager
-                        </span>
-                        <span className="text-sm font-medium text-gray-900 truncate">{m.user.name}</span>
-                        <span className="text-xs text-gray-400 truncate">{m.user.email}</span>
+              </Thead>
+              <Tbody>
+                {filteredDepartments.map((dept) => (
+                  <Tr key={dept.id}>
+                    <Td className="whitespace-nowrap font-medium text-neutral-900 dark:text-slate-100">{dept.name}</Td>
+                    <Td className="whitespace-nowrap">{dept.organization?.name || '—'}</Td>
+                    <Td className="whitespace-nowrap">
+                      {dept.managers && dept.managers.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {dept.managers.map((m) => (
+                            <span
+                              key={m.userId}
+                              className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"
+                            >
+                              {m.user.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-neutral-400 dark:text-slate-500">—</span>
+                      )}
+                    </Td>
+                    <Td className="whitespace-nowrap">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => openManageManagers(dept)}>
+                          Manage Managers
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => setDeletingDept(dept)}>
+                          Delete
+                        </Button>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Remove ${m.user.name} as manager?`)) {
-                            removeManagerMutation.mutate(m.userId);
-                          }
-                        }}
-                        className="ml-2 shrink-0 rounded border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="border-t border-gray-200 pt-3">
-              <p className="mb-2 text-xs font-medium text-gray-500">Add Manager</p>
-              {availableUsers && availableUsers.length > 0 ? (
-                <div className="flex gap-2">
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="">Select user...</option>
-                    {availableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.email})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      if (selectedUserId) addManagerMutation.mutate();
-                    }}
-                    disabled={!selectedUserId || addManagerMutation.isPending}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {addManagerMutation.isPending ? 'Adding...' : 'Add'}
-                  </button>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-400">
-                  {managers.length > 0
-                    ? 'All department users are already managers.'
-                    : 'No active users in this department yet.'}
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-4">
-              <button
-                onClick={() => setManagingDept(null)}
-                className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
           </div>
-        </div>
+
+          {/* Mobile cards */}
+          <ul className="space-y-3 md:hidden">
+            {filteredDepartments.map((dept) => (
+              <li key={dept.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-card dark:border-slate-700/60 dark:bg-slate-800">
+                <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">{dept.name}</p>
+                <p className="mt-0.5 text-xs text-neutral-500 dark:text-slate-400">{dept.organization?.name || '—'}</p>
+                {dept.managers && dept.managers.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {dept.managers.map((m) => (
+                      <span
+                        key={m.userId}
+                        className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"
+                      >
+                        {m.user.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 flex gap-2 border-t border-neutral-100 pt-3 dark:border-slate-700/60">
+                  <Button size="sm" variant="secondary" icon={<UserCog />} onClick={() => openManageManagers(dept)} className="flex-1">
+                    Managers
+                  </Button>
+                  <Button size="sm" variant="danger" icon={<Trash2 />} onClick={() => setDeletingDept(dept)}>
+                    Delete
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
+
+      {/* Create Department Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create Department"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            <Button type="submit" form="create-dept-form" isLoading={createMutation.isPending}>Create</Button>
+          </div>
+        }
+      >
+        <form id="create-dept-form" onSubmit={handleCreateSubmit} className="space-y-3">
+          {formError && <AlertBanner tone="error">{formError}</AlertBanner>}
+          <Input
+            label="Name"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            placeholder="e.g. IT, Finance, HR"
+          />
+          {isSuperAdmin && (
+            <Select label="Organization" value={formOrgId} onChange={(e) => setFormOrgId(e.target.value)}>
+              <option value="">Select organization</option>
+              {(orgs || [])
+                .filter((o) => o.type !== 'SUPER_ADMIN')
+                .map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+            </Select>
+          )}
+        </form>
+      </Modal>
+
+      {/* Delete Department Confirmation */}
+      <Modal
+        isOpen={!!deletingDept}
+        onClose={() => setDeletingDept(null)}
+        title="Delete Department"
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeletingDept(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              isLoading={deleteMutation.isPending}
+              onClick={() => {
+                if (!deletingDept) return;
+                deleteMutation.mutate(deletingDept.id, { onSuccess: () => setDeletingDept(null) });
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        {deletingDept && (
+          <p className="text-sm text-neutral-600 dark:text-slate-300">
+            Are you sure you want to delete <strong>{deletingDept.name}</strong>?
+            Issues assigned to this department will be reassigned to the organization queue.
+          </p>
+        )}
+      </Modal>
+
+      {/* Manage Managers Modal */}
+      <Modal
+        isOpen={!!managingDept}
+        onClose={() => setManagingDept(null)}
+        title={managingDept ? `Managers — ${managingDept.name}` : 'Managers'}
+        footer={
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={() => setManagingDept(null)}>Close</Button>
+          </div>
+        }
+      >
+        <div className="mb-4 max-h-60 overflow-y-auto">
+          {managers.length === 0 ? (
+            <p className="text-sm text-neutral-400 dark:text-slate-500">No managers assigned.</p>
+          ) : (
+            <ul className="divide-y divide-neutral-100 dark:divide-slate-700">
+              {managers.map((m) => (
+                <li key={m.userId} className="flex items-center justify-between py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="inline-flex shrink-0 items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
+                      Manager
+                    </span>
+                    <span className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">{m.user.name}</span>
+                    <span className="truncate text-xs text-neutral-400 dark:text-slate-500">{m.user.email}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="ml-2 shrink-0"
+                    onClick={() => {
+                      if (confirm(`Remove ${m.user.name} as manager?`)) {
+                        removeManagerMutation.mutate(m.userId);
+                      }
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="border-t border-neutral-200 pt-3 dark:border-slate-700">
+          <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-slate-400">Add Manager</p>
+          {availableUsers && availableUsers.length > 0 ? (
+            <div className="flex gap-2">
+              <Select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="flex-1">
+                <option value="">Select user...</option>
+                {availableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+              </Select>
+              <Button
+                disabled={!selectedUserId}
+                isLoading={addManagerMutation.isPending}
+                onClick={() => {
+                  if (selectedUserId) addManagerMutation.mutate();
+                }}
+              >
+                Add
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-400 dark:text-slate-500">
+              {managers.length > 0
+                ? 'All department users are already managers.'
+                : 'No active users in this department yet.'}
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

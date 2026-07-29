@@ -3,70 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { fetchIssues } from '../api/issues';
 import { useProjectFilter } from '../context/ProjectFilterContext';
-import type {
-  Issue,
-  IssueStatus,
-  IssuePriority,
-  IssueType,
-} from '../api/issues';
-import PriorityBadge from '../components/PriorityBadge';
-import StatusBadge from '../components/StatusBadge';
-import Pagination from '../components/Pagination';
+import type { IssueStatus, IssuePriority, IssueType } from '../api/issues';
+import IssueListResults from '../components/IssueListResults';
 
-const statusOptions: { label: string; value: IssueStatus | '' }[] = [
-  { label: 'All Statuses',             value: '' },
-  { label: 'New',                      value: 'NEW' },
-  { label: 'Under Review',             value: 'UNDER_REVIEW' },
-  { label: 'Clarification Requested',  value: 'CLARIFICATION_REQUESTED' },
-  { label: 'Assigned',                 value: 'ASSIGNED' },
-  { label: 'In Progress',              value: 'IN_PROGRESS' },
-  { label: 'In QA',                    value: 'IN_QA' },
-  { label: 'SI Review',                value: 'SI_REVIEW' },
-  { label: 'Pending Client Approval',  value: 'PENDING_CLIENT_APPROVAL' },
-  { label: 'Closed',                   value: 'CLOSED' },
-];
-
-const priorityOptions: { label: string; value: IssuePriority | '' }[] = [
-  { label: 'All Priorities', value: '' },
-  { label: 'Critical', value: 'CRITICAL' },
-  { label: 'High', value: 'HIGH' },
-  { label: 'Medium', value: 'MEDIUM' },
-  { label: 'Low', value: 'LOW' },
-];
-
-const typeOptions: { label: string; value: IssueType | '' }[] = [
-  { label: 'All Types', value: '' },
-  { label: 'Bug', value: 'BUG' },
-  { label: 'New Requirement', value: 'NEW_REQUIREMENT' },
-  { label: 'Change Request', value: 'CHANGE_REQUEST' },
-  { label: 'Query', value: 'QUERY' },
-];
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function getDeadlineInfo(deadline: string | null) {
-  if (!deadline) return { className: '', label: '' };
-  const now = Date.now();
-  const dl = new Date(deadline).getTime();
-  const remaining = dl - now;
-  const totalDuration = dl - new Date(deadline).getTime() + 7 * 24 * 60 * 60 * 1000;
-  const pct = totalDuration > 0 ? (remaining / totalDuration) * 100 : 0;
-
-  if (remaining < 0) {
-    return { className: 'text-red-600 font-medium', label: formatDate(deadline) };
-  }
-  if (pct < 20) {
-    return { className: 'text-amber-600 font-medium', label: formatDate(deadline) };
-  }
-  return { className: 'text-gray-500', label: formatDate(deadline) };
-}
+const CONCERN_TABS = ['', 'raised', 'assigned'] as const;
 
 export default function Concern() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,26 +66,19 @@ export default function Concern() {
     const q = searchInput.toLowerCase();
     return {
       ...data,
-      data: data.data.filter((issue) =>
-        issue.title.toLowerCase().includes(q),
-      ),
+      data: data.data.filter((issue) => issue.title.toLowerCase().includes(q)),
     };
   }, [data, searchInput]);
 
-  function handleSearchInput(value: string) {
-    setSearchInput(value);
-  }
-
   return (
     <div>
-      {/* Header row */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-gray-900">Concern</h2>
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">Concern</h2>
       </div>
 
       {/* Concern type filter */}
-      <div className="mb-4 flex items-center gap-1">
-        {['', 'raised', 'assigned'].map((f) => {
+      <div className="mb-4 grid grid-cols-3 gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-slate-800 sm:inline-flex sm:w-auto">
+        {CONCERN_TABS.map((f) => {
           const label = f === '' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1);
           return (
             <button
@@ -153,8 +86,8 @@ export default function Concern() {
               onClick={() => setParam('concernFilter', f)}
               className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                 concernFilter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-neutral-600 hover:bg-neutral-200 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >
               {label}
@@ -163,181 +96,17 @@ export default function Concern() {
         })}
       </div>
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select
-          value={type}
-          onChange={(e) => setParam('type', e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          {typeOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={priority}
-          onChange={(e) => setParam('priority', e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          {priorityOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={status}
-          onChange={(e) => setParam('status', e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          {statusOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1.5 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            checked={overdue === 'true'}
-            onChange={(e) =>
-              setParam('overdue', e.target.checked ? 'true' : '')
-            }
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Overdue only
-        </label>
-        <input
-          type="text"
-          placeholder="Search by title..."
-          value={searchInput}
-          onChange={(e) => handleSearchInput(e.target.value)}
-          className="ml-auto rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-56"
-        />
-      </div>
-
-      {/* Table */}
-      {isLoading && (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="animate-pulse p-6">
-            <div className="h-4 w-full rounded bg-gray-200" />
-            <div className="mt-4 h-4 w-3/4 rounded bg-gray-200" />
-            <div className="mt-4 h-4 w-5/6 rounded bg-gray-200" />
-            <div className="mt-4 h-4 w-2/3 rounded bg-gray-200" />
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Failed to load issues. Please try again later.
-        </div>
-      )}
-
-      {filteredData && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Title
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Project
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Priority
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Assigned To
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Deadline
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Raised By
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Created
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredData.data.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-8 text-center text-sm text-gray-500"
-                  >
-                    No issues related to you.
-                  </td>
-                </tr>
-              )}
-              {filteredData.data.map((issue: Issue) => {
-                const deadlineInfo = getDeadlineInfo(issue.deadline);
-                return (
-                  <tr
-                    key={issue.id}
-                    onClick={() =>
-                      (window.location.href = `/issues/${issue.id}`)
-                    }
-                    className="cursor-pointer transition-colors hover:bg-gray-50"
-                  >
-                    <td className="max-w-xs truncate px-4 py-3 text-sm font-medium text-gray-900">
-                      {issue.title}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {issue.project?.name || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {issue.type.replace('_', ' ')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <PriorityBadge priority={issue.priority} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={issue.status} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {issue.assignedToUser?.name ||
-                        (issue.assignedToDepartment
-                          ? `${issue.assignedToOrg?.name || 'Org'} (${issue.assignedToDepartment.name})`
-                          : issue.assignedToOrg
-                            ? `${issue.assignedToOrg.name} Queue`
-                            : '—')}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-sm ${deadlineInfo.className}`}
-                    >
-                      {deadlineInfo.label || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {issue.raisedBy.name}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {formatDate(issue.createdAt)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <Pagination
-            page={filteredData.page}
-            limit={filteredData.limit}
-            total={filteredData.total}
-            onPageChange={(newPage) => setParam('page', String(newPage))}
-          />
-        </div>
-      )}
+      <IssueListResults
+        filters={{ type, priority, status, overdue }}
+        setParam={setParam}
+        searchInput={searchInput}
+        onSearchChange={setSearchInput}
+        data={filteredData}
+        isLoading={isLoading}
+        error={error}
+        emptyMessage="No issues related to you."
+        onPageChange={(newPage) => setParam('page', String(newPage))}
+      />
     </div>
   );
 }
