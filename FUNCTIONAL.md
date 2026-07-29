@@ -135,7 +135,8 @@ All roles (SUPER_ADMIN, ORG_ADMIN, USER) can create issues.
 2. The Issue Detail page shows:
    - Title, priority badge, status badge, module tag
    - Issue ID and creation date
-   - **Metadata grid**: Raised By (name + org), Assigned To (user name or org queue), Assigned By, Deadline, Type, Project
+    - **Metadata grid**: Raised By (name + org), Assigned To (user name or org queue), Assigned By, Deadline, Type, Project
+      - **SI team** can edit the **Type** and **Deadline** inline when the issue is in **SI Approval** or **Under Review** status
    - **Resolution Info** (when resolved): Resolution Note, Resolved By, Resolved At, Closed At
    - **Description** section
    - **Attachments** section — click to download files
@@ -364,6 +365,7 @@ Every action on an issue is recorded in the Activity Log, displayed chronologica
 | Status changed | "*Name* changed status from **NEW** to **ASSIGNED**" |
 | Issue assigned | "*Name* assigned issue to **Assignee Name**" |
 | Issue reassigned | "*Name* reassigned from **Old Name** to **New Name**" |
+| Field updated | "*Name* changed type from **BUG** to **CHANGE_REQUEST**" or "*Name* changed deadline from **Aug 1, 2026** to **Sep 1, 2026**" |
 | Comment added | "*Name* added a comment" |
 | Attachment added | "*Name* uploaded **filename**" |
 
@@ -416,6 +418,7 @@ All endpoints are under the `/api` prefix.
 | POST | /issues | Create issue |
 | GET | /issues/:id | Get issue detail |
 | PATCH | /issues/:id/assign | Assign/reassign issue |
+| PATCH | /issues/:id/fields | Update type and/or deadline (SI only, when status is SI_APPROVAL or UNDER_REVIEW) |
 | PATCH | /issues/:id/status | Update status |
 | POST | /issues/:id/attachments | Upload attachments |
 | POST | /issues/:id/comments | Add comment |

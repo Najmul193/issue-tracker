@@ -188,6 +188,7 @@ Issues traverse a defined state machine with enforced transition rules:
   - CLOSED → UNDER_REVIEW restricted to raiser's org admin or SUPER_ADMIN
   - PENDING_CLIENT_APPROVAL → CLOSED restricted to issue creator or creator's org admin
 - Resolution notes (required for RESOLVED) and clarification comments (required for CLARIFICATION_REQUESTED)
+- **Edit type and deadline inline** — SI team (or SUPER_ADMIN) can change the type and/or deadline of an issue when it is in **SI_APPROVAL** or **UNDER_REVIEW** status
 - **Delete issue** — restricted to the issue creator, ORG_ADMIN of the creator's org, or SUPER_ADMIN
 
 #### Project Management
@@ -486,6 +487,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | GET | `/api/issues` | Authenticated | List/filter issues (`concern`, `concernFilter` params) |
 | GET | `/api/issues/:id` | Authenticated | Issue details |
 | PATCH | `/api/issues/:id/assign` | Authorized | Assign/reassign (role-based rules) |
+| PATCH | `/api/issues/:id/fields` | Authorized | Update type and/or deadline (SI only, SI_APPROVAL or UNDER_REVIEW) |
 | PATCH | `/api/issues/:id/status` | Authorized | Update status (state machine) |
 | DELETE | `/api/issues/:id` | Creator / ORG_ADMIN of raised org / SUPER_ADMIN | Delete issue permanently |
 | POST | `/api/issues/:id/attachments` | Authenticated | Upload files (max 5) |
