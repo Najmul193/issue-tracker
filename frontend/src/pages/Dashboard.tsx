@@ -203,6 +203,7 @@ export default function Dashboard() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard-metrics', projectIdsParam],
     queryFn: () => fetchDashboardMetrics(projectIdsParam ?? undefined),
+    refetchInterval: 30_000,
   });
 
   const isOrgAdmin = currentUser?.role === 'ORG_ADMIN';

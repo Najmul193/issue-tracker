@@ -101,6 +101,7 @@ export default function Concern() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['concern', queryParams],
     queryFn: () => fetchIssues(queryParams),
+    refetchInterval: 15_000,
   });
 
   const setParam = useCallback(

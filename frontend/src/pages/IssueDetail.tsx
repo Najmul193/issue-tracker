@@ -127,6 +127,7 @@ export default function IssueDetail() {
     queryKey: ['issue', id],
     queryFn: () => fetchIssue(id!),
     enabled: !!id,
+    refetchInterval: 10_000,
   });
 
   const isCurrentAssignee = !!(issue && currentUser && issue.assignedToUserId === currentUser.id);

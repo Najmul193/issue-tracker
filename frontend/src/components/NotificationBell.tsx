@@ -14,7 +14,7 @@ export default function NotificationBell() {
   const { data: unreadData } = useQuery({
     queryKey: ['unread-count', projectIdsParam],
     queryFn: () => fetchUnreadCount(projectIdsParam ?? undefined),
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
   });
 
   const { data: notifData } = useQuery({
