@@ -22,6 +22,7 @@ export interface AssignedIssueSummary {
   priority: string;
   status: string;
   deadline: string | null;
+  updatedAt: string;
 }
 
 export interface ActivityEntry {

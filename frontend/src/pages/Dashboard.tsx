@@ -18,9 +18,11 @@ import {
   Route,
   TrendingUp,
   History,
+  CalendarDays,
+  BellRing,
   type LucideIcon,
 } from 'lucide-react';
-import { fetchDashboardMetrics } from '../api/dashboard';
+import { fetchDashboardMetrics, type DashboardMetrics } from '../api/dashboard';
 import { useAuth } from '../context/AuthContext';
 import { useProjectFilter } from '../context/ProjectFilterContext';
 import SkeletonSection from '../components/dashboard/SkeletonSection';
@@ -37,6 +39,8 @@ import TeamWorkloadBar from '../components/dashboard/TeamWorkloadBar';
 import MyRaisedSummary from '../components/dashboard/MyRaisedSummary';
 import QuickActions from '../components/dashboard/QuickActions';
 import SpotlightBanner from '../components/dashboard/SpotlightBanner';
+import DeadlineCalendar from '../components/dashboard/DeadlineCalendar';
+import NotesPanel from '../components/dashboard/NotesPanel';
 import Card from '../components/ui/Card';
 import { SkeletonCard } from '../components/ui/Skeleton';
 import { staggerContainer, staggerItem } from '../lib/motion';
@@ -221,6 +225,27 @@ function RecentActivityList({
   );
 }
 
+/* ─── Deadline Calendar + Notes & Alerts (shared across all role layouts) ──── */
+
+function DeadlineAndNotesRow({
+  data,
+  isLoading,
+}: {
+  data: DashboardMetrics | undefined;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card title="Deadline Calendar" icon={<CalendarDays />}>
+        <DeadlineCalendar />
+      </Card>
+      <Card title="Notes & Alerts" icon={<BellRing />}>
+        {isLoading ? <SkeletonSection height={200} /> : <NotesPanel issues={data?.myAssignedIssues ?? []} />}
+      </Card>
+    </div>
+  );
+}
+
 /* ─── main ─────────────────────────────────────────────────────────────────── */
 
 export default function Dashboard() {
@@ -335,6 +360,8 @@ export default function Dashboard() {
             )}
           </motion.div>
 
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+
           <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
             {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
           </Card>
@@ -413,6 +440,8 @@ export default function Dashboard() {
             )}
           </motion.div>
 
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="Workflow Bottlenecks" icon={<Workflow />}>
               {isLoading ? <div className="h-20 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <WorkflowBottlenecks data={data.workflowBottlenecks} /> : null}
@@ -483,6 +512,8 @@ export default function Dashboard() {
             )}
           </motion.div>
 
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Card title="Team Overview" icon={<BarChart3 />} className="lg:col-span-2">
               {isLoading ? <SkeletonSection height={200} /> : data && data.orgSummary ? <OrgSummaryPanel data={data.orgSummary} /> : null}
@@ -543,6 +574,8 @@ export default function Dashboard() {
             )}
           </motion.div>
 
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="My Assigned Issues" icon={<UserCheck />}>
               <AssignedIssuesList issues={data?.myAssignedIssues ?? []} isLoading={isLoading} />
@@ -593,6 +626,8 @@ export default function Dashboard() {
               </>
             )}
           </motion.div>
+
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="My Assigned Issues" icon={<UserCheck />}>
