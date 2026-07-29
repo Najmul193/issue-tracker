@@ -13,6 +13,7 @@ import { StateMachine } from './state-machine';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { AssignIssueDto } from './dto/assign-issue.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdateIssueFieldsDto } from './dto/update-issue-fields.dto';
 import { QueryIssuesDto } from './dto/query-issues.dto';
 import { AddCommentDto } from './dto/add-comment.dto';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
@@ -839,6 +840,78 @@ export class IssuesService {
     }
 
     await this.prisma.issue.delete({ where: { id } });
+  }
+
+  async updateFields(id: string, dto: UpdateIssueFieldsDto, actor: JwtPayload) {
+    const issue = await this.findOne(id, actor);
+
+    if (issue.status !== 'SI_APPROVAL' && issue.status !== 'UNDER_REVIEW') {
+      throw new BadRequestException(
+        'Can only update fields in SI Approval or Under Review status',
+      );
+    }
+
+    if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+      throw new ForbiddenException(
+        'Only the SI (Data Edge) team can update issue fields',
+      );
+    }
+
+    const updateData: Prisma.IssueUpdateInput = {};
+
+    if (dto.type !== undefined) {
+      updateData.type = dto.type;
+    }
+
+    if (dto.clearDeadline) {
+      updateData.deadline = null;
+    } else if (dto.deadline !== undefined) {
+      const newDeadline = new Date(dto.deadline);
+      if (newDeadline <= new Date()) {
+        throw new BadRequestException('Deadline must be in the future');
+      }
+      updateData.deadline = newDeadline;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.issue.update({ where: { id }, data: updateData });
+    }
+
+    for (const field of ['type', 'deadline'] as const) {
+      if (field === 'type' && dto.type !== undefined && dto.type !== issue.type) {
+        await this.prisma.activityLog.create({
+          data: {
+            issueId: id,
+            userId: actor.userId,
+            action: 'FIELD_UPDATED',
+            oldValue: JSON.stringify({ field: 'type', value: issue.type }),
+            newValue: JSON.stringify({ field: 'type', value: dto.type }),
+          },
+        });
+      }
+      if (field === 'deadline') {
+        const oldDeadline = issue.deadline?.toISOString() ?? null;
+        const newDeadline = dto.clearDeadline
+          ? null
+          : dto.deadline !== undefined
+            ? new Date(dto.deadline).toISOString()
+            : undefined;
+        if (newDeadline !== undefined && newDeadline !== oldDeadline) {
+          await this.prisma.activityLog.create({
+            data: {
+              issueId: id,
+              userId: actor.userId,
+              action: 'FIELD_UPDATED',
+              oldValue: JSON.stringify({ field: 'deadline', value: oldDeadline }),
+              newValue: JSON.stringify({ field: 'deadline', value: newDeadline }),
+            },
+          });
+          await this.notificationsService.resetNotifiedStage(id);
+        }
+      }
+    }
+
+    return this.findOne(id, actor);
   }
 
   private async assertProjectAccess(projectId: string, actor: JwtPayload) {

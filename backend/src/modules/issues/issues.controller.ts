@@ -20,6 +20,7 @@ import { IssuesService } from './issues.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { AssignIssueDto } from './dto/assign-issue.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdateIssueFieldsDto } from './dto/update-issue-fields.dto';
 import { QueryIssuesDto } from './dto/query-issues.dto';
 import { AddCommentDto } from './dto/add-comment.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -50,6 +51,15 @@ export class IssuesController {
   @Patch(':id/assign')
   assign(@Param('id') id: string, @Body() dto: AssignIssueDto, @CurrentUser() actor: JwtPayload) {
     return this.issuesService.assign(id, dto, actor);
+  }
+
+  @Patch(':id/fields')
+  updateFields(
+    @Param('id') id: string,
+    @Body() dto: UpdateIssueFieldsDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.issuesService.updateFields(id, dto, actor);
   }
 
   @Patch(':id/status')

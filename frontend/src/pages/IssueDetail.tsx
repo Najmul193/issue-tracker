@@ -1,11 +1,11 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchIssue, assignIssue, updateIssueStatus, addComment, deleteIssue } from '../api/issues';
+import { fetchIssue, assignIssue, updateIssueStatus, updateIssueFields, addComment, deleteIssue } from '../api/issues';
 import { fetchAssignableUsers } from '../api/users';
 import { fetchProjectOrganizations, fetchProjectDepartments } from '../api/projects';
 import type { ProjectOrg, ProjectDept } from '../api/projects';
-import type { IssueStatus, IssueStatusOrResolve } from '../api/issues';
+import type { IssueType, IssueStatus, IssueStatusOrResolve, UpdateIssueFieldsData } from '../api/issues';
 import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
@@ -78,6 +78,22 @@ function getDeadlineClass(deadline: string | null): string {
   return 'text-gray-700';
 }
 
+const typeOptions: { label: string; value: IssueType }[] = [
+  { label: 'Bug', value: 'BUG' },
+  { label: 'New Requirement', value: 'NEW_REQUIREMENT' },
+  { label: 'Change Request', value: 'CHANGE_REQUEST' },
+  { label: 'Query', value: 'QUERY' },
+];
+
+function toDatetimeLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
+
 export default function IssueDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -100,6 +116,12 @@ export default function IssueDetail() {
   const [statusComment, setStatusComment] = useState('');
   const [resolutionNoteInput, setResolutionNoteInput] = useState('');
   const [requiresQA, setRequiresQA] = useState(false);
+
+  const [isEditingFields, setIsEditingFields] = useState(false);
+  const [editType, setEditType] = useState<IssueType>('BUG');
+  const [editDeadline, setEditDeadline] = useState('');
+  const [editClearDeadline, setEditClearDeadline] = useState(false);
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
 
   const { data: issue, isLoading, error } = useQuery({
     queryKey: ['issue', id],
@@ -185,7 +207,34 @@ export default function IssueDetail() {
     },
   });
 
+  const fieldsMutation = useMutation({
+    mutationFn: async () => {
+      if (!id || !issue) return;
+      const data: UpdateIssueFieldsData = {};
+      if (editType !== issue.type) data.type = editType;
+      if (editClearDeadline) {
+        data.clearDeadline = true;
+      } else if (editDeadline && editDeadline !== toDatetimeLocal(new Date(issue.deadline!))) {
+        data.deadline = new Date(editDeadline).toISOString();
+      }
+      if (Object.keys(data).length === 0) {
+        setIsEditingFields(false);
+        return issue;
+      }
+      return updateIssueFields(id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issue', id] });
+      setIsEditingFields(false);
+      setFieldsError(null);
+    },
+    onError: (err) => {
+      setFieldsError(err instanceof ApiError ? err.message : 'Failed to update fields');
+    },
+  });
+
   const commentMutation = useMutation({
+
     mutationFn: async () => {
       if (!id) return;
       return addComment(id, commentText, commentFiles.length > 0 ? commentFiles : undefined);
@@ -308,6 +357,15 @@ export default function IssueDetail() {
     if (currentUser.role === 'SUPER_ADMIN') return true;
     if (currentUser.id === issue.raisedById) return true;
     if (currentUser.organizationId === issue.raisedByOrg.id && currentUser.role === 'ORG_ADMIN') return true;
+    return false;
+  })();
+
+  // SI or SUPER_ADMIN can edit type/deadline only in SI_APPROVAL or UNDER_REVIEW
+  const canEditFields = (() => {
+    if (!currentUser || !issue) return false;
+    if (issue.status !== 'SI_APPROVAL' && issue.status !== 'UNDER_REVIEW') return false;
+    if (currentUser.role === 'SUPER_ADMIN') return true;
+    if (currentUser.organization.type === 'SI') return true;
     return false;
   })();
 
@@ -457,17 +515,85 @@ export default function IssueDetail() {
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Deadline</p>
-          <p className={`mt-0.5 text-sm font-medium ${getDeadlineClass(issue.deadline)}`}>
-            {issue.deadline ? formatDate(issue.deadline) : '—'}
-          </p>
+          {isEditingFields ? (
+            <div className="mt-0.5 space-y-1">
+              <input
+                type="datetime-local"
+                value={editDeadline}
+                onChange={(e) => { setEditDeadline(e.target.value); setEditClearDeadline(false); }}
+                className="block w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={editClearDeadline}
+                  onChange={(e) => setEditClearDeadline(e.target.checked)}
+                />
+                Clear deadline
+              </label>
+            </div>
+          ) : (
+            <p className={`mt-0.5 text-sm font-medium ${getDeadlineClass(issue.deadline)}`}>
+              {issue.deadline ? formatDate(issue.deadline) : '—'}
+            </p>
+          )}
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Type</p>
-          <p className="mt-0.5 text-sm font-medium text-gray-900">
-            {issue.type.replace('_', ' ')}
-          </p>
+          {isEditingFields ? (
+            <select
+              value={editType}
+              onChange={(e) => setEditType(e.target.value as IssueType)}
+              className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {typeOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="mt-0.5 text-sm font-medium text-gray-900">
+              {issue.type.replace('_', ' ')}
+            </p>
+          )}
         </div>
       </div>
+      {canEditFields && (
+        <div className="flex items-center gap-2">
+          {isEditingFields ? (
+            <>
+              {fieldsError && (
+                <p className="text-xs text-red-600">{fieldsError}</p>
+              )}
+              <button
+                onClick={() => fieldsMutation.mutate()}
+                disabled={fieldsMutation.isPending}
+                className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {fieldsMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setIsEditingFields(false); setFieldsError(null); }}
+                className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                setEditType(issue.type);
+                setEditDeadline(issue.deadline ? toDatetimeLocal(new Date(issue.deadline)) : toDatetimeLocal(new Date()));
+                setEditClearDeadline(false);
+                setFieldsError(null);
+                setIsEditingFields(true);
+              }}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              Edit type / deadline
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Description */}
       {issue.description && (
@@ -997,6 +1123,19 @@ export default function IssueDetail() {
                           return <>reassigned from <strong>{ov.assignedToUserName || ov.assignedToOrgName || 'none'}</strong> to <strong>{nv.assignedToUserName || nv.assignedToOrgName || 'unknown'}</strong></>;
                         } catch {
                           return <>reassigned issue</>;
+                        }
+                      })()
+                    ) : log.action === 'FIELD_UPDATED' ? (
+                      (() => {
+                        try {
+                          const ov = JSON.parse(log.oldValue || '{}');
+                          const nv = JSON.parse(log.newValue || '{}');
+                          const fieldName = ov.field;
+                          const oldVal = fieldName === 'deadline' ? (ov.value ? formatDate(ov.value) : 'none') : ov.value?.replace(/_/g, ' ');
+                          const newVal = fieldName === 'deadline' ? (nv.value ? formatDate(nv.value) : 'none') : nv.value?.replace(/_/g, ' ');
+                          return <>changed {fieldName} from <strong>{oldVal}</strong> to <strong>{newVal}</strong></>;
+                        } catch {
+                          return <>updated issue fields</>;
                         }
                       })()
                     ) : (

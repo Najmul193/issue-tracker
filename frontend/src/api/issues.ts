@@ -137,6 +137,12 @@ export interface AssignIssueData {
   targetDepartmentId?: string;
 }
 
+export interface UpdateIssueFieldsData {
+  type?: IssueType;
+  deadline?: string;
+  clearDeadline?: boolean;
+}
+
 export interface UpdateStatusData {
   status: IssueStatusOrResolve;
   comment?: string;
@@ -212,6 +218,13 @@ export async function assignIssue(
   data: AssignIssueData,
 ): Promise<Issue> {
   return apiPatch<Issue>(`/issues/${id}/assign`, data);
+}
+
+export async function updateIssueFields(
+  id: string,
+  data: UpdateIssueFieldsData,
+): Promise<Issue> {
+  return apiPatch<Issue>(`/issues/${id}/fields`, data);
 }
 
 export async function updateIssueStatus(
