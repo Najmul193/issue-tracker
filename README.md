@@ -111,13 +111,15 @@ The test setup automatically:
 │   └── .env.example
 ├── frontend/              # React SPA
 │   ├── src/
-│   │   ├── pages/
-│   │   ├── components/
-│   │   ├── api/
-│   │   ├── hooks/
-│   │   ├── context/
+│   │   ├── pages/         # Route-level page components
+│   │   ├── components/    # Shared components + ui/primitives + dashboard/widgets
+│   │   ├── api/           # HTTP client layer (fetch wrappers)
+│   │   ├── context/       # AuthContext, ThemeContext, ProjectFilterContext
+│   │   ├── lib/           # Utility modules (motion.ts, chartTheme.ts)
+│   │   ├── theme/         # Tailwind palette config
 │   │   └── App.tsx
 │   ├── Dockerfile
+│   ├── nginx.conf
 │   └── .env.example
 └── docker/
     └── docker-compose.yml

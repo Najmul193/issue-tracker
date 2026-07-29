@@ -62,33 +62,44 @@ https://flexcube-tracker-frontend.onrender.com/login
 
 ### 2.2 Dashboard
 
-The Dashboard shows key summary cards and extended metrics:
+The Dashboard shows key summary cards, charts, and personal panels. All data auto-refreshes every 30 seconds.
 
 **Summary Cards:**
-- **Total Open** — count of issues not in CLOSED status
+- **Total Open** — count of issues not in CLOSED status (click to navigate to filtered Issues list)
 - **Overdue** — count of issues past their deadline
 - **Critical** — count of CRITICAL priority issues
 - **Resolved This Month** — issues resolved/closed in the current month
 
 **Charts & Analytics:**
-- **By Status** — bar chart showing issue counts per status
-- **By Priority** — bar chart showing issue counts per priority
-- **By Type** — breakdown of issues by type (Bug, New Requirement, Change Request, Query)
-- **Trend (Last 30 Days)** — daily created vs resolved issue counts
-- **Average Resolution Time** — average days from creation to resolution
+- **By Status** — donut/bar chart showing issue counts per status (StatusDonut)
+- **By Priority** — bar chart showing issue counts per priority (PriorityBar)
+- **By Type** — breakdown of issues by type (TypeBar)
+- **Trend (Last 30 Days)** — daily created vs resolved issue counts (TrendLine)
+- **SLA Aging** — bar chart showing how long issues have been open (SlaAgingBar)
+- **Team Workload** — assignee workload distribution (TeamWorkloadBar)
+- **Workflow Bottlenecks** — identifies statuses with highest issue counts (WorkflowBottlenecks)
+- **Routing Distribution** — how issues are distributed across orgs (RoutingDistribution)
+- **Org Comparison** (SUPER_ADMIN only) — open and overdue counts per organization (OrgComparisonBar)
+- **Org Summary** — per-org summary panel (OrgSummaryPanel)
 
 **Personal & Team:**
 - **My Assigned Issues** — top 5 open issues assigned to you, sorted by deadline
+- **My Raised Issues** — summary of issues you've raised (MyRaisedSummary)
+- **Quick Actions** — one-click status change buttons (QuickActions)
+- **Deadline Calendar** — upcoming deadlines view (DeadlineCalendar)
+- **Notes Panel** — personal notes widget (NotesPanel)
+- **Spotlight Banner** — highlights important items (SpotlightBanner)
 - **Recent Activity** — last 10 actions across visible issues
-- **Org Comparison** (SUPER_ADMIN only) — open and overdue counts per organization
+- **Average Resolution Time** — average days from creation to resolution
 
 ---
 
 ### 2.3 Viewing Issues
 
 1. The sidebar has navigation items: **Dashboard**, **Concern**, **Issues**, **Projects**, **Notifications**, and **Users** (admins only). Projects is visible to all roles.
-2. Click **Issues** in the sidebar to see all issues with full filter controls.
-2. Click **Concern** in the sidebar to see only issues relevant to you:
+2. The top bar contains a **Theme Toggle** (light/dark mode, persisted to localStorage), a **Project Filter** dropdown, and a **Notification Bell** with unread count.
+3. Click **Issues** in the sidebar to see all issues with full filter controls. The list auto-refreshes every 15 seconds.
+4. Click **Concern** in the sidebar to see only issues relevant to you (auto-refreshes every 15 seconds):
    - **USER**: issues you raised or are assigned to you
    - **ORG_ADMIN / SUPER_ADMIN**: issues raised by anyone in your org, assigned to anyone in your org, or routed to your org queue
 3. The Concern page has three sub-filters:
@@ -131,15 +142,21 @@ All roles (SUPER_ADMIN, ORG_ADMIN, USER) can create issues.
 
 ### 2.5 Viewing Issue Details
 
-1. From the Issues list, click on any issue title.
+1. From the Issues list, click on any issue title. The page auto-refreshes every 10 seconds.
 2. The Issue Detail page shows:
    - Title, priority badge, status badge, module tag
    - Issue ID and creation date
-    - **Metadata grid**: Raised By (name + org), Assigned To (user name or org queue), Assigned By, Deadline, Type, Project
-      - **SI team** can edit the **Type** and **Deadline** inline when the issue is in **SI Approval** or **Under Review** status
+   - **Delete** button (visible to creator, raiser's ORG_ADMIN, or SUPER_ADMIN)
+   - **Metadata grid**: Raised By (name + org), Assigned To (user name or org queue), Assigned By, Deadline, Type, Project
+     - **SI team** can edit the **Type** and **Deadline** inline when the issue is in **SI Approval** or **Under Review** status:
+       1. Hover over the Type or Deadline value and click the edit icon (pencil)
+       2. For Type: choose from a dropdown (Bug, New Requirement, Change Request, Query)
+       3. For Deadline: pick a new date via datetime-local picker, or check "Clear deadline" to remove it
+       4. Click **Save** to apply, or **Cancel** to discard
+       5. Changes are logged as `FIELD_UPDATED` in the Activity Log
    - **Resolution Info** (when resolved): Resolution Note, Resolved By, Resolved At, Closed At
    - **Description** section
-   - **Attachments** section — click to download files
+   - **Attachments** section — click to download files; image previews available inline
    - **Status Change** control — buttons for allowed next statuses
    - **Assign / Reassign** control (admins only)
    - **Comments** section — add comments with file attachments
@@ -159,16 +176,16 @@ All roles (SUPER_ADMIN, ORG_ADMIN, USER) can create issues.
 #### Allowed Status Transitions
 
 ```
-NEW → Under Review
-SI_APPROVAL → Assigned, Clarification Requested
-UNDER_REVIEW → Clarification Requested, Assigned
-CLARIFICATION_REQUESTED → Under Review, In Progress
-ASSIGNED → In Progress
-IN_PROGRESS → Clarification Requested (+ virtual RESOLVED action)
-IN_QA → Pending Client Approval, In Progress
-SI_REVIEW → Pending Client Approval, Assigned
-PENDING_CLIENT_APPROVAL → Closed, Assigned
-CLOSED → Under Review         (raiser's org admin or SUPER_ADMIN only)
+NEW            → UNDER_REVIEW
+SI_APPROVAL    → ASSIGNED, CLARIFICATION_REQUESTED
+UNDER_REVIEW   → CLARIFICATION_REQUESTED, ASSIGNED
+ASSIGNED       → IN_PROGRESS
+IN_PROGRESS    → CLARIFICATION_REQUESTED, RESOLVED (virtual)
+CLARIFICATION_REQUESTED → UNDER_REVIEW, IN_PROGRESS
+IN_QA          → PENDING_CLIENT_APPROVAL, IN_PROGRESS
+SI_REVIEW      → PENDING_CLIENT_APPROVAL, ASSIGNED
+PENDING_CLIENT_APPROVAL → CLOSED, ASSIGNED
+CLOSED         → UNDER_REVIEW (raiser's org admin or SUPER_ADMIN only)
 ```
 
 **Who can change status?** Any user whose organization matches the issue's raised-by organization OR assigned-to organization, OR who is the assigned user, OR the SI (Data Edge) team acting as a central router. SUPER_ADMIN can change any issue.
@@ -266,7 +283,41 @@ All roles can upload attachments to any issue.
 
 ---
 
-### 2.10 Projects (Admins Only)
+### 2.10 Department Management (Admins Only)
+
+Departments subdivide organizations and serve as a third assignment target (alongside user and org).
+
+#### Viewing Departments
+
+1. Click **Departments** in the sidebar.
+2. View all departments in your organization (SUPER_ADMIN sees all orgs).
+3. Each department shows its name, organization, manager count, and assigned managers.
+
+#### Creating a Department
+
+1. Click **+ New Department** on the Departments page.
+2. Enter a department name.
+3. Select the organization (SUPER_ADMIN only; ORG_ADMIN auto-filters to own org).
+4. Click **Create**.
+
+#### Managing Department Managers
+
+1. Click **Managers** on a department row.
+2. View current managers.
+3. Click **Add Manager** to add a user (must belong to the department).
+4. Click the remove icon to remove a manager.
+
+#### Department Routing in Issues
+
+- When assigning an issue, the **Route to dept** option appears in the assignment modal.
+- Only departments in **other** organizations (not the raiser's org) are available (cross-org routing only).
+- Departments must be added to the issue's project first before appearing in the dropdown.
+- When routed to a department, all **ACTIVE** members of that department receive notifications.
+- Department managers receive email notifications for department-routed issues.
+
+---
+
+### 2.11 Projects
 
 Projects group issues by organizational membership and scope visibility.
 
@@ -300,7 +351,7 @@ Projects group issues by organizational membership and scope visibility.
 
 ---
 
-### 2.11 Deleting an Issue
+### 2.12 Deleting an Issue
 
 The issue creator, an ORG_ADMIN of the creator's organization, or a SUPER_ADMIN can delete an issue.
 
@@ -311,9 +362,9 @@ The issue creator, an ORG_ADMIN of the creator's organization, or a SUPER_ADMIN 
 
 ---
 
-### 2.12 Notifications
+### 2.13 Notifications
 
-1. Click the notification bell icon in the top bar (shows unread count).
+1. Click the notification bell icon in the top bar (shows unread count; auto-refreshes every 15 seconds).
 2. Click **Notifications** in the sidebar to view all notifications.
 3. Filter: **All** or **Unread**.
 4. Click **Mark as read** on individual notifications or **Mark all as read**.
@@ -325,7 +376,7 @@ The issue creator, an ORG_ADMIN of the creator's organization, or a SUPER_ADMIN 
 
 ---
 
-### 2.13 User Management (Admins Only)
+### 2.14 User Management (Admins Only)
 
 #### SUPER_ADMIN
 
@@ -355,7 +406,7 @@ The Users table shows each user's department. ORG_ADMIN users show "Admin" inste
 
 ---
 
-### 2.14 Activity Log
+### 2.15 Activity Log
 
 Every action on an issue is recorded in the Activity Log, displayed chronologically at the bottom of the Issue Detail page.
 
@@ -371,7 +422,7 @@ Every action on an issue is recorded in the Activity Log, displayed chronologica
 
 ---
 
-### 2.15 Password Reset
+### 2.16 Password Reset
 
 Users can reset their password via email.
 
@@ -471,3 +522,4 @@ All endpoints are under the `/api` prefix.
 - **Backend**: Hosted on Render (no public URL)
 - **Database**: PostgreSQL on Render
 - **File Storage**: S3-compatible (AWS S3, DigitalOcean Spaces, Cloudflare R2, Backblaze B2, or MinIO). Set `S3_BUCKET` and credentials as environment variables. Falls back to local filesystem when `S3_BUCKET` is not set.
+- **Docker**: Backend has a named volume `uploads_data` mounted at `/app/uploads` to persist file attachments across container restarts.

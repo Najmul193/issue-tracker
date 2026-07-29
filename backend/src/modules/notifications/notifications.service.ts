@@ -573,6 +573,39 @@ export class NotificationsService {
       select: { id: true, title: true, priority: true, status: true, deadline: true, updatedAt: true },
     });
 
+    // My actionable issues — issues whose CURRENT STATUS makes actor (or their org/role)
+    // the party who can move it to the next stage. This mirrors the frontend's
+    // getVisibleTransitions() responsibility rules, used to drive status-aware deadline
+    // alerts (e.g. an SI_APPROVAL issue's deadline is the SI team's problem, not the
+    // assignee's; a PENDING_CLIENT_APPROVAL issue's deadline is the client's problem).
+    const isSiResponsible = actor.role === 'SUPER_ADMIN' || actor.organizationType === 'SI';
+    const siStatuses = ['NEW', 'SI_APPROVAL', 'UNDER_REVIEW', 'SI_REVIEW', 'IN_QA'];
+    const clientStatuses = ['CLARIFICATION_REQUESTED', 'PENDING_CLIENT_APPROVAL'];
+
+    const actionableOr: Prisma.IssueWhereInput[] = [
+      { status: { in: ['ASSIGNED', 'IN_PROGRESS'] as any }, assignedToUserId: actor.userId },
+      { status: { in: ['ASSIGNED', 'IN_PROGRESS'] as any }, assignedToOrgId: actor.organizationId },
+    ];
+    if (isSiResponsible) {
+      actionableOr.push({ status: { in: siStatuses as any } });
+    }
+    if (actor.role === 'SUPER_ADMIN') {
+      actionableOr.push({ status: { in: clientStatuses as any } });
+    } else if (actor.role === 'ORG_ADMIN') {
+      actionableOr.push({ status: { in: clientStatuses as any }, raisedByOrgId: actor.organizationId });
+    } else {
+      actionableOr.push({ status: { in: clientStatuses as any }, raisedById: actor.userId });
+    }
+
+    const myActionableIssues = await this.prisma.issue.findMany({
+      where: {
+        AND: [visibilityFilter, { deadline: { not: null } }, { OR: actionableOr }],
+      },
+      orderBy: { deadline: 'asc' },
+      take: 10,
+      select: { id: true, title: true, priority: true, status: true, deadline: true, updatedAt: true },
+    });
+
     // Recent activity (last 10 entries) — scoped to visible issues
     const recentActivity = await this.prisma.activityLog.findMany({
       where: {
@@ -910,6 +943,7 @@ export class NotificationsService {
       avgResolutionDays,
       trendLast30Days,
       myAssignedIssues,
+      myActionableIssues,
       recentActivity,
       orgComparison,
       slaAging,

@@ -99,6 +99,7 @@ export interface DashboardMetrics {
   avgResolutionDays: number | null;
   trendLast30Days: TrendPoint[];
   myAssignedIssues: AssignedIssueSummary[];
+  myActionableIssues: AssignedIssueSummary[];
   recentActivity: ActivityEntry[];
   orgComparison: OrgComparison[];
   slaAging: SlaAging;

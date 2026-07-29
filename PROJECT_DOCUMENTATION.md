@@ -109,45 +109,70 @@ Departments subdivide organizations (e.g., IT Department). Each organization sta
 
 ### 2.2 Issue Lifecycle
 
-Issues traverse a defined state machine with enforced transition rules:
+Issues traverse a defined state machine with enforced transition rules. All nine statuses:
 
 ```
-                               ┌──────┐
-                               │ NEW  │
-                               └──┬───┘
-                                  │
-                                  ▼
-                        ┌───────────────────┐
-      ┌────────────────►│   UNDER_REVIEW    │◄───────────────┐
-      │                 └─┬───────────────┬─┘                │
-      │                   │               │                  │
-      │                   ▼               ▼                  │
-┌─────┴──────────┐  ┌──────────┐    ┌────────────┐     ┌─────┴────────┐
-│CLARIFICATION_  │  │ ASSIGNED │    │ CLOSED     │     │ CLOSED       │
-│REQUESTED       │◄─┤          │    └────────────┘     └──────────────┘
-└─────┬──────────┘  └─────┬────┘          ▲                  ▲
-      │                   │               │                  │
-      │                   ▼               │                  │
-      │             ┌───────────┐         │                  │
-      └────────────►│IN_PROGRESS│         │                  │
-                    └─────┬─────┘         │                  │
-                          │               │                  │
-                          ▼               │                  │
-                    ┌───────────┐         │                  │
-                    │ SI_REVIEW │         │                  │
-                    └─────┬─────┘         │                  │
-                          │               │                  │
-                          ▼               │                  │
-             ┌─────────────────────────┐  │                  │
-             │ PENDING_CLIENT_APPROVAL ├──┘                  │
-             └─────────────────────────┘                     │
-                          │                                  │
-                          └──────────────────────────────────┘
+                                 ┌──────────┐
+                                 │   NEW    │
+                                 └────┬─────┘
+                                      │
+                                      ▼
+                            ┌───────────────────┐
+                ┌─────────►│   UNDER_REVIEW    │◄──────────┐
+                │          └──┬──────────────┬──┘           │
+                │             │              │              │
+                │     ┌───────┘              └───────┐      │
+                │     ▼                              ▼      │
+        ┌───────┴────────┐                  ┌──────────┐    │
+        │  SI_APPROVAL   │                  │ ASSIGNED │    │
+        └───────┬────────┘                  └─────┬────┘    │
+                │                                 │         │
+        ┌───────┴────────┐                        ▼         │
+        │CLARIFICATION_   │              ┌───────────┐      │
+        │REQUESTED       │◄─────────────│IN_PROGRESS │      │
+        └───────┬────────┘              └─────┬──────┘      │
+                │                             │             │
+                │                             ▼             │
+                │                    ┌────────────┐         │
+                └───────────────────│   IN_QA    │         │
+                                    └─────┬──────┘         │
+                                          │                 │
+                                          ▼                 │
+                                 ┌──────────────┐           │
+                                 │  SI_REVIEW   │           │
+                                 └──────┬───────┘           │
+                                        │                   │
+                                        ▼                   │
+                          ┌────────────────────────┐        │
+                          │PENDING_CLIENT_APPROVAL │────────┘
+                          └───────────┬────────────┘
+                                      │
+                                      ▼
+                                 ┌────────┐
+                                 │ CLOSED │
+                                 └────────┘
 
-      SI_APPROVAL (gate state):
-        Creator assigns during issue creation → SI_APPROVAL
-        SI validates → ASSIGNED  |  SI requests clarification → CLARIFICATION_REQUESTED
+Resolution routing:
+  IN_PROGRESS → RESOLVED (virtual):
+    • SI/CLIENT assignee → SI_REVIEW
+    • OEM assignee      → PENDING_CLIENT_APPROVAL
 ```
+
+**Transition Rules:**
+- **NEW → UNDER_REVIEW** — Handled by SI Team to review the issue initially.
+- **SI_APPROVAL → ASSIGNED** — SI Team validates the creator's assignment.
+- **SI_APPROVAL → CLARIFICATION_REQUESTED** — SI Team requests more details before approving.
+- **UNDER_REVIEW → ASSIGNED / CLARIFICATION_REQUESTED** — SI Team assigns or requests clarification.
+- **ASSIGNED → IN_PROGRESS** — Assignee starts work.
+- **IN_PROGRESS → CLARIFICATION_REQUESTED / RESOLVED** — Request clarification or submit for review.
+- **CLARIFICATION_REQUESTED → UNDER_REVIEW / IN_PROGRESS** — Clarification provided, return to originating stage.
+- **IN_QA → PENDING_CLIENT_APPROVAL / IN_PROGRESS** — QA passes or fails.
+- **SI_REVIEW → PENDING_CLIENT_APPROVAL / ASSIGNED** — SI approves or rejects.
+- **PENDING_CLIENT_APPROVAL → CLOSED / ASSIGNED** — Client approves or rejects.
+- **CLOSED → UNDER_REVIEW** — Reopen (raiser's org admin or SUPER_ADMIN only).
+
+**Issue Types:** `BUG` | `NEW_REQUIREMENT` | `CHANGE_REQUEST` | `QUERY`  
+**Priority Levels:** `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`
 
 **Transition Rules:**
 - **NEW → UNDER_REVIEW** — Handled by SI Team to review the issue initially.
@@ -188,7 +213,9 @@ Issues traverse a defined state machine with enforced transition rules:
   - CLOSED → UNDER_REVIEW restricted to raiser's org admin or SUPER_ADMIN
   - PENDING_CLIENT_APPROVAL → CLOSED restricted to issue creator or creator's org admin
 - Resolution notes (required for RESOLVED) and clarification comments (required for CLARIFICATION_REQUESTED)
-- **Edit type and deadline inline** — SI team (or SUPER_ADMIN) can change the type and/or deadline of an issue when it is in **SI_APPROVAL** or **UNDER_REVIEW** status
+- **Edit type and deadline inline** — SI team (or SUPER_ADMIN) can change the type and/or deadline of an issue when it is in **SI_APPROVAL** or **UNDER_REVIEW** status. Changes are logged as `FIELD_UPDATED` in the activity log with the specific field name.
+- **Auto-refresh via polling** — Issues (15s), Concern (15s), IssueDetail (10s), Dashboard (30s), and NotificationBell (15s) pages auto-refresh using React Query's `refetchInterval` to keep data current across users without WebSockets.
+- **Theme support** — Light/dark mode with Tailwind class strategy, persisted in localStorage, toggled via `ThemeToggle` component in the top bar.
 - **Delete issue** — restricted to the issue creator, ORG_ADMIN of the creator's org, or SUPER_ADMIN
 
 #### Project Management
@@ -201,7 +228,7 @@ Issues traverse a defined state machine with enforced transition rules:
 
 #### Comments & Collaboration
 - Add comments to any issue with optional file attachments
-- Full activity log tracking all changes on each issue
+- Full activity log tracking all changes on each issue, including `FIELD_UPDATED` events for type/deadline changes
 
 #### File Attachments
 - Upload to issues or comments (max 5 files per request, 15 MB each)
@@ -241,14 +268,13 @@ Issues traverse a defined state machine with enforced transition rules:
 - Issues cannot be routed to a department in the same org as the issue raiser (cross-org routing only)
 
 #### Dashboard & Reporting
-- Summary cards: total open, overdue, critical, and resolved this month counts
-- Breakdown by status, priority, and type with drill-down links
-- 30-day trend (daily created vs resolved issue counts)
+- **Summary cards**: total open, overdue, critical, and resolved this month counts (linked for drill-down)
+- **Charts**: breakdown by status (StatusDonut), priority (PriorityBar), type (TypeBar), 30-day trend (TrendLine), SLA aging (SlaAgingBar), team workload (TeamWorkloadBar), workflow bottlenecks (WorkflowBottlenecks), routing distribution (RoutingDistribution), org comparison (OrgComparisonBar), org summary (OrgSummaryPanel)
+- **Personal panels**: My Assigned Issues (top 5 by deadline), Quick Actions (QuickActions), Notes panel (NotesPanel), Deadline Calendar (DeadlineCalendar), Spotlight Banner (SpotlightBanner), My Raised Summary (MyRaisedSummary)
 - Average resolution time (days)
-- My assigned issues (top 5 by deadline)
 - Recent activity (last 10 actions)
-- Org comparison (SUPER_ADMIN only): open and overdue counts per organization
 - Project-scoped filtering
+- All dashboards auto-refresh every 30s via React Query polling
 
 #### Password Reset
 - Forgot password flow via email (rate-limited: 3 req/min)
@@ -563,7 +589,7 @@ backend/src/
     │   ├── state-machine.ts     # Transition rules and validations
     │   └── dto/                 # Request validation DTOs
     ├── attachments/             # File upload/download with security validation
-    ├── storage/                 # Storage abstraction layer (local disk implementation)
+    ├── storage/                 # Storage abstraction layer (auto-switches: LocalStorageService or S3StorageService)
     └── notifications/           # In-app and email notifications
         ├── email.service.ts     # SMTP email sender (graceful degradation)
         └── deadline-monitor.service.ts  # Cron-based deadline tracking
@@ -587,7 +613,7 @@ The frontend is a single-page application built with React 18 and managed with V
 ```
 frontend/src/
 ├── main.tsx                     # React entry point
-├── App.tsx                      # Router + QueryClientProvider + AuthProvider
+├── App.tsx                      # Router + QueryClientProvider + AuthProvider + ThemeProvider
 ├── index.css                    # Tailwind CSS base styles
 │
 ├── api/                         # HTTP client layer
@@ -595,33 +621,61 @@ frontend/src/
 │   ├── auth.ts                  # Login, logout, getMe, forgot-password, reset-password
 │   ├── users.ts                 # User CRUD + organization listing
 │   ├── issues.ts                # Issues CRUD + comments + attachments
-│   ├── projects.ts              # Projects CRUD + org/user membership
+│   ├── projects.ts              # Projects CRUD + org/user/department membership
 │   ├── departments.ts           # Department CRUD + managers
 │   ├── dashboard.ts             # Dashboard summary + metrics
 │   └── notifications.ts         # Notifications + unread count
 │
 ├── context/
-│   └── AuthContext.tsx           # Authentication state (React Context)
+│   ├── AuthContext.tsx           # Authentication state (user, login/logout, hydration)
+│   ├── ThemeContext.tsx          # Light/dark mode with localStorage persistence
+│   └── ProjectFilterContext.tsx  # Multi-project filter with URL query param sync
+│
+├── theme/
+│   └── palette.js               # Custom Tailwind color tokens (brand, status, priority, orgType)
+│
+├── lib/
+│   ├── motion.ts                # Framer Motion animation variants
+│   └── chartTheme.ts            # Recharts chart color constants
 │
 ├── components/                  # Shared/reusable UI components
-│   ├── AppShell.tsx             # Layout: sidebar navigation + topbar + content outlet
+│   ├── AppShell.tsx             # Layout: sidebar + topbar + responsive content outlet
 │   ├── ProtectedRoute.tsx       # Route guard (redirects to /login)
+│   ├── AuthLayout.tsx           # Layout wrapper for auth pages (login, password reset)
 │   ├── StatusBadge.tsx          # Color-coded status pill
 │   ├── PriorityBadge.tsx        # Color-coded priority pill
-│   ├── NotificationBell.tsx     # Topbar notification dropdown with unread count
-│   └── Pagination.tsx           # Reusable pagination control
+│   ├── NotificationBell.tsx     # Topbar notification dropdown with unread count (polling)
+│   ├── Pagination.tsx           # Reusable pagination control
+│   ├── ProjectFilterDropdown.tsx # Multi-select project filter for issue lists
+│   ├── ThemeToggle.tsx          # Light/dark mode toggle in top bar
+│   ├── ImagePreviewGrid.tsx     # Grid of downloadable attachment thumbnails
+│   ├── IssueListResults.tsx     # Reusable issue table row rendering
+│   │
+│   ├── ui/                      # Reusable UI primitives
+│   │   ├── Button.tsx, Input.tsx, Select.tsx, Textarea.tsx
+│   │   ├── Card.tsx, Badge.tsx, Table.tsx, Modal.tsx
+│   │   ├── Skeleton.tsx, EmptyState.tsx, AlertBanner.tsx
+│   │
+│   └── dashboard/               # Dashboard widget components
+│       ├── StatusDonut.tsx, PriorityBar.tsx, TypeBar.tsx
+│       ├── TrendLine.tsx, SlaAgingBar.tsx, TeamWorkloadBar.tsx
+│       ├── WorkflowBottlenecks.tsx, RoutingDistribution.tsx
+│       ├── OrgComparisonBar.tsx, OrgSummaryPanel.tsx
+│       ├── MyRaisedSummary.tsx, QuickActions.tsx
+│       ├── NotesPanel.tsx, DeadlineCalendar.tsx
+│       ├── SpotlightBanner.tsx, SkeletonSection.tsx
 │
 └── pages/                       # Route-level page components
     ├── Login.tsx                # Authentication form with validation
     ├── ForgotPassword.tsx       # Password reset request form
     ├── ResetPassword.tsx        # Password reset form with token
-    ├── Dashboard.tsx            # Summary cards + extended metrics + trends
-    ├── Concern.tsx              # Personalized issue list (raised/assigned/org-related)
-    ├── Issues.tsx               # Filterable, paginated issue list
-    ├── IssueDetail.tsx          # Full detail: metadata, status transitions, comments, activity
+    ├── Dashboard.tsx            # Summary cards + charts + personal panels (auto-refresh 30s)
+    ├── Concern.tsx              # Personalized issue list (raised/assigned/org-related, 15s refresh)
+    ├── Issues.tsx               # Filterable, paginated issue list (15s refresh)
+    ├── IssueDetail.tsx          # Full detail: metadata, status transitions, inline edit, comments, activity (10s refresh)
     ├── CreateIssue.tsx          # Issue creation form with file upload
     ├── Projects.tsx             # Project listing and management
-    ├── ProjectDetail.tsx        # Project detail with org/user membership
+    ├── ProjectDetail.tsx        # Project detail with org/user/department membership
     ├── Departments.tsx          # Department listing and management
     ├── Notifications.tsx        # Notification center with filter/pagination
     └── Users.tsx                # Admin user management with modals
@@ -630,20 +684,26 @@ frontend/src/
 **State Management Strategy:**
 
 | Concern | Mechanism |
-|---|---|
-| Authentication | React Context (`AuthContext`) |
-| Server data | TanStack React Query (caching, refetching, optimistic updates) |
+|---|---|---|
+| Authentication | React Context (`AuthContext`) — provides user object, login/logout, hydration |
+| Server data | TanStack React Query — staleTime 30s, retry 1, refetchOnWindowFocus disabled, per-page `refetchInterval` for auto-refresh |
+| Project filtering | React Context (`ProjectFilterContext`) — multi-select with URL query param sync (`?projects=id1,id2`) |
+| Theme | React Context (`ThemeContext`) — light/dark mode with class strategy and localStorage persistence |
 | Form state | Local component state |
 | Routing | react-router-dom v7 |
 
 **UI/UX Features:**
 
-- Responsive sidebar layout with role-based navigation (Dashboard, Concern, Issues, Notifications, Users for admins)
+- Responsive sidebar layout with role-based navigation (Dashboard, Concern, Issues, Projects, Notifications)
+- Dark mode support via ThemeToggle in the top bar (persisted to localStorage)
 - Color-coded status and priority badges for quick visual scanning
-- Filterable and paginated issue list with search
+- Filterable and paginated issue list with multi-project filtering, search, and overdue toggle
 - Drag-and-drop file upload with progress indication
-- Real-time notification bell with unread badge
+- Real-time notification bell with unread badge (auto-refreshes)
 - Dashboard with linked summary cards for drill-down navigation
+- Auto-refresh on all major pages (10-30s intervals) to keep data current across users
+- Framer Motion page transitions and sidebar animations
+- Recharts-powered chart dashboard with 12+ widget types
 
 ---
 

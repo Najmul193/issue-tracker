@@ -240,7 +240,7 @@ function DeadlineAndNotesRow({
         <DeadlineCalendar />
       </Card>
       <Card title="Notes & Alerts" icon={<BellRing />}>
-        {isLoading ? <SkeletonSection height={200} /> : <NotesPanel issues={data?.myAssignedIssues ?? []} />}
+        {isLoading ? <SkeletonSection height={200} /> : <NotesPanel issues={data?.myActionableIssues ?? []} />}
       </Card>
     </div>
   );

@@ -6,12 +6,31 @@ import EmptyState from '../ui/EmptyState';
 import { staggerContainer, staggerItem } from '../../lib/motion';
 
 interface Props {
+  /** Issues where the current actor's role/org is the party responsible for moving the
+   * issue to its next stage, given its CURRENT status — not just literal assignment.
+   * e.g. an issue in SI_APPROVAL/UNDER_REVIEW/SI_REVIEW is the SI team's responsibility;
+   * PENDING_CLIENT_APPROVAL and CLARIFICATION_REQUESTED are the client/raiser's responsibility;
+   * ASSIGNED/IN_PROGRESS are the assignee's responsibility. See backend
+   * `getDashboardMetrics` → `myActionableIssues` for the exact rule set. */
   issues: AssignedIssueSummary[];
 }
 
 const STALE_DAYS = 3;
 const PRIORITY_WEIGHT: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
 const PRIORITY_LABEL: Record<string, string> = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
+
+/** What's actually blocking progress at this status, phrased as a clause following the issue title. */
+const ACTION_HINT: Record<string, string> = {
+  NEW: 'needs SI triage',
+  SI_APPROVAL: 'is waiting on SI validation',
+  UNDER_REVIEW: 'is waiting on SI review',
+  CLARIFICATION_REQUESTED: 'is waiting on your clarification',
+  ASSIGNED: "hasn't been started yet",
+  IN_PROGRESS: 'is in progress',
+  IN_QA: 'is waiting on QA',
+  SI_REVIEW: 'is waiting on SI sign-off',
+  PENDING_CLIENT_APPROVAL: 'is waiting on your approval',
+};
 
 function daysSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 86_400_000;
@@ -38,33 +57,31 @@ const TONE_CLASSES: Record<string, string> = {
 /** Scores an issue for "what should I work on next" — priority first, then how soon it's due, then a nudge for work not yet started. */
 function suggestionScore(issue: AssignedIssueSummary): number {
   const priorityWeight = PRIORITY_WEIGHT[issue.priority] ?? 1;
-  const notYetStarted = issue.status === 'ASSIGNED' ? 6 : 0;
+  const notYetStarted = issue.status === 'ASSIGNED' || issue.status === 'NEW' ? 6 : 0;
   const hoursLeft = issue.deadline ? hoursUntil(issue.deadline) : Infinity;
   const urgency = hoursLeft === Infinity ? 0 : Math.max(0, 100 - hoursLeft / 4);
   return priorityWeight * 20 + notYetStarted + urgency;
 }
 
-/** Turns the top-scored issue into a natural-language recommendation, picking the most relevant reason. */
+/** Turns the top-scored issue into a natural-language, status-aware recommendation. */
 function buildSuggestionMessage(issue: AssignedIssueSummary): string {
   const priorityLabel = PRIORITY_LABEL[issue.priority] ?? issue.priority;
+  const hint = ACTION_HINT[issue.status];
   const overdue = issue.deadline ? hoursUntil(issue.deadline) < 0 : false;
   const dueSoon = issue.deadline ? hoursUntil(issue.deadline) >= 0 && hoursUntil(issue.deadline) <= 24 : false;
-  const notStarted = issue.status === 'ASSIGNED';
 
   if (overdue) {
-    return `"${issue.title}" is already overdue — this should be your next move.`;
-  }
-  if (dueSoon && issue.priority === 'CRITICAL') {
-    return `"${issue.title}" is Critical priority and due within 24 hours — start here.`;
+    return hint
+      ? `"${issue.title}" ${hint} and is already overdue — this should be your next move.`
+      : `"${issue.title}" is already overdue — this should be your next move.`;
   }
   if (dueSoon) {
-    return `"${issue.title}" is due within 24 hours — worth tackling next.`;
+    return hint
+      ? `"${issue.title}" ${hint} and is due within 24 hours — worth tackling next.`
+      : `"${issue.title}" is due within 24 hours — worth tackling next.`;
   }
-  if (notStarted && (issue.priority === 'CRITICAL' || issue.priority === 'HIGH')) {
-    return `You haven't started "${issue.title}" yet, and it's ${priorityLabel} priority — good place to begin.`;
-  }
-  if (notStarted) {
-    return `"${issue.title}" is still waiting on you to start — consider picking it up next.`;
+  if (hint) {
+    return `"${issue.title}" (${priorityLabel}) ${hint} — looks like the best place to focus next.`;
   }
   return `Based on priority and deadline, "${issue.title}" (${priorityLabel}) looks like the best place to focus next.`;
 }
@@ -99,6 +116,8 @@ export default function NotesPanel({ issues }: Props) {
   let dueSoonCount = 0;
 
   for (const issue of activeIssues) {
+    const hint = ACTION_HINT[issue.status];
+
     if (issue.deadline) {
       const hrs = hoursUntil(issue.deadline);
       if (hrs < 0) {
@@ -107,7 +126,7 @@ export default function NotesPanel({ issues }: Props) {
           id: `overdue-${issue.id}`,
           icon: AlertOctagon,
           tone: 'red',
-          message: `"${issue.title}" is overdue`,
+          message: hint ? `"${issue.title}" ${hint} and is overdue` : `"${issue.title}" is overdue`,
           to: `/issues/${issue.id}`,
         });
       } else if (hrs <= 24) {
@@ -116,7 +135,7 @@ export default function NotesPanel({ issues }: Props) {
           id: `soon-${issue.id}`,
           icon: Clock,
           tone: 'amber',
-          message: `"${issue.title}" is due within 24 hours`,
+          message: hint ? `"${issue.title}" ${hint} and is due within 24 hours` : `"${issue.title}" is due within 24 hours`,
           to: `/issues/${issue.id}`,
         });
       }
@@ -128,7 +147,9 @@ export default function NotesPanel({ issues }: Props) {
         id: `stale-${issue.id}`,
         icon: History,
         tone: 'violet',
-        message: `"${issue.title}" hasn't moved in ${idleDays}+ days`,
+        message: hint
+          ? `"${issue.title}" ${hint} and hasn't moved in ${idleDays}+ days`
+          : `"${issue.title}" hasn't moved in ${idleDays}+ days`,
         to: `/issues/${issue.id}`,
       });
     }
