@@ -47,7 +47,8 @@ export default function DeadlineCalendar() {
   const issuesWithDeadlines = useMemo(() => {
     const map = new Map<string, Issue>();
     for (const issue of [...(assigned?.data ?? []), ...(raised?.data ?? [])]) {
-      if (issue.deadline) map.set(issue.id, issue);
+      // Closed issues' deadlines are no longer actionable — don't mark or alert on them.
+      if (issue.deadline && issue.status !== 'CLOSED') map.set(issue.id, issue);
     }
     return [...map.values()];
   }, [assigned, raised]);
