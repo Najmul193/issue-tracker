@@ -470,3 +470,4 @@ All endpoints are under the `/api` prefix.
 - **Frontend**: https://flexcube-tracker-frontend.onrender.com
 - **Backend**: Hosted on Render (no public URL)
 - **Database**: PostgreSQL on Render
+- **File Storage**: S3-compatible (AWS S3, DigitalOcean Spaces, Cloudflare R2, Backblaze B2, or MinIO). Set `S3_BUCKET` and credentials as environment variables. Falls back to local filesystem when `S3_BUCKET` is not set.

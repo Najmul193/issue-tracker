@@ -670,8 +670,8 @@ frontend/src/
 
 ```yaml
 Services:
-  - postgres:15     # Database on port 5432
-  - backend         # NestJS API on port 3000
+  - postgres:15     # Database on port 5432 (data persisted via postgres_data volume)
+  - backend         # NestJS API on port 3000 (uploads persisted via uploads_data volume)
   - frontend        # React SPA on port 5173
 ```
 
@@ -682,13 +682,20 @@ Defined in `render.yaml` with a PostgreSQL 15 instance and Docker-based services
 ### Environment Variables
 
 | Variable | Description |
-|---|---|
+|---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_SECRET` | JWT signing key |
 | `JWT_EXPIRATION` | Token expiry (default: 7d) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Email configuration (optional) |
-| `UPLOAD_DIR` | File storage path |
+| `UPLOAD_DIR` | Local file storage path (default: `./uploads`; only used when S3 is not configured) |
 | `MAX_FILE_SIZE` | File size limit (default: 15MB) |
+| `S3_BUCKET` | S3 bucket name — set this to switch from local filesystem to S3-compatible storage |
+| `S3_REGION` | AWS region (default: `us-east-1`) |
+| `S3_ACCESS_KEY_ID` | S3 access key |
+| `S3_SECRET_ACCESS_KEY` | S3 secret key |
+| `S3_ENDPOINT` | Custom S3 endpoint (required for DigitalOcean Spaces, Cloudflare R2, MinIO, etc.) |
+| `S3_FORCE_PATH_STYLE` | Set `true` for path-style URLs (required for MinIO) |
+| `S3_PREFIX` | Key prefix (default: `uploads`) |
 | `FRONTEND_URL` | CORS origin |
 
 ---
