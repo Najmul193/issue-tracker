@@ -9,6 +9,7 @@ ALTER TYPE "IssueStatus" RENAME TO "IssueStatus_old";
 -- Step 3: Create the new enum without IN_QA
 CREATE TYPE "IssueStatus" AS ENUM (
   'NEW',
+  'SI_APPROVAL',
   'UNDER_REVIEW',
   'CLARIFICATION_REQUESTED',
   'ASSIGNED',
