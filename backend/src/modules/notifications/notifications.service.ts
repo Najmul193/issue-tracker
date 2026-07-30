@@ -4,6 +4,9 @@ import { EmailService } from './email.service';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { Prisma, NotifiedStage } from '@prisma/client';
 import { ProjectsService } from '../projects/projects.service';
+import { buildActionableIssuesFilter } from '../../common/authz/actionable-issues';
+import { getClarificationOrigins } from '../../common/authz/clarification-origins';
+import { getPermittedTransitions } from '../issues/transition-rules';
 
 @Injectable()
 export class NotificationsService {
@@ -581,35 +584,13 @@ export class NotificationsService {
     });
 
     // My actionable issues — issues whose CURRENT STATUS makes actor (or their org/role)
-    // the party who can move it to the next stage. This mirrors the frontend's
-    // getVisibleTransitions() responsibility rules, used to drive status-aware deadline
+    // the party who can move it to the next stage, used to drive status-aware deadline
     // alerts (e.g. an SI_APPROVAL issue's deadline is the SI team's problem, not the
     // assignee's; a PENDING_CLIENT_APPROVAL issue's deadline is the client's problem).
-    const isSiResponsible = actor.role === 'SUPER_ADMIN' || actor.organizationType === 'SI';
-    const siStatuses = ['NEW', 'SI_APPROVAL', 'UNDER_REVIEW', 'SI_REVIEW'];
-    const clientStatuses = ['CLARIFICATION_REQUESTED', 'PENDING_CLIENT_APPROVAL'];
-
-    const actionableOr: Prisma.IssueWhereInput[] = [
-      { status: { in: ['ASSIGNED', 'IN_PROGRESS'] as any }, assignedToUserId: actor.userId },
-      { status: { in: ['ASSIGNED', 'IN_PROGRESS'] as any }, assignedToOrgId: actor.organizationId },
-    ];
-    if (isSiResponsible) {
-      actionableOr.push({ status: { in: siStatuses as any } });
-    }
-    if (actor.role === 'SUPER_ADMIN') {
-      actionableOr.push({ status: { in: clientStatuses as any } });
-    } else if (actor.role === 'ORG_ADMIN') {
-      actionableOr.push({
-        status: { in: clientStatuses as any },
-        raisedByOrgId: actor.organizationId,
-      });
-    } else {
-      actionableOr.push({ status: { in: clientStatuses as any }, raisedById: actor.userId });
-    }
-
-    const myActionableIssues = await this.prisma.issue.findMany({
+    // Shares one predicate with the Concern page's Approval tab.
+    const myActionableIssuesRaw = await this.prisma.issue.findMany({
       where: {
-        AND: [visibilityFilter, { deadline: { not: null } }, { OR: actionableOr }],
+        AND: [visibilityFilter, { deadline: { not: null } }, buildActionableIssuesFilter(actor)],
       },
       orderBy: { deadline: 'asc' },
       take: 10,
@@ -620,7 +601,45 @@ export class NotificationsService {
         status: true,
         deadline: true,
         updatedAt: true,
+        // The rest of this select is only here to feed getPermittedTransitions below — it is
+        // stripped back out before the response is built, so the public response shape is
+        // unchanged apart from the new permittedTransitions field.
+        raisedById: true,
+        raisedByOrgId: true,
+        assignedToUserId: true,
+        assignedToOrgId: true,
+        assignedToUser: { select: { organizationId: true } },
       },
+    });
+
+    // Same requirement as findAll/findOne in issues.service.ts: answering a clarification
+    // request must return to the stage it was asked from. Reuses the SAME shared lookup those
+    // use (see clarification-origins.ts's doc comment for why this must not become a second
+    // hand-rolled copy).
+    const dashboardClarificationOrigins = await getClarificationOrigins(
+      this.prisma,
+      myActionableIssuesRaw
+        .filter((i) => i.status === 'CLARIFICATION_REQUESTED')
+        .map((i) => i.id),
+    );
+
+    const myActionableIssues = myActionableIssuesRaw.map((issue) => {
+      const { raisedById, raisedByOrgId, assignedToUserId, assignedToOrgId, assignedToUser, ...summary } = issue;
+      return {
+        ...summary,
+        permittedTransitions: getPermittedTransitions(
+          {
+            status: issue.status,
+            raisedById,
+            raisedByOrgId,
+            assignedToUserId,
+            assignedToOrgId,
+            assignedToUser,
+            clarificationOrigin: dashboardClarificationOrigins.get(issue.id) ?? null,
+          },
+          actor,
+        ),
+      };
     });
 
     // Recent activity (last 10 entries) — scoped to visible issues

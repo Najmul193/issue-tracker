@@ -69,6 +69,16 @@ export interface Issue {
   comments: Comment[];
   attachments: Attachment[];
   activityLogs: ActivityLog[];
+  /**
+   * The status changes the CURRENT user may perform on this issue, computed by the backend
+   * (`transition-rules.ts`) and returned by both the list and detail endpoints. The UI
+   * renders these directly and holds no permission rules of its own — that is what keeps
+   * the buttons and the API from disagreeing.
+   *
+   * Optional only as a safety net: if a response path ever forgets to annotate, the UI
+   * shows no actions rather than crashing. A backend spec asserts it is always present.
+   */
+  permittedTransitions?: IssueStatusOrResolve[];
 }
 
 export interface Attachment {
@@ -112,7 +122,10 @@ export interface IssuesQueryParams {
   module?: string;
   overdue?: string;
   concern?: string;
+  /** 'raised' | 'assigned' | 'approval'; anything else means "everything I'm involved in". */
   concernFilter?: string;
+  /** 'deadline' for soonest-first (undated last); anything else means newest-first. */
+  sort?: string;
   page?: string;
   limit?: string;
   assignedOrg?: string;

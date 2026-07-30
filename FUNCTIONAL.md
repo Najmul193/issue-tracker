@@ -102,10 +102,15 @@ The Dashboard shows key summary cards, charts, and personal panels. All data aut
 4. Click **Concern** in the sidebar to see only issues relevant to you (auto-refreshes every 15 seconds):
    - **USER**: issues you raised or are assigned to you
    - **ORG_ADMIN / SUPER_ADMIN**: issues raised by anyone in your org, assigned to anyone in your org, or routed to your org queue
-3. The Concern page has three sub-filters:
+3. The Concern page has four sub-filters:
    - **All** (default) — raised + assigned + org-routed issues
    - **Raised** — only issues you or your org members created
-   - **Assign** — only issues assigned to you or your org
+   - **Assigned** — only issues assigned to you or your org
+   - **Approval** — only issues *waiting on you*: those whose current status makes you the
+     person who can move them forward. SI members see NEW, SI Approval, Under Review and SI
+     Review; the assigned team sees Assigned and In Progress; the raising side sees
+     Clarification Requested and Pending Client Approval. Closed issues never appear.
+     Each row carries **quick action buttons** — see §2.6.
 4. The main Issues list shows: title, type, priority, status, module, deadline, assigned to, and organization.
 5. Filter issues using the controls at the top:
    - **Type**: All / Bug / New Requirement / Change Request / Query
@@ -113,6 +118,7 @@ The Dashboard shows key summary cards, charts, and personal panels. All data aut
     - **Status**: All / New / SI Approval / Under Review / Clarification Requested / Assigned / In Progress / SI Review / Pending Client Approval / Closed
    - **Overdue**: Toggle to show only overdue issues
    - **Module**: Type to search by module name
+   - **Sort**: Newest first (default) or Deadline first (soonest first, undated last)
 6. Navigate between pages using the pagination controls at the bottom.
 
 ---
@@ -173,6 +179,23 @@ All roles (SUPER_ADMIN, ORG_ADMIN, USER) can create issues.
 3. Click **Confirm**.
 4. The status is updated, a new activity log entry is created, and the assignee is notified.
 
+**The buttons you see are decided by the server.** Each issue arrives with the exact list of
+transitions you are allowed to perform, so a button is never shown that the API would reject.
+
+#### Quick actions from the Approval tab
+
+On **Concern → Approval**, the same buttons appear on each row, so a reviewer can clear a queue
+without opening issues one at a time:
+
+1. One-click actions (Valid, Approved, Not Approved, Approve, Acknowledge) apply immediately.
+2. Actions needing text (Request Clarification, Resolve) open a small dialog for the comment or
+   resolution note, then apply.
+3. A confirmation appears above the list, and the row leaves the queue once it is no longer
+   waiting on you.
+
+While a dialog is open or an action is in flight, the list's 15-second auto-refresh pauses so
+your typing is never interrupted.
+
 #### Allowed Status Transitions
 
 ```
@@ -192,8 +215,14 @@ CLOSED         → UNDER_REVIEW (SI team org admin or SUPER_ADMIN only)
 
 **Special rules:**
 - **Approve / Close**: Only the issue creator (raised-by user) or an ORG_ADMIN in the creator's organization can transition to CLOSED from PENDING_CLIENT_APPROVAL. The resolver side (assigned user, assigned org) cannot close.
-- **Reopen a closed issue**: Only an ORG_ADMIN from the SI (Data Edge) team or a SUPER_ADMIN can reopen a closed issue by sending it back to UNDER_REVIEW. Regular users and other org admins cannot.
+- **Reopen a closed issue**: Only an ORG_ADMIN from the SI (Data Edge) team or a SUPER_ADMIN can reopen a closed issue by sending it back to UNDER_REVIEW. Regular users and other org admins cannot — including plain (non-admin) SI members.
 - **SI Review**: Only the SI team can move issues from SI_REVIEW to PENDING_CLIENT_APPROVAL.
+- **SI Approval**: Only the SI team (or SUPER_ADMIN) can validate an issue from SI_APPROVAL to ASSIGNED. SI_APPROVAL is a hold state — an assignment chosen by a non-SI creator does not take effect until SI approves it, so the raising organization cannot approve its own assignment.
+- **Answering a clarification request**: the answer returns the issue to the stage the request came from, and only that stage is offered:
+  - Requested from **SI Approval** or **Under Review** (SI asking the creator, before assignment) → answering returns it to **Under Review** so SI can continue triage.
+  - Requested from **In Progress** (the assignee asking the creator, after assignment) → answering returns it to **In Progress** so the assignee carries on.
+
+  Sending it to the other stage is rejected. This is what stops a pre-assignment clarification from skipping the assignment step.
 
 ---
 

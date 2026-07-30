@@ -21,7 +21,7 @@ interface TransitionResult {
  * NOTE: When an actor submits status=RESOLVED, the service layer intercepts it and
  * auto-routes to SI_REVIEW before persisting. RESOLVED is never stored in the DB.
  */
-const TRANSITION_MAP: Record<string, IssueStatus[]> = {
+export const TRANSITION_MAP: Record<string, IssueStatus[]> = {
   NEW: ['UNDER_REVIEW'],
   SI_APPROVAL: ['ASSIGNED', 'CLARIFICATION_REQUESTED'], // SI validates or requests clarification
   UNDER_REVIEW: ['CLARIFICATION_REQUESTED', 'ASSIGNED'],

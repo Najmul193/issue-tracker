@@ -58,3 +58,10 @@ export const fadeVariants: Variants = {
 };
 
 export const tapScale: Transition = { duration: 0.1 };
+
+// Toasts enter/exit from below, sliding into their stack position.
+export const toastVariants: Variants = {
+  initial: { opacity: 0, y: 16, scale: 0.95 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.2, ease: EASE } },
+  exit: { opacity: 0, scale: 0.95, transition: { duration: 0.15 } },
+};

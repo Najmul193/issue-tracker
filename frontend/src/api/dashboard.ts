@@ -1,4 +1,5 @@
 import { apiGet } from './client';
+import type { IssueStatus, IssueStatusOrResolve } from './issues';
 
 export interface DashboardSummary {
   byStatus: Record<string, number>;
@@ -20,9 +21,16 @@ export interface AssignedIssueSummary {
   id: string;
   title: string;
   priority: string;
-  status: string;
+  status: IssueStatus;
   deadline: string | null;
   updatedAt: string;
+  /**
+   * Only populated on `myActionableIssues` — the statuses THIS user may move this issue to,
+   * computed by the backend. Lets `IssueQuickActions` render directly from this summary object
+   * without fetching the full issue. Absent (not just empty) on `myAssignedIssues`, which the
+   * backend doesn't annotate.
+   */
+  permittedTransitions?: IssueStatusOrResolve[];
 }
 
 export interface ActivityEntry {

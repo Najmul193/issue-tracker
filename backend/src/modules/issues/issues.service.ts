@@ -10,6 +10,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { StateMachine } from './state-machine';
+import {
+  getPermittedTransitions,
+  clarificationReturnTarget,
+  clarificationOriginOf,
+} from './transition-rules';
+import { buildActionableIssuesFilter } from '../../common/authz/actionable-issues';
+import { getClarificationOrigins } from '../../common/authz/clarification-origins';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { AssignIssueDto } from './dto/assign-issue.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -146,6 +153,12 @@ export class IssuesService {
           assignedOr.push({ assignedToUser: { organizationId: actor.organizationId } });
         }
         andClauses.push({ OR: assignedOr });
+      } else if (query.concernFilter === 'approval') {
+        // "Waiting on me" — issues whose current status makes this actor the party who
+        // can advance them. Deliberately REPLACES the raised/assigned set rather than
+        // intersecting it: an SI reviewer must see an UNDER_REVIEW issue they neither
+        // raised nor were assigned. The project visibility filter still ANDs on top.
+        andClauses.push(buildActionableIssuesFilter(actor));
       } else {
         const concernOr: Prisma.IssueWhereInput[] = [
           { assignedToUserId: actor.userId },
@@ -168,12 +181,19 @@ export class IssuesService {
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
     const skip = (page - 1) * limit;
 
+    // Newest-first by default; 'deadline' turns the list into a work queue with the most
+    // urgent first and undated issues last.
+    const orderBy: Prisma.IssueOrderByWithRelationInput[] =
+      query.sort === 'deadline'
+        ? [{ deadline: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }]
+        : [{ createdAt: 'desc' }];
+
     const [data, total] = await Promise.all([
       this.prisma.issue.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           raisedBy: { select: { id: true, name: true, email: true } },
           assignedToUser: { select: { id: true, name: true, email: true, organizationId: true } },
@@ -186,7 +206,28 @@ export class IssuesService {
       this.prisma.issue.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    // Answering a clarification request must return the issue to the stage it was asked
+    // from, which lives in the activity log. Fetched in ONE extra query for the whole page,
+    // and only when the page actually contains issues in that state.
+    const clarificationOrigins = await getClarificationOrigins(
+      this.prisma,
+      data.filter((i) => i.status === 'CLARIFICATION_REQUESTED').map((i) => i.id),
+    );
+
+    // Annotate each row with the status changes THIS actor may perform. The frontend renders
+    // these directly and holds no permission rules of its own.
+    return {
+      data: data.map((issue) => ({
+        ...issue,
+        permittedTransitions: getPermittedTransitions(
+          { ...issue, clarificationOrigin: clarificationOrigins.get(issue.id) ?? null },
+          actor,
+        ),
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: string, actor: JwtPayload) {
@@ -226,7 +267,15 @@ export class IssuesService {
       await this.assertProjectAccess(issue.projectId, actor);
     }
 
-    return issue;
+    // Same annotation as findAll, so the detail page and the list agree by construction.
+    // The activity logs are already loaded here, so the clarification origin is free.
+    return {
+      ...issue,
+      permittedTransitions: getPermittedTransitions(
+        { ...issue, clarificationOrigin: clarificationOriginOf(issue) },
+        actor,
+      ),
+    };
   }
 
   async assign(id: string, dto: AssignIssueDto, actor: JwtPayload) {
@@ -589,6 +638,17 @@ export class IssuesService {
       }
     }
 
+    // SI_APPROVAL -> ASSIGNED: only SI org members (or SUPER_ADMIN) can validate the
+    // creator's assignment. SI_APPROVAL is a hold state — the assignment chosen at
+    // creation time does not take effect until SI approves it (state-machine.ts:18-20).
+    if (actualStatus === 'ASSIGNED' && issue.status === 'SI_APPROVAL') {
+      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
+        throw new ForbiddenException(
+          'Only the SI (Data Edge) team can validate an issue pending SI approval',
+        );
+      }
+    }
+
     // UNDER_REVIEW actions: only SI org members (or SUPER_ADMIN) can validate or ask for clarification
     if (
       issue.status === 'UNDER_REVIEW' &&
@@ -692,6 +752,18 @@ export class IssuesService {
       if (!isCreator && !isClientOrgAdmin && actor.role !== 'SUPER_ADMIN') {
         throw new ForbiddenException(
           'Only the issue creator or client org admin can provide clarification',
+        );
+      }
+
+      // The answer must return the issue to the stage the clarification was asked from.
+      // A request raised before assignment (SI_APPROVAL / UNDER_REVIEW) goes back to SI
+      // triage; one raised by the assignee (IN_PROGRESS) goes back to their work. Allowing
+      // either would let a pre-assignment clarification skip the assignment gate.
+      const expected = clarificationReturnTarget(clarificationOriginOf(issue));
+      if (actualStatus !== expected) {
+        throw new ForbiddenException(
+          `This clarification was requested from ${clarificationOriginOf(issue) ?? 'an earlier stage'}, ` +
+            `so answering it must return the issue to ${expected.replace(/_/g, ' ')}`,
         );
       }
     }

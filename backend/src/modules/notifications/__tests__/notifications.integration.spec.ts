@@ -566,6 +566,78 @@ describe('Notifications Integration', () => {
     });
   });
 
+  describe('Test 8b: dashboard/metrics myActionableIssues carries permittedTransitions', () => {
+    it('agrees with GET /issues/:id for the same actor', async () => {
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+      const siAdminToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+
+      const issueRes = await createIssue({ token: bankUserToken });
+      const issueId = issueRes.body.id;
+
+      // NEW -> UNDER_REVIEW, so it's SI's turn to act — actionable for siAdmin.
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issueId}/status`)
+        .set('Cookie', `access_token=${siAdminToken}`)
+        .send({ status: 'UNDER_REVIEW' });
+
+      const metricsRes = await request(app.getHttpServer())
+        .get('/api/dashboard/metrics')
+        .set('Cookie', `access_token=${siAdminToken}`);
+      expect(metricsRes.status).toBe(200);
+
+      const row = metricsRes.body.myActionableIssues.find((i: any) => i.id === issueId);
+      expect(row).toBeDefined();
+      expect(Array.isArray(row.permittedTransitions)).toBe(true);
+
+      const detailRes = await request(app.getHttpServer())
+        .get(`/api/issues/${issueId}`)
+        .set('Cookie', `access_token=${siAdminToken}`);
+      expect(detailRes.status).toBe(200);
+
+      // Same actor, same issue, same rules — the dashboard must not disagree with the
+      // detail page about which buttons are safe to show.
+      expect([...row.permittedTransitions].sort()).toEqual(
+        [...detailRes.body.permittedTransitions].sort(),
+      );
+    });
+
+    /**
+     * Regression guard: answering a clarification request must return the issue to the
+     * stage it was asked from, not to a hardcoded default. This is exactly the rule that
+     * silently broke once already when it was computed in two places instead of one — see
+     * clarification-origins.ts's doc comment. This test exercises it specifically through
+     * the DASHBOARD's query, since that's the second caller this round adds.
+     */
+    it('resolves the clarification-answer target from the activity log, not a default', async () => {
+      const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');
+      const siAdminToken = token(siAdminId, 'ORG_ADMIN', dataEdgeOrgId, 'SI');
+
+      const issueRes = await createIssue({ token: bankUserToken });
+      const issueId = issueRes.body.id;
+
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issueId}/status`)
+        .set('Cookie', `access_token=${siAdminToken}`)
+        .send({ status: 'UNDER_REVIEW' });
+
+      // Requested FROM UNDER_REVIEW — the answer must be exactly UNDER_REVIEW, never
+      // IN_PROGRESS (that would be the answer for a request raised after assignment).
+      await request(app.getHttpServer())
+        .patch(`/api/issues/${issueId}/status`)
+        .set('Cookie', `access_token=${siAdminToken}`)
+        .send({ status: 'CLARIFICATION_REQUESTED', comment: 'need more detail' });
+
+      const metricsRes = await request(app.getHttpServer())
+        .get('/api/dashboard/metrics')
+        .set('Cookie', `access_token=${bankUserToken}`);
+      expect(metricsRes.status).toBe(200);
+
+      const row = metricsRes.body.myActionableIssues.find((i: any) => i.id === issueId);
+      expect(row).toBeDefined();
+      expect(row.permittedTransitions).toEqual(['UNDER_REVIEW']);
+    });
+  });
+
   describe('Test 9: Mark notification as read', () => {
     it('marks single notification as read', async () => {
       const bankUserToken = token(bankUserId, 'USER', bankOrgId, 'CLIENT');

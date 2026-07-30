@@ -42,6 +42,16 @@ export class QueryIssuesDto {
   @IsNumberString()
   limit?: string;
 
+  /**
+   * 'deadline' sorts the soonest deadline first (undated last); anything else, including
+   * absent, sorts newest first. Deliberately a permissive string rather than @IsIn so a
+   * stale bookmark or hand-edited URL degrades to the default instead of 400-ing the
+   * whole list — the same treatment `concernFilter` gets.
+   */
+  @IsOptional()
+  @IsString()
+  sort?: string;
+
   @IsOptional()
   @IsString()
   projectId?: string;

@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertOctagon, Clock, History, CheckCircle2, Sparkles, ArrowRight, type LucideIcon } from 'lucide-react';
 import type { AssignedIssueSummary } from '../../api/dashboard';
+import IssueQuickActions from '../IssueQuickActions';
+import { useToast } from '../ui/Toast';
 import EmptyState from '../ui/EmptyState';
 import { staggerContainer, staggerItem } from '../../lib/motion';
 
@@ -13,6 +16,9 @@ interface Props {
    * ASSIGNED/IN_PROGRESS are the assignee's responsibility. See backend
    * `getDashboardMetrics` → `myActionableIssues` for the exact rule set. */
   issues: AssignedIssueSummary[];
+  /** Bubbles up whether any suggestion card is mid-action, so the dashboard can pause its
+   * 30s metrics poll — the same reason `Concern.tsx` pauses while a row is busy. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const STALE_DAYS = 3;
@@ -63,7 +69,7 @@ function suggestionScore(issue: AssignedIssueSummary): number {
   return priorityWeight * 20 + notYetStarted + urgency;
 }
 
-/** Turns the top-scored issue into a natural-language, status-aware recommendation. */
+/** Turns a scored issue into a natural-language, status-aware recommendation. */
 function buildSuggestionMessage(issue: AssignedIssueSummary): string {
   const priorityLabel = PRIORITY_LABEL[issue.priority] ?? issue.priority;
   const hint = ACTION_HINT[issue.status];
@@ -72,18 +78,18 @@ function buildSuggestionMessage(issue: AssignedIssueSummary): string {
 
   if (overdue) {
     return hint
-      ? `"${issue.title}" ${hint} and is already overdue — this should be your next move.`
-      : `"${issue.title}" is already overdue — this should be your next move.`;
+      ? `"${issue.title}" ${hint} and is already overdue.`
+      : `"${issue.title}" is already overdue.`;
   }
   if (dueSoon) {
     return hint
-      ? `"${issue.title}" ${hint} and is due within 24 hours — worth tackling next.`
-      : `"${issue.title}" is due within 24 hours — worth tackling next.`;
+      ? `"${issue.title}" ${hint} and is due within 24 hours.`
+      : `"${issue.title}" is due within 24 hours.`;
   }
   if (hint) {
-    return `"${issue.title}" (${priorityLabel}) ${hint} — looks like the best place to focus next.`;
+    return `"${issue.title}" (${priorityLabel}) ${hint}.`;
   }
-  return `Based on priority and deadline, "${issue.title}" (${priorityLabel}) looks like the best place to focus next.`;
+  return `"${issue.title}" (${priorityLabel}) — based on priority and deadline.`;
 }
 
 function buildSummaryLine(overdueCount: number, dueSoonCount: number, totalActive: number): string {
@@ -96,7 +102,24 @@ function buildSummaryLine(overdueCount: number, dueSoonCount: number, totalActiv
   return `No urgent deadlines right now — ${totalActive} active issue${totalActive === 1 ? '' : 's'} on your plate.`;
 }
 
-export default function NotesPanel({ issues }: Props) {
+export default function NotesPanel({ issues, onBusyChange }: Props) {
+  const showToast = useToast();
+  // Keyed by issue id so several cards can be mid-action at once without one finishing
+  // resuming the poll out from under the others — same reasoning as Concern.tsx.
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const setRowBusy = (issueId: string, busy: boolean) => {
+    setBusyIds((prev) => {
+      if (prev.has(issueId) === busy) return prev;
+      const next = new Set(prev);
+      if (busy) next.add(issueId);
+      else next.delete(issueId);
+      return next;
+    });
+  };
+  useEffect(() => {
+    onBusyChange?.(busyIds.size > 0);
+  }, [busyIds, onBusyChange]);
+
   // Closed issues are done — their deadlines/staleness are no longer actionable.
   const activeIssues = issues.filter((i) => i.status !== 'CLOSED');
 
@@ -111,17 +134,36 @@ export default function NotesPanel({ issues }: Props) {
     );
   }
 
-  const notes: Note[] = [];
+  // Counts reflect the WHOLE actionable set, independent of how many make it into the ranked
+  // cards below, so the summary line stays accurate regardless of how many are shown.
   let overdueCount = 0;
   let dueSoonCount = 0;
-
   for (const issue of activeIssues) {
+    if (!issue.deadline) continue;
+    const hrs = hoursUntil(issue.deadline);
+    if (hrs < 0) overdueCount++;
+    else if (hrs <= 24) dueSoonCount++;
+  }
+  const summaryLine = buildSummaryLine(overdueCount, dueSoonCount, activeIssues.length);
+
+  // Ranked "what to work on next" — normally the top 3, but widens up to 5 when more than 3
+  // issues are overdue or due within 24h, so nothing urgent gets crowded out of view.
+  const ranked = [...activeIssues].sort((a, b) => suggestionScore(b) - suggestionScore(a));
+  const urgentCount = overdueCount + dueSoonCount;
+  const topN = Math.min(5, Math.max(3, urgentCount));
+  const suggestions = ranked.slice(0, Math.min(topN, ranked.length));
+  const suggestedIds = new Set(suggestions.map((s) => s.id));
+
+  // Deadline & staleness alerts for everything NOT already surfaced as a ranked card above —
+  // otherwise a busy panel would show the same issue twice.
+  const notes: Note[] = [];
+  for (const issue of activeIssues) {
+    if (suggestedIds.has(issue.id)) continue;
     const hint = ACTION_HINT[issue.status];
 
     if (issue.deadline) {
       const hrs = hoursUntil(issue.deadline);
       if (hrs < 0) {
-        overdueCount++;
         notes.push({
           id: `overdue-${issue.id}`,
           icon: AlertOctagon,
@@ -130,7 +172,6 @@ export default function NotesPanel({ issues }: Props) {
           to: `/issues/${issue.id}`,
         });
       } else if (hrs <= 24) {
-        dueSoonCount++;
         notes.push({
           id: `soon-${issue.id}`,
           icon: Clock,
@@ -155,29 +196,53 @@ export default function NotesPanel({ issues }: Props) {
     }
   }
 
-  const suggested = [...activeIssues].sort((a, b) => suggestionScore(b) - suggestionScore(a))[0];
-  const summaryLine = buildSummaryLine(overdueCount, dueSoonCount, activeIssues.length);
-
   return (
     <div className="space-y-4">
-      {/* Smart "what should I work on next" suggestion */}
-      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-        <p className="mb-2 text-xs text-neutral-500 dark:text-slate-400">{summaryLine}</p>
-        <Link
-          to={`/issues/${suggested.id}`}
-          className="flex items-center justify-between gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-3 transition-shadow hover:shadow-card dark:border-brand-500/20 dark:from-brand-500/10 dark:to-slate-800"
-        >
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <p className="min-w-0 text-sm text-neutral-800 dark:text-slate-200">{buildSuggestionMessage(suggested)}</p>
-          </div>
-          <ArrowRight className="h-4 w-4 shrink-0 text-brand-500" />
-        </Link>
-      </motion.div>
+      <p className="text-xs text-neutral-500 dark:text-slate-400">{summaryLine}</p>
 
-      {/* Deadline & staleness alerts */}
+      {/* Ranked "what to work on next" — top pick highlighted, the rest numbered */}
+      <motion.ul variants={staggerContainer} initial="hidden" animate="show" className="space-y-2">
+        {suggestions.map((issue, index) => (
+          <motion.li key={issue.id} variants={staggerItem}>
+            <div
+              className={
+                index === 0
+                  ? 'rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-3 dark:border-brand-500/20 dark:from-brand-500/10 dark:to-slate-800'
+                  : 'rounded-xl border border-neutral-200 bg-white p-3 dark:border-slate-700/60 dark:bg-slate-800'
+              }
+            >
+              <div className="flex items-start justify-between gap-3">
+                <Link to={`/issues/${issue.id}`} className="flex min-w-0 flex-1 items-start gap-2.5 group">
+                  <span
+                    className={
+                      index === 0
+                        ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400'
+                        : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500 dark:bg-slate-700 dark:text-slate-400'
+                    }
+                  >
+                    {index === 0 ? <Sparkles className="h-4 w-4" /> : index + 1}
+                  </span>
+                  <p className="min-w-0 pt-1 text-sm text-neutral-800 dark:text-slate-200">
+                    {buildSuggestionMessage(issue)}
+                  </p>
+                </Link>
+                <Link
+                  to={`/issues/${issue.id}`}
+                  className="mt-1.5 shrink-0 text-brand-500 opacity-0 transition-opacity group-hover:opacity-100 sm:opacity-100"
+                  aria-label="Open issue"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="mt-2 pl-[42px]">
+                <IssueQuickActions issue={issue} onResult={showToast} onBusyChange={setRowBusy} />
+              </div>
+            </div>
+          </motion.li>
+        ))}
+      </motion.ul>
+
+      {/* Everything else that's overdue, due soon, or stale */}
       {notes.length > 0 && (
         <motion.ul
           variants={staggerContainer}

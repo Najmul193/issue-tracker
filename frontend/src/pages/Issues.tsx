@@ -16,6 +16,7 @@ export default function Issues() {
   const type = searchParams.get('type') || '';
   const overdue = searchParams.get('overdue') || '';
   const module = searchParams.get('module') || '';
+  const sort = searchParams.get('sort') || '';
   const page = parseInt(searchParams.get('page') || '1', 10);
 
   const [searchInput, setSearchInput] = useState('');
@@ -28,11 +29,12 @@ export default function Issues() {
       ...(type ? { type: type as IssueType } : {}),
       ...(overdue ? { overdue } : {}),
       ...(module ? { module } : {}),
+      ...(sort ? { sort } : {}),
       ...(projectIdsParam ? { projectIds: projectIdsParam } : {}),
       page: String(page),
       limit: '20',
     }),
-    [status, priority, type, overdue, module, projectIdsParam, page],
+    [status, priority, type, overdue, module, sort, projectIdsParam, page],
   );
 
   const { data, isLoading, error } = useQuery({
@@ -78,7 +80,7 @@ export default function Issues() {
       </div>
 
       <IssueListResults
-        filters={{ type, priority, status, overdue }}
+        filters={{ type, priority, status, overdue, sort }}
         setParam={setParam}
         searchInput={searchInput}
         onSearchChange={setSearchInput}

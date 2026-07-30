@@ -11,6 +11,7 @@ import {
   UserCog,
   UserCheck,
   FileText,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +25,9 @@ export default function QuickActions() {
 
   // All roles can create issues
   actions.push({ label: 'New Issue', to: '/issues/new', icon: Plus });
+  // Every role has something waiting on them here at some status or other — SI triage
+  // stages, org-level approvals, or a user's own clarifications/assignments.
+  actions.push({ label: 'Approval Queue', to: '/concern?concernFilter=approval', icon: CheckCircle2 });
 
   if (user.role === 'SUPER_ADMIN') {
     actions.push({ label: 'Manage Users', to: '/users', icon: UsersIcon });

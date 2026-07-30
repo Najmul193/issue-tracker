@@ -4,6 +4,7 @@ import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { ProjectFilterProvider } from './context/ProjectFilterContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './components/ui/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppShell from './components/AppShell';
 import Login from './pages/Login';
@@ -64,13 +65,15 @@ export default function App() {
     <ThemeProvider>
       <MotionConfig reducedMotion="user">
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <AuthProvider>
-              <ProjectFilterProvider>
-                <AppRoutes />
-              </ProjectFilterProvider>
-            </AuthProvider>
-          </BrowserRouter>
+          <ToastProvider>
+            <BrowserRouter>
+              <AuthProvider>
+                <ProjectFilterProvider>
+                  <AppRoutes />
+                </ProjectFilterProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </ToastProvider>
         </QueryClientProvider>
       </MotionConfig>
     </ThemeProvider>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Search, SlidersHorizontal, Bug, Sparkles, RefreshCw, HelpCircle, Inbox } from 'lucide-react';
 import type { Issue, IssueStatus, IssuePriority, IssueType, IssuesResponse } from '../api/issues';
@@ -16,6 +16,7 @@ import { staggerContainer, staggerItem } from '../lib/motion';
 const statusOptions: { label: string; value: IssueStatus | '' }[] = [
   { label: 'All Statuses', value: '' },
   { label: 'New', value: 'NEW' },
+  { label: 'SI Approval', value: 'SI_APPROVAL' },
   { label: 'Under Review', value: 'UNDER_REVIEW' },
   { label: 'Clarification Requested', value: 'CLARIFICATION_REQUESTED' },
   { label: 'Assigned', value: 'ASSIGNED' },
@@ -82,16 +83,23 @@ function assignedToLabel(issue: Issue): string {
   );
 }
 
+const sortOptions: { label: string; value: string }[] = [
+  { label: 'Newest first', value: '' },
+  { label: 'Deadline first', value: 'deadline' },
+];
+
 export interface IssueListFilters {
   type: string;
   priority: string;
   status: string;
   overdue: string;
+  /** '' (newest first, the default) or 'deadline'. A sort, not a filter — see activeFilterCount. */
+  sort?: string;
 }
 
 interface IssueListResultsProps {
   filters: IssueListFilters;
-  setParam: (key: 'type' | 'priority' | 'status' | 'overdue', value: string) => void;
+  setParam: (key: 'type' | 'priority' | 'status' | 'overdue' | 'sort', value: string) => void;
   searchInput: string;
   onSearchChange: (value: string) => void;
   data: IssuesResponse | null;
@@ -99,6 +107,12 @@ interface IssueListResultsProps {
   error: unknown;
   emptyMessage: string;
   onPageChange: (page: number) => void;
+  /**
+   * Optional per-row actions. When provided, an extra column is rendered on desktop and an
+   * action bar under each mobile card. Omitting it leaves the list exactly as it was.
+   */
+  rowActions?: (issue: Issue) => ReactNode;
+  rowActionsHeader?: string;
 }
 
 export default function IssueListResults({
@@ -111,8 +125,12 @@ export default function IssueListResults({
   error,
   emptyMessage,
   onPageChange,
+  rowActions,
+  rowActionsHeader = 'Actions',
 }: IssueListResultsProps) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  // `sort` is deliberately excluded — choosing an order is not a filter, and counting it
+  // would show a phantom "filters active" badge on mobile.
   const activeFilterCount = [filters.type, filters.priority, filters.status, filters.overdue].filter(Boolean).length;
 
   const filterControls = (
@@ -147,6 +165,17 @@ export default function IssueListResults({
         />
         Overdue only
       </label>
+      <Select
+        value={filters.sort ?? ''}
+        onChange={(e) => setParam('sort', e.target.value)}
+        aria-label="Sort order"
+      >
+        {sortOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </Select>
     </>
   );
 
@@ -186,6 +215,7 @@ export default function IssueListResults({
               setParam('priority', '');
               setParam('status', '');
               setParam('overdue', '');
+              setParam('sort', '');
             }}
           >
             Clear all
@@ -235,6 +265,7 @@ export default function IssueListResults({
                       <Th>Deadline</Th>
                       <Th className="hidden lg:table-cell">Raised By</Th>
                       <Th className="hidden lg:table-cell">Created</Th>
+                      {rowActions && <Th>{rowActionsHeader}</Th>}
                     </tr>
                   </Thead>
                   <Tbody>
@@ -261,6 +292,12 @@ export default function IssueListResults({
                           <Td className={deadlineInfo.className}>{deadlineInfo.label || '—'}</Td>
                           <Td className="hidden lg:table-cell">{issue.raisedBy.name}</Td>
                           <Td className="hidden lg:table-cell">{formatDate(issue.createdAt)}</Td>
+                          {rowActions && (
+                            // The row's onClick is a full page navigation, so the whole cell
+                            // stops propagation — one guard instead of one per button, and it
+                            // also covers anything the actions render inline.
+                            <Td onClick={(e) => e.stopPropagation()}>{rowActions(issue)}</Td>
+                          )}
                         </Tr>
                       );
                     })}
@@ -283,9 +320,13 @@ export default function IssueListResults({
                   const TypeIcon = TYPE_ICON[issue.type] ?? HelpCircle;
                   return (
                     <motion.li key={issue.id} variants={staggerItem}>
+                      {/* The card chrome lives on this wrapper rather than the <a> so the
+                          action bar can sit beside the link instead of nested inside it —
+                          buttons inside an anchor are invalid and would need preventDefault. */}
+                      <div className="rounded-xl border border-neutral-200 bg-white shadow-card transition-shadow hover:shadow-card-hover dark:border-slate-700/60 dark:bg-slate-800">
                       <a
                         href={`/issues/${issue.id}`}
-                        className="block rounded-xl border border-neutral-200 bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover dark:border-slate-700/60 dark:bg-slate-800"
+                        className="block p-4"
                       >
                         <p className="line-clamp-2 text-sm font-medium text-neutral-900 dark:text-slate-100">
                           {issue.title}
@@ -305,6 +346,12 @@ export default function IssueListResults({
                           <p className={`mt-1 text-xs ${deadlineInfo.className}`}>Due {deadlineInfo.label}</p>
                         )}
                       </a>
+                        {rowActions && (
+                          <div className="border-t border-neutral-200 px-4 py-2 dark:border-slate-700/60">
+                            {rowActions(issue)}
+                          </div>
+                        )}
+                      </div>
                     </motion.li>
                   );
                 })}

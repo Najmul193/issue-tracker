@@ -5,26 +5,17 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Trash2,
   MoreHorizontal,
-  Eye,
-  RotateCcw,
-  MessageCircleQuestion,
-  MessageSquare,
-  CheckCircle2,
-  ThumbsUp,
-  XCircle,
-  ArrowRight,
   UserPlus,
   Paperclip,
   Download,
   FileText,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import { fetchIssue, assignIssue, updateIssueStatus, updateIssueFields, addComment, deleteIssue } from '../api/issues';
 import { fetchAssignableUsers } from '../api/users';
 import { fetchProjectOrganizations, fetchProjectDepartments } from '../api/projects';
 import type { ProjectOrg, ProjectDept } from '../api/projects';
-import type { IssueType, IssueStatus, IssueStatusOrResolve, UpdateIssueFieldsData } from '../api/issues';
+import type { IssueType, IssueStatusOrResolve, UpdateIssueFieldsData } from '../api/issues';
 import type { AssignableUser } from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import PriorityBadge from '../components/PriorityBadge';
@@ -37,29 +28,7 @@ import Select from '../components/ui/Select';
 import Textarea from '../components/ui/Textarea';
 import AlertBanner from '../components/ui/AlertBanner';
 import { staggerContainer, staggerItem } from '../lib/motion';
-
-/*
- * Transition map — must stay in sync with backend/src/modules/issues/state-machine.ts
- * The backend is the source of truth; this is for UI convenience only.
- *
- * Two flows:
- *   Flow A (Client→SI):      NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→PENDING_CLIENT_APPROVAL→CLOSED
- *   Flow B (Client→SI→OEM): NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→SI_REVIEW→PENDING_CLIENT_APPROVAL→CLOSED
- *
- * RESOLVED is a virtual action: the UI shows a "Resolve" button from IN_PROGRESS.
- * The backend auto-routes it to SI_REVIEW before persisting.
- */
-const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatusOrResolve[]> = {
-  NEW:                      ['UNDER_REVIEW'],
-  SI_APPROVAL:              ['ASSIGNED', 'CLARIFICATION_REQUESTED'],
-  UNDER_REVIEW:             ['CLARIFICATION_REQUESTED', 'ASSIGNED'],
-  CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'IN_PROGRESS'],
-  ASSIGNED:                 ['IN_PROGRESS'],
-  IN_PROGRESS:              ['RESOLVED', 'CLARIFICATION_REQUESTED'],
-  SI_REVIEW:                ['PENDING_CLIENT_APPROVAL', 'ASSIGNED'],
-  PENDING_CLIENT_APPROVAL:  ['CLOSED', 'ASSIGNED'],
-  CLOSED:                   ['UNDER_REVIEW'],
-};
+import { getTransitionMeta } from '../lib/issueTransitions';
 
 const ALLOWED_FILE_TYPES = [
   'image/jpeg',
@@ -100,24 +69,6 @@ function getDeadlineClass(deadline: string | null): string {
   if (remaining < 0) return 'text-red-600 font-medium dark:text-red-400';
   if (remaining < 0.2 * (7 * 24 * 60 * 60 * 1000)) return 'text-amber-600 font-medium dark:text-amber-400';
   return 'text-neutral-700 dark:text-slate-300';
-}
-
-// Same (from, to) → (label, icon) mapping as before; only an icon lookup was added alongside the existing label logic.
-function getTransitionMeta(s: IssueStatusOrResolve, currentStatus: IssueStatus): { label: string; icon: LucideIcon } {
-  if (s === 'UNDER_REVIEW' && currentStatus === 'NEW') return { label: 'Acknowledge (Under Review)', icon: Eye };
-  if (s === 'UNDER_REVIEW' && currentStatus === 'CLOSED') return { label: 'Reopen (Under Review)', icon: RotateCcw };
-  if (s === 'UNDER_REVIEW') return { label: 'Provide Clarification (Under Review)', icon: MessageCircleQuestion };
-  if (s === 'IN_PROGRESS' && currentStatus === 'CLARIFICATION_REQUESTED')
-    return { label: 'Provide Clarification (In Progress)', icon: MessageSquare };
-  if (s === 'CLARIFICATION_REQUESTED' && currentStatus === 'UNDER_REVIEW')
-    return { label: 'Clarification Needed', icon: MessageCircleQuestion };
-  if (s === 'CLARIFICATION_REQUESTED') return { label: 'Request Clarification', icon: MessageCircleQuestion };
-  if (s === 'ASSIGNED' && currentStatus === 'UNDER_REVIEW') return { label: 'Valid', icon: CheckCircle2 };
-  if (s === 'PENDING_CLIENT_APPROVAL' && currentStatus === 'SI_REVIEW') return { label: 'Approved', icon: ThumbsUp };
-  if (s === 'ASSIGNED' && currentStatus === 'SI_REVIEW') return { label: 'Not Approved', icon: XCircle };
-  if (s === 'CLOSED' && currentStatus === 'PENDING_CLIENT_APPROVAL') return { label: 'Approve', icon: ThumbsUp };
-  if (s === 'ASSIGNED' && currentStatus === 'PENDING_CLIENT_APPROVAL') return { label: 'Not Approved', icon: XCircle };
-  return { label: `Mark ${s.replace(/_/g, ' ')}`, icon: ArrowRight };
 }
 
 const typeOptions: { label: string; value: IssueType }[] = [
@@ -395,33 +346,9 @@ export default function IssueDetail() {
     setCommentFiles((prev) => [...prev, ...newFiles].slice(0, MAX_FILES));
   }
 
-  // Mirrors backend canActOnIssue: SUPER_ADMIN always, SI org always (central team), raisedByOrg, assignedToOrg, assigned user
-  const canChangeStatus = (() => {
-    if (!currentUser || !issue) return false;
-    if (currentUser.role === 'SUPER_ADMIN') return true;
-    // SI (Data Edge) is always involved
-    if (currentUser.organization.type === 'SI') return true;
-    const effectiveAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId;
-    if (currentUser.organizationId === issue.raisedByOrg.id) return true;
-    if (effectiveAssignedOrgId && currentUser.organizationId === effectiveAssignedOrgId) return true;
-    if (issue.assignedToUserId && currentUser.id === issue.assignedToUserId) return true;
-    return false;
-  })();
-
-  // Only SI org members can move to UNDER_REVIEW from NEW
-  const canMoveToUnderReview = currentUser?.organization.type === 'SI' || currentUser?.role === 'SUPER_ADMIN';
-
-  // Only SI org members can act on SI_REVIEW state
-  const canActOnSiReview = currentUser?.organization.type === 'SI' || currentUser?.role === 'SUPER_ADMIN';
-
-  // Only CLIENT org admin / issue creator / SUPER_ADMIN can close
-  const canClose = (() => {
-    if (!currentUser || !issue) return false;
-    if (currentUser.role === 'SUPER_ADMIN') return true;
-    if (currentUser.id === issue.raisedById) return true;
-    if (currentUser.organizationId === issue.raisedByOrg.id && currentUser.role === 'ORG_ADMIN') return true;
-    return false;
-  })();
+  // Which status changes this user may perform is decided by the backend and delivered on
+  // the issue itself (see `permittedTransitions` in api/issues.ts). Re-deriving it here is
+  // what used to let the buttons drift out of step with the API.
 
   // SI or SUPER_ADMIN can edit type/deadline only in SI_APPROVAL or UNDER_REVIEW
   const canEditFields = (() => {
@@ -431,53 +358,6 @@ export default function IssueDetail() {
     if (currentUser.organization.type === 'SI') return true;
     return false;
   })();
-
-  // Filter the visible transitions for the current user
-  function getVisibleTransitions(status: IssueStatus): IssueStatusOrResolve[] {
-    const all = ALLOWED_TRANSITIONS[status] ?? [];
-    return all.filter((t) => {
-      if (t === 'UNDER_REVIEW' && status === 'NEW') return canMoveToUnderReview;
-      if (t === 'UNDER_REVIEW' && status === 'CLOSED') return canActOnSiReview;
-      if (t === 'CLOSED') return canClose;
-      if (status === 'UNDER_REVIEW') return canActOnSiReview;
-      if (status === 'SI_APPROVAL') return canActOnSiReview;
-      if (status === 'SI_REVIEW') return canActOnSiReview;
-      // 3. Issue Creator actions (providing clarification)
-      if (status === 'CLARIFICATION_REQUESTED') {
-        const isCreator = currentUser?.id === issue?.raisedById;
-        const isClientOrgAdmin = currentUser?.organizationId === issue?.raisedByOrg.id && currentUser?.role === 'ORG_ADMIN';
-        const canProvideClarification = isCreator || isClientOrgAdmin || currentUser?.role === 'SUPER_ADMIN';
-
-        const lastStatusChange = issue?.activityLogs?.find(l => l.action === 'STATUS_CHANGED' && l.newValue === 'CLARIFICATION_REQUESTED');
-        const cameFrom = lastStatusChange?.oldValue;
-        // Clarification from UNDER_REVIEW or SI_APPROVAL → respond with UNDER_REVIEW
-        // Clarification from IN_PROGRESS (OEM) → respond with IN_PROGRESS
-        const respondWithUnderReview = cameFrom === 'UNDER_REVIEW' || cameFrom === 'SI_APPROVAL';
-
-        if (canProvideClarification) {
-          if (respondWithUnderReview && t === 'UNDER_REVIEW') return true;
-          if (!respondWithUnderReview && t === 'IN_PROGRESS') return true;
-        }
-        return false;
-      }
-
-      // 4. Assignee actions (working on the issue)
-      if (status === 'ASSIGNED' || status === 'IN_PROGRESS') {
-        const isAssignee = currentUser?.id === issue?.assignedToUserId;
-        const isAssigneeOrg = currentUser?.organizationId === (issue?.assignedToOrgId ?? issue?.assignedToUser?.organizationId);
-        const canWorkOnIssue = isAssignee || isAssigneeOrg || currentUser?.role === 'SUPER_ADMIN';
-        if (t === 'RESOLVED' || t === 'CLARIFICATION_REQUESTED' || t === 'IN_PROGRESS') return canWorkOnIssue;
-        return false;
-      }
-
-      // 5. Client actions (approving or rejecting)
-      if (status === 'PENDING_CLIENT_APPROVAL') {
-        return canClose; // canClose exactly matches (isCreator || isCreatorOrgAdmin || SUPER_ADMIN)
-      }
-
-      return true;
-    });
-  }
 
   if (isLoading) {
     return (
@@ -503,7 +383,7 @@ export default function IssueDetail() {
     );
   }
 
-  const allowedNext = getVisibleTransitions(issue.status);
+  const allowedNext = issue.permittedTransitions ?? [];
   const canDelete =
     issue.raisedBy.id === currentUser?.id ||
     currentUser?.role === 'SUPER_ADMIN' ||
@@ -694,7 +574,7 @@ export default function IssueDetail() {
       )}
 
       {/* Status Change Control */}
-      {canChangeStatus && allowedNext.length > 0 ? (
+      {allowedNext.length > 0 ? (
         <Card title="Update Status">
           <AnimatePresence>{statusError && <AlertBanner tone="error">{statusError}</AlertBanner>}</AnimatePresence>
           <div className="flex flex-wrap gap-2">

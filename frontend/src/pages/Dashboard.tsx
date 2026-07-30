@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -230,9 +231,11 @@ function RecentActivityList({
 function DeadlineAndNotesRow({
   data,
   isLoading,
+  onNotesBusyChange,
 }: {
   data: DashboardMetrics | undefined;
   isLoading: boolean;
+  onNotesBusyChange: (busy: boolean) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -240,7 +243,11 @@ function DeadlineAndNotesRow({
         <DeadlineCalendar />
       </Card>
       <Card title="Notes & Alerts" icon={<BellRing />}>
-        {isLoading ? <SkeletonSection height={200} /> : <NotesPanel issues={data?.myActionableIssues ?? []} />}
+        {isLoading ? (
+          <SkeletonSection height={200} />
+        ) : (
+          <NotesPanel issues={data?.myActionableIssues ?? []} onBusyChange={onNotesBusyChange} />
+        )}
       </Card>
     </div>
   );
@@ -251,11 +258,15 @@ function DeadlineAndNotesRow({
 export default function Dashboard() {
   const { user: currentUser } = useAuth();
   const { projectIdsParam } = useProjectFilter();
+  // Paused while a Notes & Alerts quick action is mid-flight, so a 30s refetch can't unmount
+  // a card (and its open comment modal) out from under the user — same reasoning as the
+  // Concern page's Approval tab.
+  const [notesBusy, setNotesBusy] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard-metrics', projectIdsParam],
     queryFn: () => fetchDashboardMetrics(projectIdsParam ?? undefined),
-    refetchInterval: 30_000,
+    refetchInterval: notesBusy ? false : 30_000,
   });
 
   const isOrgAdmin = currentUser?.role === 'ORG_ADMIN';
@@ -360,7 +371,7 @@ export default function Dashboard() {
             )}
           </motion.div>
 
-          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} onNotesBusyChange={setNotesBusy} />
 
           <Card title="Deadline Health (SLA Aging)" icon={<Gauge />}>
             {isLoading ? <div className="h-12 animate-pulse rounded bg-neutral-100 dark:bg-slate-700" /> : data ? <SlaAgingBar data={data.slaAging} /> : null}
@@ -440,7 +451,7 @@ export default function Dashboard() {
             )}
           </motion.div>
 
-          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} onNotesBusyChange={setNotesBusy} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="Workflow Bottlenecks" icon={<Workflow />}>
@@ -512,7 +523,7 @@ export default function Dashboard() {
             )}
           </motion.div>
 
-          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} onNotesBusyChange={setNotesBusy} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Card title="Team Overview" icon={<BarChart3 />} className="lg:col-span-2">
@@ -574,7 +585,7 @@ export default function Dashboard() {
             )}
           </motion.div>
 
-          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} onNotesBusyChange={setNotesBusy} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="My Assigned Issues" icon={<UserCheck />}>
@@ -627,7 +638,7 @@ export default function Dashboard() {
             )}
           </motion.div>
 
-          <DeadlineAndNotesRow data={data} isLoading={isLoading} />
+          <DeadlineAndNotesRow data={data} isLoading={isLoading} onNotesBusyChange={setNotesBusy} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="My Assigned Issues" icon={<UserCheck />}>

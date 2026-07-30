@@ -203,8 +203,27 @@ Resolution routing:
   - Reopened issues can be redistributed to outside orgs by raiser's org admin
   - Cross-org type restriction: cannot assign to an org of the same type as the actor's org
 - Full state machine enforcement with role-based transition authorization
-  - CLOSED → UNDER_REVIEW restricted to raiser's org admin or SUPER_ADMIN
+  - CLOSED → UNDER_REVIEW restricted to the SI org admin or SUPER_ADMIN
   - PENDING_CLIENT_APPROVAL → CLOSED restricted to issue creator or creator's org admin
+  - SI_APPROVAL → ASSIGNED restricted to the SI team or SUPER_ADMIN
+  - CLARIFICATION_REQUESTED → the answer must return the issue to the stage the request came
+    from (SI_APPROVAL/UNDER_REVIEW → UNDER_REVIEW; IN_PROGRESS → IN_PROGRESS), read from the
+    most recent `STATUS_CHANGED` activity log. The other target is refused, which is what keeps
+    a pre-assignment clarification from skipping the assignment gate.
+- **Server-computed permissions** — every issue returned by `GET /api/issues` and
+  `GET /api/issues/:id` carries a `permittedTransitions` array listing the status changes the
+  *requesting user* may perform. It is produced by `issues/transition-rules.ts`, a pure
+  re-statement of the `updateStatus()` guard chain, and the frontend renders exactly those
+  buttons rather than re-deriving permissions. `__tests__/transition-rules.spec.ts` proves the
+  two agree by attempting every transition as every actor archetype.
+- **Approval queue** — `GET /api/issues?concern=true&concernFilter=approval` returns the issues
+  whose current status makes the requesting user the party who must act (SI sees NEW /
+  SI_APPROVAL / UNDER_REVIEW / SI_REVIEW; the assigned team sees ASSIGNED / IN_PROGRESS; the
+  raising side sees CLARIFICATION_REQUESTED / PENDING_CLIENT_APPROVAL). Closed issues are
+  excluded so the queue stays live. The SQL predicate lives in
+  `common/authz/actionable-issues.ts` and is shared with the dashboard's deadline-alert widget.
+- **Sorting** — `sort=deadline` orders lists by soonest deadline first with undated issues last;
+  any other value (including absent) keeps the default newest-first.
 - Resolution notes (required for RESOLVED) and clarification comments (required for CLARIFICATION_REQUESTED)
 - **Edit type and deadline inline** — SI team (or SUPER_ADMIN) can change the type and/or deadline of an issue when it is in **SI_APPROVAL** or **UNDER_REVIEW** status. Changes are logged as `FIELD_UPDATED` in the activity log with the specific field name.
 - **Auto-refresh via polling** — Issues (15s), Concern (15s), IssueDetail (10s), Dashboard (30s), and NotificationBell (15s) pages auto-refresh using React Query's `refetchInterval` to keep data current across users without WebSockets.
@@ -503,7 +522,7 @@ All endpoints are prefixed with `/api`. Authentication is enforced globally (JWT
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
 | POST | `/api/issues` | Authenticated | Create issue |
-| GET | `/api/issues` | Authenticated | List/filter issues (`concern`, `concernFilter` params) |
+| GET | `/api/issues` | Authenticated | List/filter issues (`concern`, `concernFilter=raised\|assigned\|approval`, `sort=deadline`). Each row includes `permittedTransitions`. |
 | GET | `/api/issues/:id` | Authenticated | Issue details |
 | PATCH | `/api/issues/:id/assign` | Authorized | Assign/reassign (role-based rules) |
 | PATCH | `/api/issues/:id/fields` | Authorized | Update type and/or deadline (SI only, SI_APPROVAL or UNDER_REVIEW) |
