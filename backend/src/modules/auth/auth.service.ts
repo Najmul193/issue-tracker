@@ -268,8 +268,8 @@ export class AuthService {
     if (!newPassword || newPassword.length < 8) {
       throw new BadRequestException('Password must be at least 8 characters long');
     }
-    if (newPassword.length > 128) {
-      throw new BadRequestException('Password must not exceed 128 characters');
+    if (newPassword.length > 12) {
+      throw new BadRequestException('Password must be no more than 12 characters long');
     }
 
     const resetRecord = await this.prisma.passwordResetToken.findUnique({

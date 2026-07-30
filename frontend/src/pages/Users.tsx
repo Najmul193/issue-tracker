@@ -13,6 +13,7 @@ import { ApiError } from '../api/client';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import PasswordInput from '../components/ui/PasswordInput';
 import Select from '../components/ui/Select';
 import Modal from '../components/ui/Modal';
 import AlertBanner from '../components/ui/AlertBanner';
@@ -245,6 +246,7 @@ export default function Users() {
     if (!validateEmail(formEmail.trim())) { setFormError('Invalid email format'); return; }
     if (!formPassword.trim()) { setFormError('Password is required'); return; }
     if (formPassword.length < 6) { setFormError('Password must be at least 6 characters'); return; }
+    if (formPassword.length > 12) { setFormError('Password must be no more than 12 characters'); return; }
 
     if (currentUser?.role === 'ORG_ADMIN') {
       createMutation.mutate({
@@ -694,7 +696,7 @@ export default function Users() {
 
           <Input label="Name *" value={formName} onChange={(e) => setFormName(e.target.value)} />
           <Input label="Email *" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} />
-          <Input label="Password *" type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+          <PasswordInput label="Password *" maxLength={12} hint="6–12 characters" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
           <Input label="Phone" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} />
 
           {isSuperAdmin && (

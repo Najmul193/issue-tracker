@@ -12,26 +12,14 @@ import {
 import { UsersService } from './users.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(
-    @Body()
-    dto: {
-      name: string;
-      email: string;
-      password: string;
-      phone?: string;
-      role: string;
-      organizationId?: string;
-      newOrganizationName?: string;
-      newOrganizationType?: string;
-    },
-    @CurrentUser() actor: JwtPayload,
-  ) {
+  create(@Body() dto: CreateUserDto, @CurrentUser() actor: JwtPayload) {
     return this.usersService.create(dto, actor);
   }
 

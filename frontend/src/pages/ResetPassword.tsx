@@ -5,7 +5,7 @@ import { Lock } from 'lucide-react';
 import { resetPassword } from '../api/auth';
 import { ApiError } from '../api/client';
 import AuthLayout from '../components/AuthLayout';
-import Input from '../components/ui/Input';
+import PasswordInput from '../components/ui/PasswordInput';
 import Button from '../components/ui/Button';
 import AlertBanner from '../components/ui/AlertBanner';
 
@@ -33,6 +33,12 @@ export default function ResetPassword() {
     if (password.length < 8) {
       setStatus('error');
       setErrorMessage('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (password.length > 12) {
+      setStatus('error');
+      setErrorMessage('Password must be no more than 12 characters long.');
       return;
     }
 
@@ -77,27 +83,28 @@ export default function ResetPassword() {
             )}
           </AnimatePresence>
 
-          <Input
+          <PasswordInput
             id="new-password"
             name="password"
-            type="password"
             label="New Password"
             required
             icon={<Lock />}
             placeholder="••••••••"
+            maxLength={12}
+            hint="8–12 characters"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={status === 'loading' || !token}
           />
 
-          <Input
+          <PasswordInput
             id="confirm-password"
             name="confirmPassword"
-            type="password"
             label="Confirm Password"
             required
             icon={<Lock />}
             placeholder="••••••••"
+            maxLength={12}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={status === 'loading' || !token}

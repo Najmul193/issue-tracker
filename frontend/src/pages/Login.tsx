@@ -6,6 +6,7 @@ import { Mail, Lock } from 'lucide-react';
 import { ApiError, RateLimitError } from '../api/client';
 import AuthLayout from '../components/AuthLayout';
 import Input from '../components/ui/Input';
+import PasswordInput from '../components/ui/PasswordInput';
 import Button from '../components/ui/Button';
 import AlertBanner from '../components/ui/AlertBanner';
 
@@ -102,9 +103,8 @@ export default function Login() {
             </Link>
           </div>
           <div className="mt-1">
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               icon={<Lock />}
               value={password}

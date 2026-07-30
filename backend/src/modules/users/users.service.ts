@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/decorators/current-user.decorator';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -28,20 +29,7 @@ export class UsersService {
     return user;
   }
 
-  async create(
-    dto: {
-      name: string;
-      email: string;
-      password: string;
-      phone?: string;
-      role: string;
-      organizationId?: string;
-      newOrganizationName?: string;
-      newOrganizationType?: string;
-      departmentId?: string;
-    },
-    actor: JwtPayload,
-  ) {
+  async create(dto: CreateUserDto, actor: JwtPayload) {
     if (actor.role === 'USER') {
       throw new ForbiddenException('USER cannot create users');
     }

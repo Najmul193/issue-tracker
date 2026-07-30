@@ -7,6 +7,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtPayload } from './decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
 import { RolesGuard } from './guards/roles.guard';
+import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -19,10 +21,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async login(
-    @Body() dto: { email: string; password: string },
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { accessToken, payload } = await this.authService.login(dto.email, dto.password);
 
     const isProduction = process.env.NODE_ENV === 'production';
@@ -66,7 +65,7 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async resetPassword(@Body() dto: { token: string; password: string }) {
+  async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.authService.resetPassword(dto.token, dto.password);
     return { message: 'Password has been reset successfully.' };
   }

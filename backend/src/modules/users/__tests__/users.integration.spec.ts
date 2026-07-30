@@ -330,6 +330,85 @@ describe('Users Management (all scenarios)', () => {
     });
   });
 
+  describe('Password length rules on user creation', () => {
+    it('rejects a password longer than 12 characters', async () => {
+      const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
+      const res = await request(app.getHttpServer())
+        .post('/api/users')
+        .set('Cookie', `access_token=${t}`)
+        .send({
+          name: 'Too Long Password',
+          email: `toolong-${suiteId}@test.dev`,
+          password: 'a'.repeat(13),
+          role: 'USER',
+          organizationId: bankOrgId,
+        });
+      expect(res.status).toBe(400);
+      if (res.body.id) createdUserIds.push(res.body.id);
+    });
+
+    it('accepts a password of exactly 12 characters', async () => {
+      const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
+      const res = await request(app.getHttpServer())
+        .post('/api/users')
+        .set('Cookie', `access_token=${t}`)
+        .send({
+          name: 'Exactly Twelve',
+          email: `twelve-${suiteId}@test.dev`,
+          password: 'a'.repeat(12),
+          role: 'USER',
+          organizationId: bankOrgId,
+        });
+      expect(res.status).toBe(201);
+      if (res.body.id) createdUserIds.push(res.body.id);
+    });
+
+    it('rejects a password shorter than 6 characters', async () => {
+      const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
+      const res = await request(app.getHttpServer())
+        .post('/api/users')
+        .set('Cookie', `access_token=${t}`)
+        .send({
+          name: 'Too Short Password',
+          email: `tooshort-${suiteId}@test.dev`,
+          password: 'abc',
+          role: 'USER',
+          organizationId: bankOrgId,
+        });
+      expect(res.status).toBe(400);
+      if (res.body.id) createdUserIds.push(res.body.id);
+    });
+  });
+
+  // Regression guard: the global ValidationPipe runs with `whitelist: true`, so any
+  // field missing from CreateUserDto is silently stripped before reaching the service.
+  // `departmentId` was absent from the controller's old inline body type.
+  describe('CreateUserDto whitelist does not strip departmentId', () => {
+    it('persists the department on the created user', async () => {
+      const dept = await prisma.department.create({
+        data: { name: `WhitelistDept-${suiteId}`, organizationId: bankOrgId },
+      });
+
+      const t = token(superAdminId, 'SUPER_ADMIN', superAdminOrgId, 'SUPER_ADMIN');
+      const res = await request(app.getHttpServer())
+        .post('/api/users')
+        .set('Cookie', `access_token=${t}`)
+        .send({
+          name: 'Dept User',
+          email: `deptuser-${suiteId}@test.dev`,
+          password: 'password123',
+          role: 'USER',
+          organizationId: bankOrgId,
+          departmentId: dept.id,
+        });
+      expect(res.status).toBe(201);
+      if (res.body.id) createdUserIds.push(res.body.id);
+
+      const persisted = await prisma.user.findUnique({ where: { id: res.body.id } });
+      expect(persisted?.departmentId).toBe(dept.id);
+    });
+  });
+
   describe('Scenario 6: Open issue visibility - Oracle USER views Bank/SI issue', () => {
     it('Oracle user with zero involvement can view a Bank-raised issue', async () => {
       const bankToken = token(bankAdminId, 'ORG_ADMIN', bankOrgId, 'CLIENT');

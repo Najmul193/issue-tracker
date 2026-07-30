@@ -5,10 +5,11 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   hint?: string;
   icon?: ReactNode;
+  trailingAdornment?: ReactNode;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, icon, id, className = '', ...props },
+  { label, error, hint, icon, trailingAdornment, id, className = '', ...props },
   ref,
 ) {
   return (
@@ -28,14 +29,19 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           ref={ref}
           id={id}
           className={`block w-full rounded-lg border text-base text-neutral-900 shadow-soft placeholder:text-neutral-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 sm:text-sm ${
-            icon ? 'pl-9 pr-3 py-2' : 'px-3 py-2'
-          } ${
+            icon ? 'pl-9' : 'pl-3'
+          } ${trailingAdornment ? 'pr-10' : 'pr-3'} py-2 ${
             error
               ? 'border-red-300 dark:border-red-500/60'
               : 'border-neutral-300 dark:border-slate-600'
           } ${className}`}
           {...props}
         />
+        {trailingAdornment && (
+          <span className="absolute inset-y-0 right-0 flex items-center pr-2 text-neutral-400 dark:text-slate-500">
+            {trailingAdornment}
+          </span>
+        )}
       </div>
       {error ? (
         <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>
