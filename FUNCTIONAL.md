@@ -185,14 +185,14 @@ CLARIFICATION_REQUESTED → UNDER_REVIEW, IN_PROGRESS
 IN_QA          → PENDING_CLIENT_APPROVAL, IN_PROGRESS
 SI_REVIEW      → PENDING_CLIENT_APPROVAL, ASSIGNED
 PENDING_CLIENT_APPROVAL → CLOSED, ASSIGNED
-CLOSED         → UNDER_REVIEW (raiser's org admin or SUPER_ADMIN only)
+CLOSED         → UNDER_REVIEW (SI team org admin or SUPER_ADMIN only)
 ```
 
 **Who can change status?** Any user whose organization matches the issue's raised-by organization OR assigned-to organization, OR who is the assigned user, OR the SI (Data Edge) team acting as a central router. SUPER_ADMIN can change any issue.
 
 **Special rules:**
 - **Approve / Close**: Only the issue creator (raised-by user) or an ORG_ADMIN in the creator's organization can transition to CLOSED from PENDING_CLIENT_APPROVAL. The resolver side (assigned user, assigned org) cannot close.
-- **Reopen a closed issue**: Only an ORG_ADMIN in the issue creator's organization or a SUPER_ADMIN can reopen a closed issue by sending it back to UNDER_REVIEW. Regular users and other org admins cannot.
+- **Reopen a closed issue**: Only an ORG_ADMIN from the SI (Data Edge) team or a SUPER_ADMIN can reopen a closed issue by sending it back to UNDER_REVIEW. Regular users and other org admins cannot.
 - **SI Review**: Only the SI team can move issues from SI_REVIEW to PENDING_CLIENT_APPROVAL.
 
 ---
@@ -213,7 +213,7 @@ The assignment UI is available to all users on the Issue Detail page. Assignment
 | Actor | Can assign to |
 |-------|---------------|
 | **SUPER_ADMIN** | Cannot assign issues (full access to create, edit, delete, and change status, but assignment is restricted to ORG_ADMIN, USER, and SI team) |
-| **SI Team (ORG_ADMIN / USER)** | Act as the central routing hub; can route to any organization. |
+| **SI Team (ORG_ADMIN / USER)** | Act as the central routing hub; can route to any organization. However, SI **cannot** route an issue back to the org that raised it (must go to a different org). |
 | **ORG_ADMIN** | Users within their own org only; can route to any org |
 | **USER** | Can route to other organizations initially, but once assigned, they cannot reassign. |
 
@@ -394,7 +394,7 @@ The issue creator, an ORG_ADMIN of the creator's organization, or a SUPER_ADMIN 
 1. Click **Users** in the sidebar.
 2. Only sees users in their own organization.
 3. **Create User**: Only can create USER role accounts in their own organization.
-4. **Edit User**: Only can edit USER accounts in their own organization. Cannot change status.
+4. **Edit User**: Only can edit USER accounts in their own organization. Can update name, phone, status, and department. Cannot make a user INACTIVE if the target is themselves.
 
 #### USER
 
@@ -422,7 +422,18 @@ Every action on an issue is recorded in the Activity Log, displayed chronologica
 
 ---
 
-### 2.16 Password Reset
+### 2.16 Password Constraints & Reset
+
+#### Password Rules
+
+| Context | Minimum | Maximum |
+|---------|---------|---------|
+| User creation (admin) | 6 characters | 12 characters |
+| Password reset | 8 characters | 12 characters |
+
+All seed test accounts use `password123` (11 characters).
+
+#### Password Reset Flow
 
 Users can reset their password via email.
 
@@ -430,7 +441,7 @@ Users can reset their password via email.
 2. Enter your email address.
 3. Click **Send Reset Link**. If the email is registered, a reset link is sent.
 4. Check your email for the reset link (valid for 1 hour).
-5. Click the link and enter a new password.
+5. Click the link and enter a new password (8–12 characters).
 6. Click **Reset Password**. You can now log in with your new password.
 
 **Note:** The system does not reveal whether an email address is registered (prevents email enumeration).
