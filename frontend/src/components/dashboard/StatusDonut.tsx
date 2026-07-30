@@ -8,7 +8,7 @@ const STATUS_LABELS: Record<string, string> = {
   CLARIFICATION_REQUESTED: 'Clarification Requested',
   ASSIGNED: 'Assigned',
   IN_PROGRESS: 'In Progress',
-  IN_QA: 'In QA',
+
   SI_REVIEW: 'SI Review',
   PENDING_CLIENT_APPROVAL: 'Pending Approval',
   CLOSED: 'Closed',
@@ -21,7 +21,7 @@ const STATUS_COLOR_LOOKUP: Record<string, string> = {
   CLARIFICATION_REQUESTED: STATUS_COLORS.clarification_requested,
   ASSIGNED: STATUS_COLORS.assigned,
   IN_PROGRESS: STATUS_COLORS.in_progress,
-  IN_QA: STATUS_COLORS.in_qa,
+
   SI_REVIEW: STATUS_COLORS.si_review,
   PENDING_CLIENT_APPROVAL: STATUS_COLORS.pending_client_approval,
   CLOSED: STATUS_COLORS.closed,

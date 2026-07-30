@@ -20,7 +20,7 @@ const statusOptions: { label: string; value: IssueStatus | '' }[] = [
   { label: 'Clarification Requested', value: 'CLARIFICATION_REQUESTED' },
   { label: 'Assigned', value: 'ASSIGNED' },
   { label: 'In Progress', value: 'IN_PROGRESS' },
-  { label: 'In QA', value: 'IN_QA' },
+
   { label: 'SI Review', value: 'SI_REVIEW' },
   { label: 'Pending Client Approval', value: 'PENDING_CLIENT_APPROVAL' },
   { label: 'Closed', value: 'CLOSED' },

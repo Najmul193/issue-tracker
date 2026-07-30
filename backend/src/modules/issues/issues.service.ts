@@ -658,13 +658,6 @@ export class IssuesService {
       }
     }
 
-    // IN_QA actions: only SI org admin or dept managers (or SUPER_ADMIN)
-    if (issue.status === 'IN_QA') {
-      if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
-        throw new ForbiddenException('Only the SI (Data Edge) team can perform QA validation');
-      }
-    }
-
     // CLARIFICATION_REQUESTED requires a comment, and only assignee/SI can request it
     if (actualStatus === 'CLARIFICATION_REQUESTED' && issue.status !== 'CLARIFICATION_REQUESTED') {
       if (!dto.comment?.trim()) {
@@ -846,15 +839,11 @@ export class IssuesService {
     const issue = await this.findOne(id, actor);
 
     if (issue.status !== 'SI_APPROVAL' && issue.status !== 'UNDER_REVIEW') {
-      throw new BadRequestException(
-        'Can only update fields in SI Approval or Under Review status',
-      );
+      throw new BadRequestException('Can only update fields in SI Approval or Under Review status');
     }
 
     if (actor.role !== 'SUPER_ADMIN' && actor.organizationType !== 'SI') {
-      throw new ForbiddenException(
-        'Only the SI (Data Edge) team can update issue fields',
-      );
+      throw new ForbiddenException('Only the SI (Data Edge) team can update issue fields');
     }
 
     const updateData: Prisma.IssueUpdateInput = {};

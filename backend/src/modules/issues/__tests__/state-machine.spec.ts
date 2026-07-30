@@ -30,9 +30,6 @@ describe('StateMachine — new branched workflow', () => {
     it('IN_PROGRESS allows CLARIFICATION_REQUESTED', () => {
       expect(sm.getAllowedTransitions('IN_PROGRESS')).toEqual(['CLARIFICATION_REQUESTED']);
     });
-    it('IN_QA allows PENDING_CLIENT_APPROVAL and IN_PROGRESS', () => {
-      expect(sm.getAllowedTransitions('IN_QA')).toEqual(['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS']);
-    });
     it('SI_REVIEW allows PENDING_CLIENT_APPROVAL and ASSIGNED', () => {
       expect(sm.getAllowedTransitions('SI_REVIEW')).toEqual([
         'PENDING_CLIENT_APPROVAL',
@@ -72,12 +69,6 @@ describe('StateMachine — new branched workflow', () => {
       expect(sm.canTransition('IN_PROGRESS', 'CLARIFICATION_REQUESTED')).toEqual({ valid: true }));
     it('IN_PROGRESS -> RESOLVED (virtual)', () =>
       expect(sm.canTransition('IN_PROGRESS', 'RESOLVED')).toEqual({ valid: true }));
-
-    // Virtual RESOLVED transitions handled by service, we only test the raw state machine transitions allowed
-    it('IN_QA -> PENDING_CLIENT_APPROVAL', () =>
-      expect(sm.canTransition('IN_QA', 'PENDING_CLIENT_APPROVAL')).toEqual({ valid: true }));
-    it('IN_QA -> IN_PROGRESS (reject)', () =>
-      expect(sm.canTransition('IN_QA', 'IN_PROGRESS')).toEqual({ valid: true }));
 
     it('SI_REVIEW -> PENDING_CLIENT_APPROVAL (approve)', () =>
       expect(sm.canTransition('SI_REVIEW', 'PENDING_CLIENT_APPROVAL')).toEqual({ valid: true }));

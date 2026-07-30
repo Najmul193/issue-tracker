@@ -24,7 +24,6 @@ export const status = {
   clarification_requested: '#f97316',
   assigned: '#8b5cf6',
   in_progress: '#a855f7',
-  in_qa: '#f59e0b',
   si_review: '#eab308',
   pending_client_approval: '#14b8a6',
   closed: '#6b7280',

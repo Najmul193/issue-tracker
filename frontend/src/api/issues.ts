@@ -7,7 +7,6 @@ export type IssueStatus =
   | 'CLARIFICATION_REQUESTED'
   | 'ASSIGNED'
   | 'IN_PROGRESS'
-  | 'IN_QA'
   | 'SI_REVIEW'
   | 'PENDING_CLIENT_APPROVAL'
   | 'CLOSED';
@@ -147,8 +146,6 @@ export interface UpdateStatusData {
   status: IssueStatusOrResolve;
   comment?: string;
   resolutionNote?: string;
-  /** Only used when status=RESOLVED and assigned org is SI. true -> IN_QA, false -> PENDING_CLIENT_APPROVAL */
-  requiresQA?: boolean;
 }
 
 export async function fetchIssues(

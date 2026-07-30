@@ -226,7 +226,7 @@ export class NotificationsService {
 
   async checkDeadlines(): Promise<number> {
     const now = new Date();
-    const TERMINAL_STATUSES: string[] = ['SI_REVIEW', 'IN_QA', 'PENDING_CLIENT_APPROVAL', 'CLOSED'];
+    const TERMINAL_STATUSES: string[] = ['SI_REVIEW', 'PENDING_CLIENT_APPROVAL', 'CLOSED'];
     let totalNotifications = 0;
 
     // Find issues with deadlines that are not in terminal statuses
@@ -570,7 +570,14 @@ export class NotificationsService {
       },
       orderBy: { deadline: 'asc' },
       take: 5,
-      select: { id: true, title: true, priority: true, status: true, deadline: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        status: true,
+        deadline: true,
+        updatedAt: true,
+      },
     });
 
     // My actionable issues — issues whose CURRENT STATUS makes actor (or their org/role)
@@ -579,7 +586,7 @@ export class NotificationsService {
     // alerts (e.g. an SI_APPROVAL issue's deadline is the SI team's problem, not the
     // assignee's; a PENDING_CLIENT_APPROVAL issue's deadline is the client's problem).
     const isSiResponsible = actor.role === 'SUPER_ADMIN' || actor.organizationType === 'SI';
-    const siStatuses = ['NEW', 'SI_APPROVAL', 'UNDER_REVIEW', 'SI_REVIEW', 'IN_QA'];
+    const siStatuses = ['NEW', 'SI_APPROVAL', 'UNDER_REVIEW', 'SI_REVIEW'];
     const clientStatuses = ['CLARIFICATION_REQUESTED', 'PENDING_CLIENT_APPROVAL'];
 
     const actionableOr: Prisma.IssueWhereInput[] = [
@@ -592,7 +599,10 @@ export class NotificationsService {
     if (actor.role === 'SUPER_ADMIN') {
       actionableOr.push({ status: { in: clientStatuses as any } });
     } else if (actor.role === 'ORG_ADMIN') {
-      actionableOr.push({ status: { in: clientStatuses as any }, raisedByOrgId: actor.organizationId });
+      actionableOr.push({
+        status: { in: clientStatuses as any },
+        raisedByOrgId: actor.organizationId,
+      });
     } else {
       actionableOr.push({ status: { in: clientStatuses as any }, raisedById: actor.userId });
     }
@@ -603,7 +613,14 @@ export class NotificationsService {
       },
       orderBy: { deadline: 'asc' },
       take: 10,
-      select: { id: true, title: true, priority: true, status: true, deadline: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        status: true,
+        deadline: true,
+        updatedAt: true,
+      },
     });
 
     // Recent activity (last 10 entries) — scoped to visible issues
@@ -645,7 +662,11 @@ export class NotificationsService {
         orgs.map(async (org) => {
           const [open, overdue] = await Promise.all([
             this.prisma.issue.count({
-              where: { ...visibilityFilter, raisedByOrgId: org.id, status: { in: openStatuses as any } },
+              where: {
+                ...visibilityFilter,
+                raisedByOrgId: org.id,
+                status: { in: openStatuses as any },
+              },
             }),
             this.prisma.issue.count({
               where: {
@@ -662,7 +683,7 @@ export class NotificationsService {
     }
 
     // ── SLA Aging (all visible non-terminal issues with deadlines) ──
-    const terminalStatuses = ['CLOSED', 'SI_REVIEW', 'IN_QA', 'PENDING_CLIENT_APPROVAL'] as any;
+    const terminalStatuses = ['CLOSED', 'SI_REVIEW', 'PENDING_CLIENT_APPROVAL'] as any;
     const slaIssues = await this.prisma.issue.findMany({
       where: {
         ...visibilityFilter,
@@ -801,10 +822,7 @@ export class NotificationsService {
         'IN_PROGRESS',
       ] as any;
       const orgMemberOrRaiser = {
-        OR: [
-          { raisedByOrgId: actor.organizationId },
-          { assignedToOrgId: actor.organizationId },
-        ],
+        OR: [{ raisedByOrgId: actor.organizationId }, { assignedToOrgId: actor.organizationId }],
       };
 
       const [totalOpen, totalOverdue, orgStatusCounts] = await Promise.all([
@@ -841,7 +859,11 @@ export class NotificationsService {
         orgUsers.map(async (u) => {
           const [assignedCount, resolvedCount] = await Promise.all([
             this.prisma.issue.count({
-              where: { ...visibilityFilter, assignedToUserId: u.id, status: { notIn: ['CLOSED'] as any } },
+              where: {
+                ...visibilityFilter,
+                assignedToUserId: u.id,
+                status: { notIn: ['CLOSED'] as any },
+              },
             }),
             this.prisma.issue.count({
               where: { ...visibilityFilter, assignedToUserId: u.id, status: 'CLOSED' as any },
@@ -886,7 +908,11 @@ export class NotificationsService {
         teammates.map(async (t) => {
           const [assignedCount, inProgressCount] = await Promise.all([
             this.prisma.issue.count({
-              where: { ...visibilityFilter, assignedToUserId: t.id, status: { notIn: ['CLOSED'] as any } },
+              where: {
+                ...visibilityFilter,
+                assignedToUserId: t.id,
+                status: { notIn: ['CLOSED'] as any },
+              },
             }),
             this.prisma.issue.count({
               where: { ...visibilityFilter, assignedToUserId: t.id, status: 'IN_PROGRESS' as any },

@@ -5,7 +5,6 @@ import {
   MessageCircleQuestion,
   UserCheck,
   Activity,
-  FlaskConical,
   SearchCheck,
   Hourglass,
   CheckCircle2,
@@ -20,7 +19,7 @@ const STATUS_LABELS: Record<IssueStatus, string> = {
   CLARIFICATION_REQUESTED: 'Clarification Requested',
   ASSIGNED: 'Assigned',
   IN_PROGRESS: 'In Progress',
-  IN_QA: 'In QA',
+
   SI_REVIEW: 'SI Review',
   PENDING_CLIENT_APPROVAL: 'Pending Approval',
   CLOSED: 'Closed',
@@ -38,7 +37,7 @@ const STATUS_TONE: Record<IssueStatus, string> = {
     'bg-status-assigned/10 text-status-assigned ring-status-assigned/25 dark:bg-status-assigned/15 dark:text-violet-400 dark:ring-status-assigned/30',
   IN_PROGRESS:
     'bg-status-in_progress/10 text-status-in_progress ring-status-in_progress/25 dark:bg-status-in_progress/15 dark:text-purple-400 dark:ring-status-in_progress/30',
-  IN_QA: 'bg-status-in_qa/10 text-status-in_qa ring-status-in_qa/25 dark:bg-status-in_qa/15 dark:text-amber-400 dark:ring-status-in_qa/30',
+
   SI_REVIEW:
     'bg-status-si_review/10 text-status-si_review ring-status-si_review/25 dark:bg-status-si_review/15 dark:text-yellow-400 dark:ring-status-si_review/30',
   PENDING_CLIENT_APPROVAL:
@@ -54,7 +53,7 @@ const STATUS_ICON: Record<IssueStatus, typeof CircleDot> = {
   CLARIFICATION_REQUESTED: MessageCircleQuestion,
   ASSIGNED: UserCheck,
   IN_PROGRESS: Activity,
-  IN_QA: FlaskConical,
+
   SI_REVIEW: SearchCheck,
   PENDING_CLIENT_APPROVAL: Hourglass,
   CLOSED: CheckCircle2,

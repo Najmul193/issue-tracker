@@ -110,7 +110,7 @@ The Dashboard shows key summary cards, charts, and personal panels. All data aut
 5. Filter issues using the controls at the top:
    - **Type**: All / Bug / New Requirement / Change Request / Query
    - **Priority**: All / Critical / High / Medium / Low
-   - **Status**: All / New / SI Approval / Under Review / Clarification Requested / Assigned / In Progress / In QA / SI Review / Pending Client Approval / Closed
+    - **Status**: All / New / SI Approval / Under Review / Clarification Requested / Assigned / In Progress / SI Review / Pending Client Approval / Closed
    - **Overdue**: Toggle to show only overdue issues
    - **Module**: Type to search by module name
 6. Navigate between pages using the pagination controls at the bottom.
@@ -182,7 +182,7 @@ UNDER_REVIEW   → CLARIFICATION_REQUESTED, ASSIGNED
 ASSIGNED       → IN_PROGRESS
 IN_PROGRESS    → CLARIFICATION_REQUESTED, RESOLVED (virtual)
 CLARIFICATION_REQUESTED → UNDER_REVIEW, IN_PROGRESS
-IN_QA          → PENDING_CLIENT_APPROVAL, IN_PROGRESS
+
 SI_REVIEW      → PENDING_CLIENT_APPROVAL, ASSIGNED
 PENDING_CLIENT_APPROVAL → CLOSED, ASSIGNED
 CLOSED         → UNDER_REVIEW (SI team org admin or SUPER_ADMIN only)

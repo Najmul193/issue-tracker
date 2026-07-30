@@ -11,7 +11,7 @@ interface TransitionResult {
  * Defines all valid status transitions for the branched issue workflow.
  *
  * Two flows are supported:
- *   Flow A (Client -> SI):       NEW -> UNDER_REVIEW -> ASSIGNED -> IN_PROGRESS -> [IN_QA ->] PENDING_CLIENT_APPROVAL -> CLOSED
+ *   Flow A (Client -> SI):       NEW -> UNDER_REVIEW -> ASSIGNED -> IN_PROGRESS -> PENDING_CLIENT_APPROVAL -> CLOSED
  *   Flow B (Client -> SI -> OEM): NEW -> UNDER_REVIEW -> ASSIGNED -> IN_PROGRESS -> SI_REVIEW -> PENDING_CLIENT_APPROVAL -> CLOSED
  *
  * SI Approval gate:
@@ -19,8 +19,7 @@ interface TransitionResult {
  *   Only SI can validate: SI_APPROVAL -> ASSIGNED (assignment takes effect).
  *
  * NOTE: When an actor submits status=RESOLVED, the service layer intercepts it and
- * auto-routes to SI_REVIEW (OEM assignee), IN_QA (SI assignee + requiresQA=true), or
- * PENDING_CLIENT_APPROVAL (SI assignee + requiresQA=false). RESOLVED is never stored in the DB.
+ * auto-routes to SI_REVIEW before persisting. RESOLVED is never stored in the DB.
  */
 const TRANSITION_MAP: Record<string, IssueStatus[]> = {
   NEW: ['UNDER_REVIEW'],
@@ -29,8 +28,6 @@ const TRANSITION_MAP: Record<string, IssueStatus[]> = {
   CLARIFICATION_REQUESTED: ['UNDER_REVIEW', 'IN_PROGRESS'],
   ASSIGNED: ['IN_PROGRESS'],
   IN_PROGRESS: ['CLARIFICATION_REQUESTED'],
-  // RESOLVED is a virtual input mapped in canTransition; service routes to SI_REVIEW unconditionally
-  IN_QA: ['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS'], // Keeping in schema but unused in UI
   SI_REVIEW: ['PENDING_CLIENT_APPROVAL', 'ASSIGNED'], // Approve -> Client, Reject -> Assignee
   PENDING_CLIENT_APPROVAL: ['CLOSED', 'ASSIGNED'], // Approve -> Closed, Reject -> Assignee
   CLOSED: ['UNDER_REVIEW'],

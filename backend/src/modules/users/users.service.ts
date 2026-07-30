@@ -200,7 +200,8 @@ export class UsersService {
 
       // SI middleware: if assigned to SI, only own org users; otherwise exclude creator org
       if (actor.organizationType === 'SI' && issue) {
-        const currentAssignedOrgId = issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
+        const currentAssignedOrgId =
+          issue.assignedToOrgId ?? issue.assignedToUser?.organizationId ?? null;
         const isAssignedToSI = currentAssignedOrgId === actor.organizationId;
         return this.prisma.user.findMany({
           where: {

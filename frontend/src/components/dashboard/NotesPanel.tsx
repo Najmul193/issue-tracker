@@ -27,7 +27,7 @@ const ACTION_HINT: Record<string, string> = {
   CLARIFICATION_REQUESTED: 'is waiting on your clarification',
   ASSIGNED: "hasn't been started yet",
   IN_PROGRESS: 'is in progress',
-  IN_QA: 'is waiting on QA',
+
   SI_REVIEW: 'is waiting on SI sign-off',
   PENDING_CLIENT_APPROVAL: 'is waiting on your approval',
 };

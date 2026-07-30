@@ -43,11 +43,11 @@ import { staggerContainer, staggerItem } from '../lib/motion';
  * The backend is the source of truth; this is for UI convenience only.
  *
  * Two flows:
- *   Flow A (Client→SI):      NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→[IN_QA→]PENDING_CLIENT_APPROVAL→CLOSED
+ *   Flow A (Client→SI):      NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→PENDING_CLIENT_APPROVAL→CLOSED
  *   Flow B (Client→SI→OEM): NEW→UNDER_REVIEW→ASSIGNED→IN_PROGRESS→SI_REVIEW→PENDING_CLIENT_APPROVAL→CLOSED
  *
  * RESOLVED is a virtual action: the UI shows a "Resolve" button from IN_PROGRESS.
- * The backend auto-routes it to SI_REVIEW / IN_QA / PENDING_CLIENT_APPROVAL.
+ * The backend auto-routes it to SI_REVIEW before persisting.
  */
 const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatusOrResolve[]> = {
   NEW:                      ['UNDER_REVIEW'],
@@ -56,7 +56,6 @@ const ALLOWED_TRANSITIONS: Record<IssueStatus, IssueStatusOrResolve[]> = {
   CLARIFICATION_REQUESTED:  ['UNDER_REVIEW', 'IN_PROGRESS'],
   ASSIGNED:                 ['IN_PROGRESS'],
   IN_PROGRESS:              ['RESOLVED', 'CLARIFICATION_REQUESTED'],
-  IN_QA:                    ['PENDING_CLIENT_APPROVAL', 'IN_PROGRESS'], // Kept for legacy issues
   SI_REVIEW:                ['PENDING_CLIENT_APPROVAL', 'ASSIGNED'],
   PENDING_CLIENT_APPROVAL:  ['CLOSED', 'ASSIGNED'],
   CLOSED:                   ['UNDER_REVIEW'],
@@ -181,7 +180,6 @@ export default function IssueDetail() {
   const [showStatusConfirm, setShowStatusConfirm] = useState<IssueStatusOrResolve | null>(null);
   const [statusComment, setStatusComment] = useState('');
   const [resolutionNoteInput, setResolutionNoteInput] = useState('');
-  const [requiresQA, setRequiresQA] = useState(false);
 
   const [isEditingFields, setIsEditingFields] = useState(false);
   const [editType, setEditType] = useState<IssueType>('BUG');
@@ -218,17 +216,16 @@ export default function IssueDetail() {
 
   const statusMutation = useMutation({
     mutationFn: async ({
-      status, comment, resolutionNote, requiresQA,
-    }: { status: IssueStatusOrResolve; comment?: string; resolutionNote?: string; requiresQA?: boolean }) => {
+      status, comment, resolutionNote,
+    }: { status: IssueStatusOrResolve; comment?: string; resolutionNote?: string }) => {
       if (!id) return;
-      return updateIssueStatus(id, { status, comment, resolutionNote, requiresQA });
+      return updateIssueStatus(id, { status, comment, resolutionNote });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issue', id] });
       setShowStatusConfirm(null);
       setStatusComment('');
       setResolutionNoteInput('');
-      setRequiresQA(false);
       setStatusError(null);
     },
     onError: (err) => {
@@ -371,7 +368,6 @@ export default function IssueDetail() {
       status: target,
       comment: statusComment.trim() || undefined,
       resolutionNote: target === 'RESOLVED' ? resolutionNoteInput.trim() : undefined,
-      requiresQA: target === 'RESOLVED' ? requiresQA : undefined,
     });
   }
 
@@ -415,7 +411,7 @@ export default function IssueDetail() {
   // Only SI org members can move to UNDER_REVIEW from NEW
   const canMoveToUnderReview = currentUser?.organization.type === 'SI' || currentUser?.role === 'SUPER_ADMIN';
 
-  // Only SI org members can act on SI_REVIEW and IN_QA states
+  // Only SI org members can act on SI_REVIEW state
   const canActOnSiReview = currentUser?.organization.type === 'SI' || currentUser?.role === 'SUPER_ADMIN';
 
   // Only CLIENT org admin / issue creator / SUPER_ADMIN can close

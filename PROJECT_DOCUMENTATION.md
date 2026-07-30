@@ -133,14 +133,9 @@ Issues traverse a defined state machine with enforced transition rules. All nine
         └───────┬────────┘              └─────┬──────┘      │
                 │                             │             │
                 │                             ▼             │
-                │                    ┌────────────┐         │
-                └───────────────────│   IN_QA    │         │
-                                    └─────┬──────┘         │
-                                          │                 │
-                                          ▼                 │
-                                 ┌──────────────┐           │
-                                 │  SI_REVIEW   │           │
-                                 └──────┬───────┘           │
+                │                    ┌──────────────┐       │
+                └───────────────────│  SI_REVIEW   │       │
+                                    └──────┬───────┘       │
                                         │                   │
                                         ▼                   │
                           ┌────────────────────────┐        │
@@ -166,7 +161,6 @@ Resolution routing:
 - **ASSIGNED → IN_PROGRESS** — Assignee starts work.
 - **IN_PROGRESS → CLARIFICATION_REQUESTED / RESOLVED** — Request clarification or submit for review.
 - **CLARIFICATION_REQUESTED → UNDER_REVIEW / IN_PROGRESS** — Clarification provided, return to originating stage.
-- **IN_QA → PENDING_CLIENT_APPROVAL / IN_PROGRESS** — QA passes or fails.
 - **SI_REVIEW → PENDING_CLIENT_APPROVAL / ASSIGNED** — SI approves or rejects.
 - **PENDING_CLIENT_APPROVAL → CLOSED / ASSIGNED** — Client approves or rejects.
 - **CLOSED → UNDER_REVIEW** — Reopen (raiser's org admin or SUPER_ADMIN only).
@@ -182,7 +176,6 @@ Resolution routing:
 - **UNDER_REVIEW → ASSIGNED** — SI Team assigns the issue after review.
 - **IN_PROGRESS → CLARIFICATION_REQUESTED** — Assignee can request clarification from the client while working on the issue.
 - **CLARIFICATION_REQUESTED → UNDER_REVIEW / IN_PROGRESS** — The issue creator or client org admin provides clarification, and the issue returns to the stage it came from.
-- **IN_QA → PENDING_CLIENT_APPROVAL / IN_PROGRESS** — QA passes or fails and returns to progress.
 - **SI_REVIEW → PENDING_CLIENT_APPROVAL / ASSIGNED** — Only the SI (Data Edge) team can perform a review on issues resolved by the OEM. Reject sends back to assignee.
 - **PENDING_CLIENT_APPROVAL → CLOSED / ASSIGNED** — Only the issue creator, client ORG_ADMIN, or SUPER_ADMIN can approve and close the issue. Reject sends back to assignee.
 - **CLOSED → UNDER_REVIEW** — Reopening a closed issue sends it back to the SI Team for triage.
